@@ -3,3 +3,4 @@ __pycache__/
 /dist
 /build
 /src/cm_tpm.egg-info
+*.pyd

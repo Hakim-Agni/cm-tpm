@@ -1,6 +1,7 @@
-from cm_tpm._add import add
-from cm_tpm._multiply import multiply
-#import cm_tpm._add
+from cm_tpm.cpp._add import add
+from cm_tpm.cpp._multiply import multiply
+from cm_tpm.cpp._subtract import subtract
+from cm_tpm.cpp._divide import divide
 
 class CMImputer():
     """
@@ -26,3 +27,15 @@ class CMImputer():
         Multiply two numbers
         """
         return multiply(x, y)
+    
+    def subtract(self, x, y):
+        """
+        Subtract two numbers
+        """
+        return subtract(x, y)
+    
+    def divide(self, x, y):
+        """
+        Divide two numbers
+        """
+        return divide(x, y)
