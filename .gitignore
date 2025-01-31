@@ -2,3 +2,4 @@ __pycache__/
 .venv/
 /dist
 /build
+/src/cm_tpm.egg-info
