@@ -4,3 +4,4 @@ __pycache__/
 /build
 /src/cm_tpm.egg-info
 *.pyd
+requirements-dev.txt
