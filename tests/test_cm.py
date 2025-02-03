@@ -123,9 +123,9 @@ class TestToNumpy():
         assert original_format == "ndarray"
         assert columns is None
 
-    def test_other_to_numpy(self):
+    def test_unsupported_to_numpy(self):
         """
-        Test converting other data types to a NumPy array.
+        Test converting unsupported data types to a NumPy array.
         """
         try:
             X_np, original_format, columns = self.imputer._to_numpy("test")
