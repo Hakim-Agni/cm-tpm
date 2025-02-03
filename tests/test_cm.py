@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
+import os.path
 from cm_tpm import CMImputer
 
 class TestClass:
@@ -140,3 +141,103 @@ class TestRestoreFormat():
         restored = self.imputer._restore_format(self.X_imputed)
         assert isinstance(restored, np.ndarray)
         assert restored.shape == (2, 3)
+
+class TestFit():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_fit_numpy(self):
+        """Test fitting a NumPy array."""
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        imputer = self.imputer.fit(X)
+        assert imputer is not None
+
+    def test_fit_dataframe(self):
+        """Test fitting a pandas DataFrame."""
+        df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
+        imputer = self.imputer.fit(df)
+        assert imputer is not None
+
+    def test_fit_list(self):
+        """Test fitting a list."""
+        X = [[1, 2, 3], [4, 5, 6]]
+        imputer = self.imputer.fit(X)
+        assert imputer is not None
+
+    def test_fit_file(self):
+        """Test fitting data from file."""
+        imputer = self.imputer.fit("tests/data/test_data.csv")
+        assert imputer is not None
+
+    def test_fit_unsupported(self):
+        """Test fitting an unsupported data type."""
+        try:
+            self.imputer.fit(0)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Unsupported data type. Please provide a NumPy array, pandas DataFrame or list."
+
+class TestTransform():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_transform_numpy(self):
+        """Test the transform method on a NumPy array."""
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        imputer = self.imputer.fit(X)
+        X_imputed = imputer.transform(X)
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (2, 3)
+
+    def test_transform_dataframe(self):
+        """Test the transform method on a pandas DataFrame."""
+        df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
+        imputer = self.imputer.fit(df)
+        X_imputed = imputer.transform(df)
+        assert isinstance(X_imputed, pd.DataFrame)
+        assert X_imputed.shape == (3, 2)
+
+    def test_transform_list(self):
+        """Test the transform method on a list."""
+        X = [[1, 2, 3], [4, 5, 6]]
+        imputer = self.imputer.fit(X)
+        X_imputed = imputer.transform(X)
+        assert isinstance(X_imputed, list)
+        assert len(X_imputed) == 2
+        assert len(X_imputed[0]) == 3
+
+    def test_transform_file(self):
+        """Test the transform method on a file."""
+        if os.path.isfile("tests/data/test_data_imputed.csv"):
+            os.remove("tests/data/test_data_imputed.csv")
+        imputer = self.imputer.fit("tests/data/test_data.csv")
+        X_imputed = imputer.transform("tests/data/test_data.csv")
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (10, 3)
+        assert os.path.exists("tests/data/test_data_imputed.csv")
+
+    def test_transform_save_path_from_file(self):
+        """Test saving the imputed data from a file to a file."""
+        if os.path.isfile("tests/data/test_data_save_path_file.parquet"):
+            os.remove("tests/data/test_data_save_path_file.parquet")
+        imputer = self.imputer.fit("tests/data/test_data.parquet")
+        X_imputed = imputer.transform("tests/data/test_data.parquet", save_path="tests/data/test_data_save_path_file.parquet")
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (10, 3)
+        assert os.path.exists("tests/data/test_data_save_path_file.parquet")
+
+
+    def test_transform_save_path_from_data(self):
+        """Test saving the imputed data to a file."""
+        if os.path.isfile("tests/data/test_data_save_path_data.feather"):
+            os.remove("tests/data/test_data_save_path_data.feather")
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        imputer = self.imputer.fit(X)
+        X_imputed = imputer.transform(X, save_path="tests/data/test_data_save_path_data.feather")
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (2, 3)
+        assert os.path.exists("tests/data/test_data_save_path_data.feather")

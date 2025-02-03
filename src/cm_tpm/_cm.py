@@ -97,12 +97,15 @@ class CMImputer:
         Returns:
             X_imputed (array-like, same type as X): Dataset with missing values replaced. If X is a filepath, X imputed will be a NumPy array.
         """
+        file_in = None
         # If the input data is a string (filepath), load the data from the file
         if isinstance(X, str):
             file_in = X
-            X, _, _ = self._to_numpy(self._load_file(X))
+            X = self._load_file(X)
         # Transform the data to a NumPy array
         X_np, original_format, columns = self._to_numpy(X)
+        if file_in:
+            original_format = "ndarray"
         # Perfom imputation
         X_imputed = self._impute(X_np)
         # Transform the imputed data to the original format
