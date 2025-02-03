@@ -1,2 +1,6 @@
+numpy==2.2.2
+pandas==2.2.3
 pybind11==2.13.6
+pytest==8.3.4
+setuptools==69.5.1
 setuptools==65.5.0
