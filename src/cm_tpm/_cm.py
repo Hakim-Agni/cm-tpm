@@ -60,7 +60,7 @@ class CMImputer:
     """
     def __init__(
             self,
-            missing_values: float = np.nan,
+            missing_values: int | float | str | None = np.nan,
             n_components: int = 10,
             max_depth: int = 5,
             max_iter: int = 100,
@@ -234,8 +234,19 @@ class CMImputer:
         """
         Get parameters for this CMImputer.
         """
-        # TODO: Add all parameters
-        return {"random_state": self.random_state}
+        return {
+            "missing_values": self.missing_values,
+            "n_components": self.n_components,
+            "max_depth": self.max_depth,
+            "max_iter": self.max_iter,
+            "tol": self.tol,
+            "weight_sharing": self.weight_sharing,
+            "smooth": self.smooth,
+            "random_state": self.random_state,
+            "verbose": self.verbose,
+            "copy": self.copy,
+            "keep_empty_features": self.keep_empty_features
+        }
     
     def set_params(self, **params):
         """

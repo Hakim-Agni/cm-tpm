@@ -10,10 +10,45 @@ class TestClass:
         imputer = CMImputer()
         assert imputer is not None
 
-    def test_random_state(self):
-        """Test the random_state parameter."""
-        imputer = CMImputer(random_state=42)
+    def test_parameters(self):
+        """Test the model parameters."""
+        imputer = CMImputer(
+            missing_values="",
+            n_components=5,
+            max_depth=3,
+            max_iter=100,
+            tol=1e-3,
+            weight_sharing=False,
+            smooth=False,
+            random_state=42,
+            verbose=2,
+            copy=False,
+            keep_empty_features=False,
+            )
+        assert imputer.missing_values == ""
+        assert imputer.n_components == 5
+        assert imputer.max_depth == 3
+        assert imputer.max_iter == 100
+        assert imputer.tol == 1e-3
+        assert imputer.weight_sharing == False
+        assert imputer.smooth == False
         assert imputer.random_state == 42
+        assert imputer.verbose == 2
+        assert imputer.copy == False
+        assert imputer.keep_empty_features == False
+
+    def test_attributes(self):
+        """Test the model attributes."""
+        imputer = CMImputer(random_state=42)
+        assert imputer.is_fitted_ == False
+        assert imputer.n_features_ == None
+        assert imputer.feature_names_in_ == None
+        assert imputer.components_ == None
+        assert imputer.log_likelihood_ == None
+        assert np.array_equal(
+            imputer.random_state_.get_state()[1], 
+            np.random.RandomState(42).get_state()[1]
+        )  
 
 class TestLoadFiletypes:
     @pytest.fixture(autouse=True)
@@ -148,6 +183,12 @@ class TestFit():
         """Setup method for the test class."""
         self.imputer = CMImputer()
 
+    def test_fitted(self):
+        """Test the is_fitted attribute."""
+        assert self.imputer.is_fitted_ == False
+        self.imputer.fit(np.array([[1, 2, 3], [4, 5, 6]]))
+        assert self.imputer.is_fitted_ == True
+
     def test_fit_numpy(self):
         """Test fitting a NumPy array."""
         X = np.array([[1, 2, 3], [4, 5, 6]])
@@ -184,6 +225,14 @@ class TestTransform():
     def setup_method(self):
         """Setup method for the test class."""
         self.imputer = CMImputer()
+
+    def test_transform_no_fit(self):
+        """Test transforming data without fitting the imputer."""
+        try:
+            self.imputer.transform(np.array([[1, 2, 3], [4, 5, 6]]))
+            assert False
+        except ValueError as e:
+            assert str(e) == "The model has not been fitted yet. Please call the fit method first."
 
     def test_transform_numpy(self):
         """Test the transform method on a NumPy array."""
@@ -246,14 +295,58 @@ class TestParams():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(random_state=42)
+        self.imputer = CMImputer(
+            missing_values="",
+            n_components=5,
+            max_depth=3,
+            max_iter=100,
+            tol=1e-3,
+            weight_sharing=False,
+            smooth=False,
+            random_state=42,
+            verbose=2,
+            copy=False,
+            keep_empty_features=False,
+            )
 
     def test_get_params(self):
         """Test getting parameters."""
         params = self.imputer.get_params()
+        assert params["missing_values"] == ""
+        assert params["n_components"] == 5
+        assert params["max_depth"] == 3
+        assert params["max_iter"] == 100
+        assert params["tol"] == 1e-3
+        assert params["weight_sharing"] == False
+        assert params["smooth"] == False
         assert params["random_state"] == 42
+        assert params["verbose"] == 2
+        assert params["copy"] == False
+        assert params["keep_empty_features"] == False
 
     def test_set_params(self):
         """Test setting parameters."""
-        self.imputer.set_params(random_state=43)
+        self.imputer.set_params(
+            missing_values=np.nan, 
+            n_components=10,
+            max_depth=5,
+            max_iter=200,
+            tol=1e-4,
+            weight_sharing=True,
+            smooth=True,
+            random_state=43,
+            verbose=1,
+            copy=True,
+            keep_empty_features=True,
+            )
+        assert np.isnan(self.imputer.missing_values)
+        assert self.imputer.n_components == 10
+        assert self.imputer.max_depth == 5
+        assert self.imputer.max_iter == 200
+        assert self.imputer.tol == 1e-4
+        assert self.imputer.weight_sharing == True
+        assert self.imputer.smooth == True
         assert self.imputer.random_state == 43
+        assert self.imputer.verbose == 1
+        assert self.imputer.copy == True
+        assert self.imputer.keep_empty_features == True
