@@ -23,7 +23,7 @@ class TestLoadFiletypes:
 
     def test_load_csv_file(self):
         """Test loading a CSV file."""
-        df = self.imputer._load_file("tests/data/test_data.csv")
+        df = self.imputer._load_file("tests/data/test_data.csv", sep=";", decimal=",")
         assert df.shape == (10, 3)
         assert df.columns.tolist() == ["A", "B", "C"]
         assert df.dtypes.tolist() == [float, float, float]
@@ -214,8 +214,8 @@ class TestTransform():
         """Test the transform method on a file."""
         if os.path.isfile("tests/data/test_data_imputed.csv"):
             os.remove("tests/data/test_data_imputed.csv")
-        imputer = self.imputer.fit("tests/data/test_data.csv")
-        X_imputed = imputer.transform("tests/data/test_data.csv")
+        imputer = self.imputer.fit("tests/data/test_data.csv", sep=";", decimal=",")
+        X_imputed = imputer.transform("tests/data/test_data.csv", sep=';', decimal=',')
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (10, 3)
         assert os.path.exists("tests/data/test_data_imputed.csv")
@@ -241,3 +241,19 @@ class TestTransform():
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (2, 3)
         assert os.path.exists("tests/data/test_data_save_path_data.feather")
+
+class TestParams():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer(random_state=42)
+
+    def test_get_params(self):
+        """Test getting parameters."""
+        params = self.imputer.get_params()
+        assert params["random_state"] == 42
+
+    def test_set_params(self):
+        """Test setting parameters."""
+        self.imputer.set_params(random_state=43)
+        assert self.imputer.random_state == 43
