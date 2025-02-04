@@ -264,6 +264,10 @@ class CMImputer:
             X = self._load_file(X)
         # Transform the data to a NumPy array
         X, _, _ = self._to_numpy(X)
+
+        if not self.is_fitted_:
+            raise ValueError("The model has not been fitted yet. Please call the fit method first.")
+        
         # Evaluate the model using X
         # TODO
         return 0.0
