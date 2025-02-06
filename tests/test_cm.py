@@ -181,7 +181,7 @@ class TestFit():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer()
+        self.imputer = CMImputer(n_components=1)
 
     def test_fitted(self):
         """Test the is_fitted attribute."""
@@ -224,7 +224,7 @@ class TestTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer()
+        self.imputer = CMImputer(n_components=1)
 
     def test_transform_no_fit(self):
         """Test transforming data without fitting the imputer."""

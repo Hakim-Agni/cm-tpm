@@ -1,9 +1,12 @@
 import numpy as np
 import pandas as pd
-from cm_tpm.cpp._add import add
-from cm_tpm.cpp._multiply import multiply
-from cm_tpm.cpp._subtract import subtract
-from cm_tpm.cpp._divide import divide
+from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+
+import os
+
+os.environ['OMP_NUM_THREADS'] = '1'
 
 class CMImputer:
     """
@@ -73,6 +76,8 @@ class CMImputer:
             keep_empty_features: bool = False,
         ):
         """Initialize the CMImputer instance."""
+        # Mixture model
+        self.mixture_model = None
         # Parameters
         self.missing_values = missing_values
         self.n_components = n_components
@@ -92,6 +97,7 @@ class CMImputer:
         self.feature_names_in_ = None
         self.components_ = None
         self.log_likelihood_ = None
+        self.categorical_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
     def _load_file(self, filepath: str, sep=",", decimal=".") -> pd.DataFrame:
@@ -125,6 +131,23 @@ class CMImputer:
         elif original_format == "list":
             return X_imputed.tolist()
         return X_imputed
+    
+    def _preprocess_data(self, X: np.ndarray):
+        """Preprocess the input data before imputation."""
+        categorical_info = {}  
+        X_transformed = X.copy()
+
+        for i in range(X.shape[1]):  
+            col_data = X[:, i]
+
+            # Detect categorical columns (string or object)
+            if np.issubdtype(col_data.dtype, np.object_) or np.issubdtype(col_data.dtype, np.str_):
+                raise ValueError("Categorical columns are not supported yet.")
+                # unique_values, encoded_values = np.unique(col_data, return_inverse=True)
+                # X_transformed[:, i] = encoded_values
+                # categorical_info[i] = unique_values  # Store mapping of index → categories
+
+        return X_transformed.astype(float), categorical_info
 
     def fit(self, X: str | np.ndarray | pd.DataFrame | list, sep=",", decimal=".") -> "CMImputer":
         """
@@ -146,6 +169,10 @@ class CMImputer:
         X, _, _ = self._to_numpy(X)
         # Fit the model using X
         # TODO
+        X_preprocessed, self.categorical_info_ = self._preprocess_data(X)
+
+        self.mixture_model = GaussianMixture(n_components=self.n_components, random_state=self.random_state)
+        self.mixture_model.fit(X_preprocessed)
 
         self.is_fitted_ = True
         return self
@@ -218,7 +245,17 @@ class CMImputer:
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Placeholder for the actual imputation logic"""
         # TODO Add imputation
-        return X
+        X_preprocessed, _ = self._preprocess_data(X)
+        missing_mask = np.isnan(X_preprocessed)
+
+        imputed_values = self.mixture_model.sample(X_preprocessed.shape[0])[0]
+        X_imputed = np.where(missing_mask, imputed_values, X_preprocessed)
+
+        # X_restored = X_imputed.copy()
+        # for col_idx, categories in self.categorical_info_.items():
+        #     X_restored[:, col_idx] = np.array(categories)[X_imputed[:, col_idx].astype(int)]
+
+        return X_imputed
     
     def get_feature_names_out(input_features=None):
         """
