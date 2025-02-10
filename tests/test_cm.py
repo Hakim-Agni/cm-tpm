@@ -249,6 +249,8 @@ class TestTransform():
         X_imputed = imputer.transform(df)
         assert isinstance(X_imputed, pd.DataFrame)
         assert X_imputed.shape == (3, 2)
+        assert X_imputed.columns[0] == "A"
+        assert X_imputed.columns[1] == "B"
 
     def test_transform_list(self):
         """Test the transform method on a list."""

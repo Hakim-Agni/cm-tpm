@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
-from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.impute import SimpleImputer
+import torch
+from ._model import train_cm_tpm, impute_missing_values
 
 import os
 
@@ -77,6 +76,7 @@ class CMImputer:
         ):
         """Initialize the CMImputer instance."""
         # Mixture model
+        self.net = None
         self.mixture_model = None
         # Parameters
         self.missing_values = missing_values
@@ -171,8 +171,9 @@ class CMImputer:
         # TODO
         X_preprocessed, self.categorical_info_ = self._preprocess_data(X)
 
-        self.mixture_model = GaussianMixture(n_components=self.n_components, random_state=self.random_state)
-        self.mixture_model.fit(X_preprocessed)
+        # self.mixture_model = GaussianMixture(n_components=self.n_components, random_state=self.random_state)
+        # self.mixture_model.fit(X_preprocessed)
+        self.net, self.mixture_model = train_cm_tpm(X_preprocessed, latent_dim=4, num_integration_points=256, epochs=100, lr=0.01)
 
         self.is_fitted_ = True
         return self
@@ -246,16 +247,21 @@ class CMImputer:
         """Placeholder for the actual imputation logic"""
         # TODO Add imputation
         X_preprocessed, _ = self._preprocess_data(X)
-        missing_mask = np.isnan(X_preprocessed)
 
-        imputed_values = self.mixture_model.sample(X_preprocessed.shape[0])[0]
-        X_imputed = np.where(missing_mask, imputed_values, X_preprocessed)
+        X_torch = torch.tensor(X_preprocessed, dtype=torch.float32)
+
+        X_imputed = impute_missing_values(X_torch, self.net, self.mixture_model, num_integration_points=256)
+
+        # missing_mask = np.isnan(X_preprocessed)
+
+        # imputed_values = self.mixture_model.sample(X_preprocessed.shape[0])[0]
+        # X_imputed = np.where(missing_mask, imputed_values, X_preprocessed)
 
         # X_restored = X_imputed.copy()
         # for col_idx, categories in self.categorical_info_.items():
         #     X_restored[:, col_idx] = np.array(categories)[X_imputed[:, col_idx].astype(int)]
 
-        return X_imputed
+        return X_imputed.detach().numpy()
     
     def get_feature_names_out(input_features=None):
         """
