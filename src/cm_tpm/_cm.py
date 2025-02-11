@@ -76,8 +76,7 @@ class CMImputer:
         ):
         """Initialize the CMImputer instance."""
         # Mixture model
-        self.net = None
-        self.mixture_model = None
+        self.model = None
         # Parameters
         self.missing_values = missing_values
         self.n_components = n_components
@@ -173,7 +172,7 @@ class CMImputer:
 
         # self.mixture_model = GaussianMixture(n_components=self.n_components, random_state=self.random_state)
         # self.mixture_model.fit(X_preprocessed)
-        self.net, self.mixture_model = train_cm_tpm(X_preprocessed, latent_dim=4, num_integration_points=256, epochs=100, lr=0.01)
+        self.model = train_cm_tpm(X_preprocessed, latent_dim=4, num_components=256, epochs=100, lr=0.01)
 
         self.is_fitted_ = True
         return self
@@ -250,7 +249,7 @@ class CMImputer:
 
         X_torch = torch.tensor(X_preprocessed, dtype=torch.float32)
 
-        X_imputed = impute_missing_values(X_torch, self.net, self.mixture_model, num_integration_points=256)
+        X_imputed = impute_missing_values(X_torch, self.model, num_components=256)
 
         # missing_mask = np.isnan(X_preprocessed)
 
