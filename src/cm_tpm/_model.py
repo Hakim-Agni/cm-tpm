@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -14,15 +15,81 @@ from scipy.stats import qmc     # For RQMC sampling
 #   Choose optimal standard hyperparameters
 #   When everything works -> Implementation with cm-tpm package
 
-# Probabilistic Circuit Placeholder (Define your own)
-class ProbabilisticCircuit(nn.Module):
+#  Base Probabilistic Circuit, other PC structures inherit from this class
+class BaseProbabilisticCircuit(nn.Module, ABC):
     def __init__(self, input_dim):
         super().__init__()
         self.input_dim = input_dim
 
-    def forward(self, x, params):
-        # Define how the PC computes p(x | phi(z))
-        return torch.exp(-torch.sum((x - params) ** 2, dim=1))  # Gaussian-like PC
+    @abstractmethod
+    def set_params(self, params):
+        """Set the parameters of the PC"""
+        pass
+
+    @abstractmethod
+    def forward(self, x):
+        """Compute p(x | phi(z))"""
+        pass
+
+# Factorized PC implementation
+class FactorizedPC(BaseProbabilisticCircuit):
+    def __init__(self, input_dim):
+        super().__init__(input_dim)
+        self.params = None
+    
+    def set_params(self, params):
+        """Set the parameters for the factorized PC"""
+        self.params = params
+
+    def forward(self, x):
+        """Compute the likelihood using a factorize Gaussian model"""
+        if self.params is None:
+            raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
+        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
+
+# SPN implementation
+class SPN(BaseProbabilisticCircuit):
+    def __init__(self, input_dim):
+        super().__init__(input_dim)
+        self.params = None
+    
+    def set_params(self, params):
+        """Set the parameters for the SPN"""
+        self.params = params
+
+    def forward(self, x):
+        """Placeholder for SPN computation"""
+        if self.params is None:
+            raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
+        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
+
+# CLT implementation
+class ChowLiuTreePC(BaseProbabilisticCircuit):
+    def __init__(self, input_dim):
+        super().__init__(input_dim)
+        self.model = None
+    
+    def set_params(self, params):
+        """Set the parameters for the CLT"""
+        self.params = params
+
+    def forward(self, x):
+        """Placeholder for CLT computation"""
+        if self.params is None:
+            raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
+        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
+
+# PC factory function
+def get_probabilistic_circuit(pc_type, input_dim):
+    types = ["factorized", "spn", "clt"]
+    if pc_type == "factorized":
+        return FactorizedPC(input_dim)
+    elif pc_type == "spn":
+        return SPN(input_dim)
+    elif pc_type == "clt":
+        return ChowLiuTreePC(input_dim)
+    else:
+        raise ValueError(f"Unknown PC type: '{pc_type}', use one of the following types: {types}")
 
 # Neural Network for Parameter Mapping: phi(z) -> PC parameters
 class PhiNet(nn.Module):
@@ -47,14 +114,20 @@ def generate_rqmc_samples(num_samples, latent_dim):
 # Compute Log-Likelihood with Numerical Integration
 def compute_log_likelihood(x_batch, phi_net, pc, z_samples):
     phi_z = phi_net(z_samples)
-    likelihoods = torch.stack([pc(x_batch, phi_z[i]) for i in range(z_samples.shape[0])], dim=0)
+    likelihoods = []
+    for i in range(z_samples.shape[0]):
+        pc.set_params(phi_z[i])
+        likelihood = pc(x_batch)
+        likelihoods.append(likelihood.requires_grad_(True))
+
+    likelihoods = torch.stack(likelihoods, dim=0)
     weights = 1.0 / z_samples.shape[0]  # Uniform RQMC weights
     return torch.log(torch.sum(likelihoods * weights, dim=0) + 1e-9).mean()
 
 # Training Loop
-def train_cm_tpm(train_data, latent_dim=4, num_integration_points=256, epochs=100, lr=0.01):
+def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_integration_points=256, epochs=100, lr=0.01):
     phi_net = PhiNet(latent_dim, train_data.shape[1])
-    pc = ProbabilisticCircuit(train_data.shape[1])
+    pc = get_probabilistic_circuit(pc_type, train_data.shape[1])
     optimizer = optim.Adam(list(phi_net.parameters()), lr=lr)
 
     for epoch in range(epochs):
@@ -82,7 +155,8 @@ def impute_missing_values(x_incomplete, phi_net, pc, num_integration_points=256)
 
     likelihoods = []
     for i in range(z_samples.shape[0]):
-        likelihood = pc(x_filled, phi_z[i])
+        pc.set_params(phi_z[i])
+        likelihood = pc(x_filled)
 
         marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
         likelihoods.append(marginalized_likelihood)
@@ -96,12 +170,11 @@ def impute_missing_values(x_incomplete, phi_net, pc, num_integration_points=256)
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
-    # print(train_data[:3])
-    phi_net, pc = train_cm_tpm(train_data)
+    phi_net, pc = train_cm_tpm(train_data, pc_type="clt")
 
     x_incomplete = train_data[:3].copy()
-    x_incomplete[0, 3] = np.nan
-    x_incomplete[1, 5] = np.nan
+    x_incomplete[0, 0] = np.nan
+    x_incomplete[2, 9] = np.nan
     x_imputed = impute_missing_values(torch.tensor(x_incomplete, dtype=torch.float32), phi_net, pc)
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)
