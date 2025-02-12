@@ -2,8 +2,10 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.distributions as dist
 import numpy as np
 from scipy.stats import qmc     # For RQMC sampling
+import networkx as nx
 
 # TODO:
 #   Add PC structure(s) -> PCs, CLTs, ...
@@ -39,18 +41,27 @@ class CM_TPM(nn.Module):
         x: Input batch of shape (batch_size, input_dim).
         z_samples: Integration points of shape (num_components, latent_dim).
         """
+        if torch.isnan(z_samples).any():
+            raise ValueError(f"NaN detected in z_samples: {z_samples}")
+
         phi_z = self.phi_net(z_samples)  # Generate parameters for each PC
+        if torch.isnan(phi_z).any():
+            raise ValueError(f"NaN detected in phi_z during training: {phi_z}")
+        
         likelihoods = []
 
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
             likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i))
+            
+            if torch.isnan(likelihood).any():
+                raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
+
             likelihoods.append(likelihood)
 
         likelihoods = torch.stack(likelihoods, dim=0)  # Shape: (num_components, batch_size)
         weights = 1.0 / self.num_components  # Uniform weights for RQMC
-        mixture_likelihood = torch.log(torch.sum(weights * likelihoods, dim=0) + 1e-9)  # Sum over components
-
+        mixture_likelihood = torch.sum(weights * likelihoods, dim=0)  # Sum over components
         return mixture_likelihood.mean()  # Average over batch
 
 #  Base Probabilistic Circuit, other PC structures inherit from this class
@@ -105,17 +116,74 @@ class SPN(BaseProbabilisticCircuit):
 class ChowLiuTreePC(BaseProbabilisticCircuit):
     def __init__(self, input_dim):
         super().__init__(input_dim)
-        self.model = None
+        self.params = None
+        self.tree_structure = None
     
     def set_params(self, params):
         """Set the parameters for the CLT"""
-        self.params = params
+
+        if torch.isnan(params).any():
+            raise ValueError(f"NaN detected in phi_z output before splitting: {params}")
+    
+        if params.shape != (self.input_dim * 2,):  # Ensure twice the size of features
+            raise ValueError(f"Expected params of shape ({self.input_dim * 2},), got {params.shape}")
+        
+        raw_means, raw_stds = params[:self.input_dim], params[self.input_dim:]
+        if torch.isnan(raw_means).any() or torch.isnan(raw_stds).any():
+            raise ValueError(f"NaN detected after splitting: means={means}, raw_stds={raw_stds}")
+        
+        means = torch.tanh(raw_means) * 2
+        stds = torch.nn.functional.softplus(raw_stds) + 1e-6
+        if torch.isnan(stds).any():
+            raise ValueError(f"NaN detected after softplus transformation: stds={stds}")
+
+        self.params = torch.stack((means, stds), dim=1)
+
+    def fit_tree(self, data):
+        n_features = data.shape[1]
+        mutual_info_matrix = np.zeros((n_features, n_features))
+
+        for i in range(n_features):
+            for j in range(i + 1, n_features):
+                mi = np.corrcoef(data[:, i], data[:, j])[0, 1]
+                mutual_info_matrix[i, j] = mutual_info_matrix[j, i] = mi
+
+        G = nx.Graph()
+        for i in range(n_features):
+            for j in range(i + 1, n_features):
+                G.add_edge(i, j, weight=mutual_info_matrix[i, j])
+
+        self.tree_structure = nx.maximum_spanning_tree(G)
 
     def forward(self, x):
         """Placeholder for CLT computation"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
-        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
+        if self.tree_structure is None:
+            self.fit_tree(x)
+
+        log_likelihood = torch.zeros(x.shape[0])
+        for edge in self.tree_structure.edges():
+            i, j = edge
+            mean_i, std_i = self.params[i]
+            mean_j, std_j = self.params[j]
+
+            if torch.isnan(mean_i) or torch.isnan(std_i):
+                raise ValueError(f"NaN detected in mean/std: mean_i={mean_i}, std_i={std_i}")
+
+            normal_i = dist.Normal(mean_i, std_i)
+            normal_j = dist.Normal(mean_j, std_j)
+
+            if torch.isnan(x[:, i]).any() or torch.isnan(x[:, j]).any():
+                raise ValueError(f"NaN detected in input x[:, {i}] or x[:, {j}]")
+
+            p_xi_given_xj = normal_i.log_prob(x[:, i]) + normal_j.log_prob(x[:, j])  # Log probabilities
+            if torch.isnan(p_xi_given_xj).any():
+                raise ValueError(f"NaN detected in log_prob computation: mean_i={mean_i}, std_i={std_i}, mean_j={mean_j}, std_j={std_j}")
+            
+            log_likelihood += p_xi_given_xj
+
+        return log_likelihood
 
 # PC factory function
 def get_probabilistic_circuit(pc_type, input_dim):
@@ -135,9 +203,21 @@ class PhiNet(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(latent_dim, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(negative_slope=0.01),
+            #nn.Linear(64, pc_param_dim * 2),
             nn.Linear(64, pc_param_dim),
         )
+        self.init_weights()
+        for name, param in self.net.named_parameters():
+            if torch.isnan(param).any():
+                raise ValueError(f"NaN detected in parameter {name} immediately after initialization: {param}")
+
+
+    def init_weights(self):
+        for layer in self.net:
+            if isinstance(layer, nn.Linear):
+                torch.nn.init.xavier_uniform_(layer.weight)
+                torch.nn.init.zeros_(layer.bias)
 
     def forward(self, z):
         return self.net(z)
@@ -150,10 +230,10 @@ def generate_rqmc_samples(num_samples, latent_dim):
     return z_samples
 
 # Training Loop
-def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=256, epochs=100, lr=0.01):
+def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=256, epochs=100, lr=0.001):
     input_dim = train_data.shape[1]
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
 
     for epoch in range(epochs):
         z_samples = generate_rqmc_samples(num_components, latent_dim)
@@ -161,7 +241,16 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
 
         optimizer.zero_grad()
         loss = -model(x_batch, z_samples)
+
+        if torch.isnan(loss).any():
+            raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+
         loss.backward()
+
+        for name, param in model.named_parameters():
+            if param.grad is not None and torch.isnan(param.grad).any():
+                raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
+       
         optimizer.step()
 
         if epoch % 10 == 0:
@@ -192,7 +281,7 @@ def impute_missing_values(x_incomplete, model):
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
-    model = train_cm_tpm(train_data, pc_type="factorized", num_components=32)
+    model = train_cm_tpm(train_data, pc_type="clt")
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
@@ -201,3 +290,12 @@ if __name__ == '__main__':
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)
     print("Imputed values:", x_imputed)
+
+    # test_x = torch.randn(5, 10)  # Small test batch
+    # test_pc = ChowLiuTreePC(input_dim=10)
+    # test_params = torch.randn(10 * 2)  # Simulated params
+    # test_pc.set_params(test_params)
+
+    # print("Running test forward pass...")
+    # likelihood = test_pc.forward(test_x)
+    # print("Likelihood output:", likelihood)
