@@ -249,7 +249,7 @@ class CMImputer:
 
         X_torch = torch.tensor(X_preprocessed, dtype=torch.float32)
 
-        X_imputed = impute_missing_values(X_torch, self.model, num_components=256)
+        X_imputed = impute_missing_values(X_torch, self.model)
 
         # missing_mask = np.isnan(X_preprocessed)
 

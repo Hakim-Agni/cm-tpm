@@ -20,14 +20,15 @@ import networkx as nx
 class CM_TPM(nn.Module):
     def __init__(self, pc_type, input_dim, latent_dim, num_components):
         """
-        pc_type: Type of PC to use (e.g., "factorized", "spn", "clt").
+        pc_type: Type of PC to use ("factorized", "spn", "clt").
         input_dim: Dimensionality of input data.
         latent_dim: Dimensionality of latent variable z.
         num_components: Number of mixture components (integration points).
         """
         super().__init__()
-        self.num_components = num_components
+        self.input_dim = input_dim
         self.latent_dim = latent_dim
+        self.num_components = num_components
 
         # Neural network to generate PC parameters
         self.phi_net = PhiNet(latent_dim, input_dim)
@@ -41,15 +42,14 @@ class CM_TPM(nn.Module):
         x: Input batch of shape (batch_size, input_dim).
         z_samples: Integration points of shape (num_components, latent_dim).
         """
-        if torch.isnan(z_samples).any():
-            raise ValueError(f"NaN detected in z_samples: {z_samples}")
+        if x.shape[1] != self.input_dim:
+            raise ValueError(f"Invalid input tensor x. Expected shape: ({x.shape[0]}, {self.input_dim}), but got shape: ({x.shape[0]}, {x.shape[1]}).")
+        if z_samples.shape[0] != self.num_components or z_samples.shape[1] != self.latent_dim:
+            raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({self.num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
-        phi_z = self.phi_net(z_samples)  # Generate parameters for each PC
-        if torch.isnan(phi_z).any():
-            raise ValueError(f"NaN detected in phi_z during training: {phi_z}")
+        phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
         
         likelihoods = []
-
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
             likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i))
@@ -60,8 +60,8 @@ class CM_TPM(nn.Module):
             likelihoods.append(likelihood)
 
         likelihoods = torch.stack(likelihoods, dim=0)  # Shape: (num_components, batch_size)
-        weights = 1.0 / self.num_components  # Uniform weights for RQMC
-        mixture_likelihood = torch.sum(weights * likelihoods, dim=0)  # Sum over components
+        weights = 1.0 / self.num_components  # Uniform weights
+        mixture_likelihood = torch.sum(weights * likelihoods, dim=0)  # Sum over components, shape: (batch_size)
         return mixture_likelihood.mean()  # Average over batch
 
 #  Base Probabilistic Circuit, other PC structures inherit from this class
@@ -94,6 +94,9 @@ class FactorizedPC(BaseProbabilisticCircuit):
         """Compute the likelihood using a factorize Gaussian model"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
+        if self.params.shape[0] != x.shape[1]:
+            raise ValueError(f"The size of x and the size of params do not match. Expected shape for params: ({x.shape[1]}), but got shape: ({self.params.shape[0]}).")
+        
         return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
 
 # SPN implementation
@@ -281,7 +284,7 @@ def impute_missing_values(x_incomplete, model):
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
-    model = train_cm_tpm(train_data, pc_type="clt")
+    model = train_cm_tpm(train_data, pc_type="factorized")
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
