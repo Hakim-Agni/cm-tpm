@@ -181,7 +181,7 @@ class TestFit():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer()
+        self.imputer = CMImputer(n_components=1)
 
     def test_fitted(self):
         """Test the is_fitted attribute."""
@@ -224,7 +224,7 @@ class TestTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer()
+        self.imputer = CMImputer(n_components=1)
 
     def test_transform_no_fit(self):
         """Test transforming data without fitting the imputer."""
@@ -249,6 +249,8 @@ class TestTransform():
         X_imputed = imputer.transform(df)
         assert isinstance(X_imputed, pd.DataFrame)
         assert X_imputed.shape == (3, 2)
+        assert X_imputed.columns[0] == "A"
+        assert X_imputed.columns[1] == "B"
 
     def test_transform_list(self):
         """Test the transform method on a list."""
