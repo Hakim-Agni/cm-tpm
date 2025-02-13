@@ -1,5 +1,12 @@
-numpy==2.2.2
+deeprob_kit==1.1.0
+networkx==3.4.2
+numpy==2.2.3
 pandas==2.2.3
 pybind11==2.13.6
 pytest==8.3.4
+pytorch_lightning==2.5.0.post0
+qmcpy==1.5
+scipy==1.15.1
 setuptools==65.5.0
+torch==2.6.0
+tqdm==4.67.1

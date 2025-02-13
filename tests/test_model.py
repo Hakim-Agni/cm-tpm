@@ -296,17 +296,3 @@ class TestImpute():
             assert False
         except ValueError as e:
             assert str(e) == "The missing data does not have the same number of features as the training data. Expected features: 10, but got features: 5."
-
-
-
-# TODO: Add tests for Neural Network and all other functions
-
-
-a = np.random.rand(100, 10)
-model = train_cm_tpm(a)
-
-b = np.random.rand(10, 10)
-c = impute_missing_values(b, model)
-print(b)
-print(c)
-print(np.equal(b, c))

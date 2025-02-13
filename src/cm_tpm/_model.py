@@ -55,7 +55,7 @@ class CM_TPM(nn.Module):
         likelihoods = []
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
-            likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i))
+            likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i)), shape: (batch_size)
             
             if torch.isnan(likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
