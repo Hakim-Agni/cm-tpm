@@ -161,4 +161,68 @@ class TestPCFactory():
         except ValueError as e:
             assert str(e).startswith("Unknown PC type: 'Does not exist'")
 
+class TestNeuralNet():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.neural_net = PhiNet(latent_dim=20, pc_param_dim=10)
+
+    def test_instance(self):
+        assert self.neural_net is not None 
+
+    def test_parameters(self):
+        assert isinstance(self.neural_net.net, nn.Sequential)
+        assert self.neural_net.net[0].in_features == 20
+        assert self.neural_net.net[-1].out_features == 10
+
+    def test_custom_net(self):
+        net = nn.Sequential(
+            nn.Linear(20, 64),
+            nn.ReLU(),
+            nn.Linear(64, 256),
+            nn.ReLU(),
+            nn.Linear(256, 10),
+        )
+        neural_net = PhiNet(latent_dim=20, pc_param_dim=10, net=net)
+        assert isinstance(self.neural_net.net, nn.Sequential)
+        assert len(neural_net.net) == 5
+        assert neural_net.net[0].in_features == 20 and neural_net.net[0].out_features == 64
+        assert isinstance(neural_net.net[1], nn.ReLU)
+        assert neural_net.net[2].in_features == 64 and neural_net.net[2].out_features == 256
+        assert isinstance(neural_net.net[3], nn.ReLU)
+        assert neural_net.net[4].in_features == 256 and neural_net.net[4].out_features == 10
+
+    def test_invalid_custom_net_in_features(self):
+        net = nn.Sequential(
+            nn.Linear(10, 64),
+            nn.ReLU(),
+            nn.Linear(64, 256),
+            nn.ReLU(),
+            nn.Linear(256, 10),
+        )
+        try:
+            neural_net = PhiNet(latent_dim=20, pc_param_dim=10, net=net)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Invalid input net. The first layer should have 20 input features, but is has 10 input features."
+
+    def test_invalid_custom_net_out_features(self):
+        net = nn.Sequential(
+            nn.Linear(20, 64),
+            nn.ReLU(),
+            nn.Linear(64, 256),
+            nn.ReLU(),
+            nn.Linear(256, 30),
+        )
+        try:
+            neural_net = PhiNet(latent_dim=20, pc_param_dim=10, net=net)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Invalid input net. The final layer should have 10 output features, but is has 30 output features."
+
+    def test_forward(self):
+        assert self.neural_net is not None
+        
+
+        
 # TODO: Add tests for Neural Network and all other functions

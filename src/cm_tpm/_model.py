@@ -202,25 +202,21 @@ def get_probabilistic_circuit(pc_type, input_dim):
 
 # Neural Network for Parameter Mapping: phi(z) -> PC parameters
 class PhiNet(nn.Module):
-    def __init__(self, latent_dim, pc_param_dim):
+    def __init__(self, latent_dim, pc_param_dim, net=None):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(latent_dim, 64),
-            nn.LeakyReLU(negative_slope=0.01),
-            #nn.Linear(64, pc_param_dim * 2),
-            nn.Linear(64, pc_param_dim),
-        )
-        self.init_weights()
-        for name, param in self.net.named_parameters():
-            if torch.isnan(param).any():
-                raise ValueError(f"NaN detected in parameter {name} immediately after initialization: {param}")
-
-
-    def init_weights(self):
-        for layer in self.net:
-            if isinstance(layer, nn.Linear):
-                torch.nn.init.xavier_uniform_(layer.weight)
-                torch.nn.init.zeros_(layer.bias)
+        if net:
+            if net[0].in_features != latent_dim:
+                raise ValueError(f"Invalid input net. The first layer should have {latent_dim} input features, but is has {net[0].in_features} input features.")
+            if net[-1].out_features != pc_param_dim:
+                raise ValueError(f"Invalid input net. The final layer should have {pc_param_dim} output features, but is has {net[-1].out_features} output features.")
+            self.net = net
+        else:
+            self.net = nn.Sequential(
+                nn.Linear(latent_dim, 64),
+                nn.ReLU(),
+                #nn.Linear(64, pc_param_dim * 2),
+                nn.Linear(64, pc_param_dim),
+            )
 
     def forward(self, z):
         return self.net(z)
