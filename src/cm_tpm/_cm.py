@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import torch
 from ._model import train_cm_tpm, impute_missing_values
 
 import os
@@ -247,9 +246,7 @@ class CMImputer:
         # TODO Add imputation
         X_preprocessed, _ = self._preprocess_data(X)
 
-        X_torch = torch.tensor(X_preprocessed, dtype=torch.float32)
-
-        X_imputed = impute_missing_values(X_torch, self.model)
+        X_imputed = impute_missing_values(X_preprocessed, self.model)
 
         # missing_mask = np.isnan(X_preprocessed)
 
@@ -260,7 +257,7 @@ class CMImputer:
         # for col_idx, categories in self.categorical_info_.items():
         #     X_restored[:, col_idx] = np.array(categories)[X_imputed[:, col_idx].astype(int)]
 
-        return X_imputed.detach().numpy()
+        return X_imputed
     
     def get_feature_names_out(input_features=None):
         """

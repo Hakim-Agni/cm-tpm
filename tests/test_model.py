@@ -221,8 +221,92 @@ class TestNeuralNet():
             assert str(e) == "Invalid input net. The final layer should have 10 output features, but is has 30 output features."
 
     def test_forward(self):
-        assert self.neural_net is not None
-        
+        z = torch.tensor(np.random.rand(100, 20), dtype=torch.float32)
+        out = self.neural_net(z)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape == torch.Size([100, 10])
 
+    def test_forward_wrong_dimensions(self):
+        z = torch.tensor(np.random.rand(100, 40), dtype=torch.float32)
+        try:
+            out = self.neural_net(z)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Invalid input to the neural network. Expected shape for z: (100, 20), but got shape: (100, 40)."
         
+class TestRQMS():
+    def test_rqmc(self):
+        out = generate_rqmc_samples(num_samples=32, latent_dim=10)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape == torch.Size([32, 10])
+
+class TestTrainCM_TPM():
+    def test_train_dafault(self):
+        train_data = np.random.rand(100, 10)
+        model = train_cm_tpm(train_data=train_data)
+        assert isinstance(model, CM_TPM)
+
+    def test_train_parameters(self):
+        train_data = np.random.rand(100, 10)
+        model = train_cm_tpm(train_data=train_data, pc_type="spn", latent_dim=6, num_components=64, epochs=50, lr=0.01)
+        assert isinstance(model, CM_TPM)
+        assert model.input_dim == 10
+        assert model.latent_dim == 6
+        assert model.num_components == 64
+
+    def test_train_missing_values(self):
+        train_data = np.random.rand(100, 10)
+        train_data[0, 0] = np.nan
+        try:
+            model = train_cm_tpm(train_data=train_data, pc_type="spn", latent_dim=6, num_components=64, epochs=50, lr=0.01)
+            assert False
+        except ValueError as e:
+            assert str(e) == "NaN detected in training data. The training data cannot have missing values."
+
+class TestImpute():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.train_data = np.random.rand(100, 10)
+        self.model = train_cm_tpm(train_data=self.train_data)
+
+    def test_impute_data(self):
+        data_incomplete = np.random.rand(30, 10)
+        data_incomplete[4, 6] = np.nan
+        data_incomplete[25, 1] = np.nan
+        data_incomplete[0, 7] = np.nan
+        data_imputed = impute_missing_values(data_incomplete, self.model)
+        assert isinstance(data_imputed, np.ndarray)
+        assert data_imputed.shape == data_incomplete.shape
+        assert data_imputed[4, 6] != np.nan
+        assert data_imputed[25, 1] != np.nan
+        assert data_imputed[0, 7] != np.nan
+
+    def test_impute_data_no_missing(self):
+        data_incomplete = np.random.rand(30, 10)
+        data_imputed = impute_missing_values(data_incomplete, self.model)
+        assert data_imputed.shape == data_incomplete.shape
+        assert np.array_equal(data_incomplete, data_imputed)
+
+    def test_impute_data_different_dimension(self):
+        data_incomplete = np.random.rand(50, 5)
+        data_incomplete[0, 0] = np.nan
+        try:
+            data_imputed = impute_missing_values(data_incomplete, self.model)
+            assert False
+        except ValueError as e:
+            assert str(e) == "The missing data does not have the same number of features as the training data. Expected features: 10, but got features: 5."
+
+
+
 # TODO: Add tests for Neural Network and all other functions
+
+
+a = np.random.rand(100, 10)
+model = train_cm_tpm(a)
+
+b = np.random.rand(10, 10)
+c = impute_missing_values(b, model)
+print(b)
+print(c)
+print(np.equal(b, c))

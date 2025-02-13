@@ -8,8 +8,11 @@ from scipy.stats import qmc     # For RQMC sampling
 import networkx as nx
 
 # TODO:
+#   Dealing with missing values in training data
 #   Add PC structure(s) -> PCs, CLTs, ...
 #   Improve Neural Network PhiNet
+#   Add ways to use custom nets
+#   Include log_w from the rqmc sampler
 #   Optimize latent selection (top-K selection)
 #   Implement latent optimization for fine-tuning integration points
 #   Do some testing with accuracy/log likelihood etc.
@@ -204,21 +207,28 @@ def get_probabilistic_circuit(pc_type, input_dim):
 class PhiNet(nn.Module):
     def __init__(self, latent_dim, pc_param_dim, net=None):
         super().__init__()
+        out_dim = pc_param_dim
         if net:
             if net[0].in_features != latent_dim:
                 raise ValueError(f"Invalid input net. The first layer should have {latent_dim} input features, but is has {net[0].in_features} input features.")
-            if net[-1].out_features != pc_param_dim:
-                raise ValueError(f"Invalid input net. The final layer should have {pc_param_dim} output features, but is has {net[-1].out_features} output features.")
+            if net[-1].out_features != out_dim:
+                raise ValueError(f"Invalid input net. The final layer should have {out_dim} output features, but is has {net[-1].out_features} output features.")
             self.net = net
         else:
             self.net = nn.Sequential(
                 nn.Linear(latent_dim, 64),
                 nn.ReLU(),
-                #nn.Linear(64, pc_param_dim * 2),
-                nn.Linear(64, pc_param_dim),
+                nn.Linear(64, out_dim),
             )
 
     def forward(self, z):
+        """
+        Run z through the neural network.
+        z: Integration points of shape (num_components, latent_dim)
+        Returns: A Torch tensor of shape (num_components, pc_param_dim)
+        """
+        if z.shape[1] != self.net[0].in_features:
+            raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
         return self.net(z)
 
 # Generate RQMC Samples
@@ -230,6 +240,9 @@ def generate_rqmc_samples(num_samples, latent_dim):
 
 # Training Loop
 def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=256, epochs=100, lr=0.001):
+    if np.isnan(train_data).any():
+        raise ValueError("NaN detected in training data. The training data cannot have missing values.")
+    
     input_dim = train_data.shape[1]
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
@@ -259,7 +272,14 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
 
 # Missing Data Imputation
 def impute_missing_values(x_incomplete, model):
+    if not np.isnan(x_incomplete).any():
+        return x_incomplete
+    
+    if x_incomplete.shape[1] != model.input_dim:
+        raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")
+    
     z_samples = generate_rqmc_samples(model.num_components, model.latent_dim)
+    x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
     mask = ~torch.isnan(x_incomplete)
     x_filled = torch.where(mask, x_incomplete, torch.tensor(0.0, dtype=torch.float32))
 
@@ -275,7 +295,7 @@ def impute_missing_values(x_incomplete, model):
     imputed_values = torch.mean(likelihoods, dim=0)
 
     imputed_values_final = torch.where(mask, x_incomplete, imputed_values)
-    return imputed_values_final
+    return imputed_values_final.detach().cpu().numpy()
 
 # Example Usage
 if __name__ == '__main__':
@@ -285,7 +305,7 @@ if __name__ == '__main__':
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(torch.tensor(x_incomplete, dtype=torch.float32), model)
+    x_imputed = impute_missing_values(x_incomplete, model)
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)
     print("Imputed values:", x_imputed)
