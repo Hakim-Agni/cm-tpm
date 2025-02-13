@@ -4,13 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cm-tpm"
-version = "0.1.3"
+version = "0.2.0"
 description = "A Python package for Continuous Mixtures of Tractable Probabilistic Models"
 authors = [{ name = "Hakim Agni", email = "h.agni2001@gmail.com"}]
 readme = "README.md"
 license = { file = "LICENSE"}
 dependencies = [
-    
+    "numpy",
+    "pandas",
+    "scipy",
+    "torch",
+    "networkx",
 ]
 requires-python = ">=3.8"
 
