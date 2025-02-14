@@ -17,12 +17,18 @@ class CMImputer:
         The placeholder for missing values in the input data, all instances of missing_values will be imputed.
     n_components: int, optional (default=10)
         Number of components to use in the mixture model.
+    pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
+        The type of PC to use in the model.
+    net: nn.Sequential, optional (default=None)
+        A custom neural network to use in the model.
     max_depth: int, optional (default=5)
         Maximum depth of the probabilistic circuit.
     max_iter: int, optional (default=100)
         Maximum number of iterations to perform.
     tol: float, optional (default=1e-4)
         Tolerance for the convergence criterion.
+    lr:  float, optional (default=0.001)
+        The learning rate for the optimizer
     weight_sharing: bool, optional (default=True)
         Whether to share parameters across mixture components.
     smooth: float, optional (default=1e-6)
@@ -34,7 +40,7 @@ class CMImputer:
     copy: bool, optional (default=True)
         Whether to copy the input data or modify it in place.
     keep_empty_features: bool, optional (default=False)
-        Whether to keep features that have no missing values in the imputed dataset.
+        Whether to keep features that only have missing values in the imputed dataset.
 
     Attributes
     ----------
@@ -63,9 +69,12 @@ class CMImputer:
             self,
             missing_values: int | float | str | None = np.nan,
             n_components: int = 10,
+            pc_type: str = "factorized",
+            net = None,
             max_depth: int = 5,
             max_iter: int = 100,
             tol: float = 1e-4,
+            lr: float = 0.001,
             weight_sharing: bool = True,
             smooth: float = 1e-6, 
             random_state: int = None,
@@ -79,9 +88,12 @@ class CMImputer:
         # Parameters
         self.missing_values = missing_values
         self.n_components = n_components
+        self.pc_type = pc_type
+        self.net = net
         self.max_depth = max_depth
         self.max_iter = max_iter
         self.tol = tol
+        self.lr = lr
         self.weight_sharing = weight_sharing
         self.smooth = smooth
         self.random_state = random_state
@@ -165,13 +177,20 @@ class CMImputer:
             X = self._load_file(X, sep=sep, decimal=decimal)
         # Transform the data to a NumPy array
         X, _, _ = self._to_numpy(X)
-        # Fit the model using X
-        # TODO
-        X_preprocessed, self.categorical_info_ = self._preprocess_data(X)
 
-        # self.mixture_model = GaussianMixture(n_components=self.n_components, random_state=self.random_state)
-        # self.mixture_model.fit(X_preprocessed)
-        self.model = train_cm_tpm(X_preprocessed, latent_dim=4, num_components=256, epochs=100, lr=0.01)
+        # Fit the model using X
+        X_preprocessed, self.categorical_info_ = self._preprocess_data(X)
+        self.model = train_cm_tpm(
+            X_preprocessed, 
+            pc_type=self.pc_type,
+            latent_dim=4, 
+            num_components=self.n_components, 
+            net=self.net,
+            epochs=self.max_iter, 
+            lr=self.lr,
+            random_state=self.random_state,
+            verbose=self.verbose,
+            )
 
         self.is_fitted_ = True
         return self
@@ -245,16 +264,12 @@ class CMImputer:
         """Impute missing values in input X"""
         X_preprocessed, _ = self._preprocess_data(X)
 
-        X_imputed = impute_missing_values(X_preprocessed, self.model)
-
-        # missing_mask = np.isnan(X_preprocessed)
-
-        # imputed_values = self.mixture_model.sample(X_preprocessed.shape[0])[0]
-        # X_imputed = np.where(missing_mask, imputed_values, X_preprocessed)
-
-        # X_restored = X_imputed.copy()
-        # for col_idx, categories in self.categorical_info_.items():
-        #     X_restored[:, col_idx] = np.array(categories)[X_imputed[:, col_idx].astype(int)]
+        X_imputed = impute_missing_values(
+            X_preprocessed, 
+            self.model,
+            random_state=self.random_state,
+            verbose = self.verbose,
+            )
 
         return X_imputed
     
@@ -275,9 +290,12 @@ class CMImputer:
         return {
             "missing_values": self.missing_values,
             "n_components": self.n_components,
+            "pc_type": self.pc_type,
+            "net": self.net,
             "max_depth": self.max_depth,
             "max_iter": self.max_iter,
             "tol": self.tol,
+            "lr": self.lr,
             "weight_sharing": self.weight_sharing,
             "smooth": self.smooth,
             "random_state": self.random_state,

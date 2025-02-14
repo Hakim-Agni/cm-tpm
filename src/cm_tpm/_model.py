@@ -15,7 +15,8 @@ import networkx as nx
 #       - scale numerical features
 #       - handle categorical features
 #       - handle binary features
-#   Add ways to use custom nets
+#   Add ways to use custom nets (layers etc)
+#   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...
 #   Improve Neural Network PhiNet
 #   Optimize latent selection (top-K selection)
@@ -24,7 +25,7 @@ import networkx as nx
 #   Choose optimal standard hyperparameters
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -45,7 +46,7 @@ class CM_TPM(nn.Module):
         self.num_components = num_components
 
         # Neural network to generate PC parameters
-        self.phi_net = PhiNet(latent_dim, input_dim)
+        self.phi_net = PhiNet(latent_dim, input_dim, net=net)
 
         # Create multiple PCs (one per component)
         self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
@@ -234,6 +235,8 @@ class PhiNet(nn.Module):
         super().__init__()
         out_dim = pc_param_dim
         if net:
+            if not isinstance(net, nn.Sequential):
+                raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
             if net[0].in_features != latent_dim:
                 raise ValueError(f"Invalid input net. The first layer should have {latent_dim} input features, but is has {net[0].in_features} input features.")
             if net[-1].out_features != out_dim:
@@ -278,7 +281,17 @@ def generate_rqmc_samples(num_samples, latent_dim):
     w = torch.full(size=(num_samples,), fill_value=1 / num_samples)     # Uniform weights
     return z_samples, w
 
-def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=256, epochs=100, lr=0.001):
+def train_cm_tpm(
+        train_data, 
+        pc_type="factorized", 
+        latent_dim=4, 
+        num_components=256,
+        net=None, 
+        epochs=100, 
+        lr=0.001,
+        random_state=None,
+        verbose=0,
+        ):
     """
     The training function for CM-TPM. Creates a CM-TPM model and trains the parameters.
     
@@ -287,8 +300,11 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
         pc_type (optional): The type of PC to use (factorized, spn, clt).
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
+        net (optional): A custom neural network
         epochs (optional): The number of training loops.
         lr (optional): The learning rate of the optimizer.
+        random_state (optional): A random seed for reproducibility. 
+        verbose (optional): Verbosity level.
 
     Returns:
         model: A trained CM-TPM model
@@ -297,8 +313,8 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
         raise ValueError("NaN detected in training data. The training data cannot have missing values.")
     
     input_dim = train_data.shape[1]
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components)
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net)
+    optimizer = optim.AdamW(model.parameters(), lr=lr)
     z_samples, w = generate_rqmc_samples(num_components, latent_dim)    # This line inside or outside of loop?
 
     for epoch in range(epochs):
@@ -325,13 +341,20 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
     model._is_trained = True
     return model
 
-def impute_missing_values(x_incomplete, model):
+def impute_missing_values(
+        x_incomplete, 
+        model,
+        random_state=None,
+        verbose=0,
+        ):
     """
     Imputes missing data using a specified model.
     
     Parameters:
         x_incomplete: The input data with missing values.
         model: A CM-TPM model to use for data imputation.
+        random_state (optional): A random seed for reproducibility. 
+        verbose (optional): Verbosity level.
 
     Returns:
         x_imputed: A copy of x_incomplete with the missing values imputed.

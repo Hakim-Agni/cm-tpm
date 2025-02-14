@@ -15,9 +15,12 @@ class TestClass:
         imputer = CMImputer(
             missing_values="",
             n_components=5,
+            pc_type="spn",
+            net=None,
             max_depth=3,
             max_iter=100,
             tol=1e-3,
+            lr=0.01,
             weight_sharing=False,
             smooth=False,
             random_state=42,
@@ -27,9 +30,12 @@ class TestClass:
             )
         assert imputer.missing_values == ""
         assert imputer.n_components == 5
+        assert imputer.pc_type == "spn"
+        assert imputer.net == None
         assert imputer.max_depth == 3
         assert imputer.max_iter == 100
         assert imputer.tol == 1e-3
+        assert imputer.lr == 0.01
         assert imputer.weight_sharing == False
         assert imputer.smooth == False
         assert imputer.random_state == 42
@@ -300,9 +306,12 @@ class TestParams():
         self.imputer = CMImputer(
             missing_values="",
             n_components=5,
+            pc_type="spn",
+            net=None,
             max_depth=3,
             max_iter=100,
             tol=1e-3,
+            lr=0.01,
             weight_sharing=False,
             smooth=False,
             random_state=42,
@@ -316,6 +325,8 @@ class TestParams():
         params = self.imputer.get_params()
         assert params["missing_values"] == ""
         assert params["n_components"] == 5
+        assert params["pc_type"] == "spn"
+        assert params["net"] is None
         assert params["max_depth"] == 3
         assert params["max_iter"] == 100
         assert params["tol"] == 1e-3
@@ -331,9 +342,11 @@ class TestParams():
         self.imputer.set_params(
             missing_values=np.nan, 
             n_components=10,
+            pc_type="clt",
             max_depth=5,
             max_iter=200,
             tol=1e-4,
+            lr=0.001,
             weight_sharing=True,
             smooth=True,
             random_state=43,
@@ -343,9 +356,11 @@ class TestParams():
             )
         assert np.isnan(self.imputer.missing_values)
         assert self.imputer.n_components == 10
+        assert self.imputer.pc_type == "clt"
         assert self.imputer.max_depth == 5
         assert self.imputer.max_iter == 200
         assert self.imputer.tol == 1e-4
+        assert self.imputer.lr == 0.001
         assert self.imputer.weight_sharing == True
         assert self.imputer.smooth == True
         assert self.imputer.random_state == 43
