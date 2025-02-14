@@ -8,8 +8,7 @@ from scipy.stats import qmc     # For RQMC sampling
 import networkx as nx
 
 # TODO:
-#   Include log_w from the rqmc sampler
-#   Add settable mean and variance in rqmc sampler
+#   Add settable mean and variance in rqmc sampler (?)
 #   Incorporate model parameters in _cm.py
 #   Dealing with missing values in training data
 #   Data preprocessing 
@@ -53,13 +52,14 @@ class CM_TPM(nn.Module):
 
         self._is_trained = False
     
-    def forward(self, x, z_samples):
+    def forward(self, x, z_samples, w):
         """
         Compute the mixture likelihood.
 
         Parameters:
             x: Input batch of shape (batch_size, input_dim).
             z_samples: Integration points of shape (num_components, latent_dim).
+            w: Weights of each integration points
 
         Returns:
             mixture_likelihood: The likelihood of the x given z_samples.
@@ -79,11 +79,10 @@ class CM_TPM(nn.Module):
             if torch.isnan(likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
 
-            likelihoods.append(likelihood)
+            likelihoods.append(likelihood * w[i])   # Add weighted likelihood to the list
 
-        likelihoods = torch.stack(likelihoods, dim=0)  # Shape: (num_components, batch_size)
-        weights = 1.0 / self.num_components  # Uniform weights
-        mixture_likelihood = torch.sum(weights * likelihoods, dim=0)  # Sum over components, shape: (batch_size)
+        likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
+        mixture_likelihood = torch.sum(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
         return mixture_likelihood.mean()  # Average over batch
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
@@ -271,13 +270,14 @@ def generate_rqmc_samples(num_samples, latent_dim):
 
     Returns:
         z_samples: The sampled values z of shape (num_samples, latent_dim)
+        w: The weights for the mixture components
     """
     sampler = qmc.Sobol(d=latent_dim, scramble=True)
     z_samples = sampler.random(n=num_samples)
     z_samples = torch.tensor(qmc.scale(z_samples, -3, 3), dtype=torch.float32)  # Scale for Gaussian prior
-    return z_samples
+    w = torch.full(size=(num_samples,), fill_value=1 / num_samples)     # Uniform weights
+    return z_samples, w
 
-# Training Loop
 def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=256, epochs=100, lr=0.001):
     """
     The training function for CM-TPM. Creates a CM-TPM model and trains the parameters.
@@ -299,13 +299,14 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
     input_dim = train_data.shape[1]
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    z_samples, w = generate_rqmc_samples(num_components, latent_dim)    # This line inside or outside of loop?
 
     for epoch in range(epochs):
-        z_samples = generate_rqmc_samples(num_components, latent_dim)
+        #z_samples, w = generate_rqmc_samples(num_components, latent_dim)
         x_batch = torch.tensor(train_data, dtype=torch.float32)
 
         optimizer.zero_grad()
-        loss = -model(x_batch, z_samples)
+        loss = -model(x_batch, z_samples, w)
 
         if torch.isnan(loss).any():
             raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
@@ -324,7 +325,6 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
     model._is_trained = True
     return model
 
-# Missing Data Imputation
 def impute_missing_values(x_incomplete, model):
     """
     Imputes missing data using a specified model.
@@ -345,14 +345,14 @@ def impute_missing_values(x_incomplete, model):
     if x_incomplete.shape[1] != model.input_dim:
         raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")
     
-    z_samples = generate_rqmc_samples(model.num_components, model.latent_dim)
+    z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim)
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
     mask = ~torch.isnan(x_incomplete)
     x_filled = torch.where(mask, x_incomplete, torch.tensor(0.0, dtype=torch.float32))
 
     likelihoods = []
     for i in range(z_samples.shape[0]):
-        model.pcs[i].set_params(model.phi_net(z_samples)[i])
+        model.pcs[i].set_params(model.phi_net(z_samples)[i])        # Not sure if this is needed
         likelihood = model.pcs[i](x_filled)
 
         marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))

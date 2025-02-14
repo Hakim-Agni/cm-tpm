@@ -49,7 +49,8 @@ class TestCM_TPM():
         """"Test the forward function of the model"""
         x = torch.tensor(np.random.rand(100, 20), dtype=torch.float32)
         z_samples = torch.tensor(np.random.rand(64, 10), dtype=torch.float32)
-        likelihood = self.model(x, z_samples)
+        w = torch.tensor(np.random.rand(64))
+        likelihood = self.model(x, z_samples, w)
         assert isinstance(likelihood, torch.Tensor)
         assert likelihood.shape == torch.Size([])
         assert isinstance(likelihood.item(), float)
@@ -58,8 +59,9 @@ class TestCM_TPM():
         """""Test the forward function with invalid dimensions for x"""
         x = torch.tensor(np.random.rand(100, 30), dtype=torch.float32)
         z_samples = torch.tensor(np.random.rand(64, 10), dtype=torch.float32)
+        w = torch.tensor(np.random.rand(64))
         try:
-            likelihood = self.model(x, z_samples)
+            likelihood = self.model(x, z_samples, w)
             assert False
         except ValueError as e:
             assert str(e) == "Invalid input tensor x. Expected shape: (100, 20), but got shape: (100, 30)."
@@ -68,8 +70,9 @@ class TestCM_TPM():
         """""Test the forward function with invalid dimensions for z"""
         x = torch.tensor(np.random.rand(100, 20), dtype=torch.float32)
         z_samples = torch.tensor(np.random.rand(16, 25), dtype=torch.float32)
+        w = torch.tensor(np.random.rand(16))
         try:
-            likelihood = self.model(x, z_samples)
+            likelihood = self.model(x, z_samples, w)
             assert False
         except ValueError as e:
             assert str(e) == "Invalid input tensor z_samples. Expected shape: (64, 10), but got shape: (16, 25)."
@@ -244,9 +247,11 @@ class TestNeuralNet():
 class TestRQMS():
     def test_rqmc(self):
         """Test the function that generates z and w using RQMC"""
-        out = generate_rqmc_samples(num_samples=32, latent_dim=10)
-        assert isinstance(out, torch.Tensor)
-        assert out.shape == torch.Size([32, 10])
+        z, w = generate_rqmc_samples(num_samples=32, latent_dim=10)
+        assert isinstance(z, torch.Tensor)
+        assert z.shape == torch.Size([32, 10])
+        assert isinstance(w, torch.Tensor)
+        assert w.shape == torch.Size([32])
 
 class TestTrainCM_TPM():
     def test_train_dafault(self):
