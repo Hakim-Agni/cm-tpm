@@ -240,52 +240,69 @@ class TestTransform():
         except ValueError as e:
             assert str(e) == "The model has not been fitted yet. Please call the fit method first."
 
+    def test_transform_no_missing(self):
+        """Test transforming data without missing values"""
+        self.imputer.missing_values = -1
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        imputer = self.imputer.fit(X)
+        with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '-1'?"):
+            X_imputed = imputer.transform(X)
+            assert np.array_equal(X_imputed, X)
+
     def test_transform_numpy(self):
         """Test the transform method on a NumPy array."""
         X = np.array([[1, 2, 3], [4, 5, 6]])
         imputer = self.imputer.fit(X)
-        X_imputed = imputer.transform(X)
+        X_missing = np.array([[np.nan, 2., 3.], [4., 5., 6.]])
+        X_imputed = imputer.transform(X_missing)
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (2, 3)
+        assert not np.isnan(X_imputed).any()
 
     def test_transform_dataframe(self):
         """Test the transform method on a pandas DataFrame."""
         df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
         imputer = self.imputer.fit(df)
-        X_imputed = imputer.transform(df)
+        df_missing = pd.DataFrame({"A": [np.nan, 2., 3.], "B": [4., 5., 6.]})
+        X_imputed = imputer.transform(df_missing)
         assert isinstance(X_imputed, pd.DataFrame)
         assert X_imputed.shape == (3, 2)
         assert X_imputed.columns[0] == "A"
         assert X_imputed.columns[1] == "B"
+        assert not X_imputed.isnull().values.any()
 
     def test_transform_list(self):
         """Test the transform method on a list."""
         X = [[1, 2, 3], [4, 5, 6]]
         imputer = self.imputer.fit(X)
-        X_imputed = imputer.transform(X)
+        X_missing = [[np.nan, 2., 3.], [4., 5., 6.]]
+        X_imputed = imputer.transform(X_missing)
         assert isinstance(X_imputed, list)
         assert len(X_imputed) == 2
         assert len(X_imputed[0]) == 3
+        assert not np.isnan(X_imputed).any()
 
     def test_transform_file(self):
         """Test the transform method on a file."""
         if os.path.isfile("tests/data/test_data_imputed.csv"):
             os.remove("tests/data/test_data_imputed.csv")
         imputer = self.imputer.fit("tests/data/test_data.csv", sep=";", decimal=",")
-        X_imputed = imputer.transform("tests/data/test_data.csv", sep=';', decimal=',')
-        assert isinstance(X_imputed, np.ndarray)
-        assert X_imputed.shape == (10, 3)
-        assert os.path.exists("tests/data/test_data_imputed.csv")
+        with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: 'nan'?"):
+            X_imputed = imputer.transform("tests/data/test_data.csv", sep=';', decimal=',')
+            assert isinstance(X_imputed, np.ndarray)
+            assert X_imputed.shape == (10, 3)
+            assert os.path.exists("tests/data/test_data_imputed.csv")
 
     def test_transform_save_path_from_file(self):
         """Test saving the imputed data from a file to a file."""
         if os.path.isfile("tests/data/test_data_save_path_file.parquet"):
             os.remove("tests/data/test_data_save_path_file.parquet")
         imputer = self.imputer.fit("tests/data/test_data.parquet")
-        X_imputed = imputer.transform("tests/data/test_data.parquet", save_path="tests/data/test_data_save_path_file.parquet")
-        assert isinstance(X_imputed, np.ndarray)
-        assert X_imputed.shape == (10, 3)
-        assert os.path.exists("tests/data/test_data_save_path_file.parquet")
+        with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: 'nan'?"):
+            X_imputed = imputer.transform("tests/data/test_data.parquet", save_path="tests/data/test_data_save_path_file.parquet")
+            assert isinstance(X_imputed, np.ndarray)
+            assert X_imputed.shape == (10, 3)
+            assert os.path.exists("tests/data/test_data_save_path_file.parquet")
 
 
     def test_transform_save_path_from_data(self):
@@ -294,10 +311,22 @@ class TestTransform():
             os.remove("tests/data/test_data_save_path_data.feather")
         X = np.array([[1, 2, 3], [4, 5, 6]])
         imputer = self.imputer.fit(X)
-        X_imputed = imputer.transform(X, save_path="tests/data/test_data_save_path_data.feather")
+        with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: 'nan'?"):
+            X_imputed = imputer.transform(X, save_path="tests/data/test_data_save_path_data.feather")
+            assert isinstance(X_imputed, np.ndarray)
+            assert X_imputed.shape == (2, 3)
+            assert os.path.exists("tests/data/test_data_save_path_data.feather")
+
+    def test_transform_non_nan(self):
+        """Test the transform method with a different missing value than nan."""
+        self.imputer.missing_values = -1
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        imputer = self.imputer.fit(X)
+        X_missing = np.array([[-1, 2., 3.], [4., 5., 6.]])
+        X_imputed = imputer.transform(X_missing)
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (2, 3)
-        assert os.path.exists("tests/data/test_data_save_path_data.feather")
+        assert not np.any(X_imputed == -1)
 
 class TestParams():
     @pytest.fixture(autouse=True)

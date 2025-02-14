@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import warnings
 from ._model import train_cm_tpm, impute_missing_values
 
 import os
@@ -146,6 +147,10 @@ class CMImputer:
         """Preprocess the input data before imputation."""
         categorical_info = {}  
         X_transformed = X.copy()
+        X_transformed = X_transformed.astype(float)
+        
+        if self.missing_values is not np.nan:
+            X_transformed[X_transformed == self.missing_values] = np.nan
 
         for i in range(X.shape[1]):  
             col_data = X[:, i]
@@ -264,6 +269,9 @@ class CMImputer:
         """Impute missing values in input X"""
         X_preprocessed, _ = self._preprocess_data(X)
 
+        if not np.any(np.isnan(X_preprocessed)):
+            warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
+
         X_imputed = impute_missing_values(
             X_preprocessed, 
             self.model,
@@ -338,4 +346,3 @@ class CMImputer:
         # Evaluate the model using X
         # TODO
         return 0.0
-    
