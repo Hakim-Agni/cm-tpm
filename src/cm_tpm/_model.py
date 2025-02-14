@@ -8,17 +8,22 @@ from scipy.stats import qmc     # For RQMC sampling
 import networkx as nx
 
 # TODO:
+#   Include log_w from the rqmc sampler
+#   Add settable mean and variance in rqmc sampler
+#   Incorporate model parameters in _cm.py
 #   Dealing with missing values in training data
+#   Data preprocessing 
+#       - scale numerical features
+#       - handle categorical features
+#       - handle binary features
+#   Add ways to use custom nets
 #   Add PC structure(s) -> PCs, CLTs, ...
 #   Improve Neural Network PhiNet
-#   Add ways to use custom nets
-#   Include log_w from the rqmc sampler
 #   Optimize latent selection (top-K selection)
 #   Implement latent optimization for fine-tuning integration points
 #   Do some testing with accuracy/log likelihood etc.
 #   Make hyperparameters tunable
 #   Choose optimal standard hyperparameters
-#   When everything works -> Implementation with cm-tpm package
 
 class CM_TPM(nn.Module):
     def __init__(self, pc_type, input_dim, latent_dim, num_components):
@@ -39,6 +44,8 @@ class CM_TPM(nn.Module):
         # Create multiple PCs (one per component)
         self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
 
+        self._is_trained = False
+    
     def forward(self, x, z_samples):
         """
         Compute the mixture likelihood.
@@ -268,12 +275,16 @@ def train_cm_tpm(train_data, pc_type="factorized", latent_dim=4, num_components=
         if epoch % 10 == 0:
             print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
 
+    model._is_trained = True
     return model
 
 # Missing Data Imputation
 def impute_missing_values(x_incomplete, model):
     if not np.isnan(x_incomplete).any():
         return x_incomplete
+    
+    if not model._is_trained:
+        raise ValueError("The model has not been fitted yet. Please call the fit method first.")
     
     if x_incomplete.shape[1] != model.input_dim:
         raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")

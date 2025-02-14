@@ -242,8 +242,7 @@ class CMImputer:
         return self.fit(X, sep=sep, decimal=decimal).transform(X, save_path, sep=sep, decimal=decimal)
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
-        """Placeholder for the actual imputation logic"""
-        # TODO Add imputation
+        """Impute missing values in input X"""
         X_preprocessed, _ = self._preprocess_data(X)
 
         X_imputed = impute_missing_values(X_preprocessed, self.model)

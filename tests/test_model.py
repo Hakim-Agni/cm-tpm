@@ -168,14 +168,17 @@ class TestNeuralNet():
         self.neural_net = PhiNet(latent_dim=20, pc_param_dim=10)
 
     def test_instance(self):
+        """Test the instantiation of the neural network"""
         assert self.neural_net is not None 
 
     def test_parameters(self):
+        """Test the parameters of the neural network"""
         assert isinstance(self.neural_net.net, nn.Sequential)
         assert self.neural_net.net[0].in_features == 20
         assert self.neural_net.net[-1].out_features == 10
 
     def test_custom_net(self):
+        """Test setting a custom neural network"""
         net = nn.Sequential(
             nn.Linear(20, 64),
             nn.ReLU(),
@@ -193,6 +196,7 @@ class TestNeuralNet():
         assert neural_net.net[4].in_features == 256 and neural_net.net[4].out_features == 10
 
     def test_invalid_custom_net_in_features(self):
+        """Test setting a custom neural network with invalid input features"""
         net = nn.Sequential(
             nn.Linear(10, 64),
             nn.ReLU(),
@@ -207,6 +211,7 @@ class TestNeuralNet():
             assert str(e) == "Invalid input net. The first layer should have 20 input features, but is has 10 input features."
 
     def test_invalid_custom_net_out_features(self):
+        """Test setting a custom neural network with invalid output features"""
         net = nn.Sequential(
             nn.Linear(20, 64),
             nn.ReLU(),
@@ -221,12 +226,14 @@ class TestNeuralNet():
             assert str(e) == "Invalid input net. The final layer should have 10 output features, but is has 30 output features."
 
     def test_forward(self):
+        """Test the forward function on the neural network"""
         z = torch.tensor(np.random.rand(100, 20), dtype=torch.float32)
         out = self.neural_net(z)
         assert isinstance(out, torch.Tensor)
         assert out.shape == torch.Size([100, 10])
 
     def test_forward_wrong_dimensions(self):
+        """Test putting a tensor with the wrong dimensions into the network"""
         z = torch.tensor(np.random.rand(100, 40), dtype=torch.float32)
         try:
             out = self.neural_net(z)
@@ -236,17 +243,20 @@ class TestNeuralNet():
         
 class TestRQMS():
     def test_rqmc(self):
+        """Test the function that generates z and w using RQMC"""
         out = generate_rqmc_samples(num_samples=32, latent_dim=10)
         assert isinstance(out, torch.Tensor)
         assert out.shape == torch.Size([32, 10])
 
 class TestTrainCM_TPM():
     def test_train_dafault(self):
+        """Test training data with a default model"""
         train_data = np.random.rand(100, 10)
         model = train_cm_tpm(train_data=train_data)
         assert isinstance(model, CM_TPM)
 
     def test_train_parameters(self):
+        """Test training data with a model with different parameters"""
         train_data = np.random.rand(100, 10)
         model = train_cm_tpm(train_data=train_data, pc_type="spn", latent_dim=6, num_components=64, epochs=50, lr=0.01)
         assert isinstance(model, CM_TPM)
@@ -255,6 +265,7 @@ class TestTrainCM_TPM():
         assert model.num_components == 64
 
     def test_train_missing_values(self):
+        """Test training data with missing values"""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
         try:
@@ -271,6 +282,7 @@ class TestImpute():
         self.model = train_cm_tpm(train_data=self.train_data)
 
     def test_impute_data(self):
+        """Test imputing data with missing values"""
         data_incomplete = np.random.rand(30, 10)
         data_incomplete[4, 6] = np.nan
         data_incomplete[25, 1] = np.nan
@@ -281,14 +293,17 @@ class TestImpute():
         assert data_imputed[4, 6] != np.nan
         assert data_imputed[25, 1] != np.nan
         assert data_imputed[0, 7] != np.nan
+        assert not np.isnan(data_imputed).any()
 
     def test_impute_data_no_missing(self):
+        """Test imputing data with no missing values"""
         data_incomplete = np.random.rand(30, 10)
         data_imputed = impute_missing_values(data_incomplete, self.model)
         assert data_imputed.shape == data_incomplete.shape
         assert np.array_equal(data_incomplete, data_imputed)
 
     def test_impute_data_different_dimension(self):
+        """Test imputing data with a different dimension than the training data"""
         data_incomplete = np.random.rand(50, 5)
         data_incomplete[0, 0] = np.nan
         try:
@@ -296,3 +311,14 @@ class TestImpute():
             assert False
         except ValueError as e:
             assert str(e) == "The missing data does not have the same number of features as the training data. Expected features: 10, but got features: 5."
+
+    def test_impute_data_no_training(self):
+        """Test imputing data using a model that has not been trained"""
+        model = CM_TPM("factorized", 10, 5, 32)
+        data_incomplete = np.random.rand(50, 10)
+        data_incomplete[0, 0] = np.nan
+        try:
+            data_imputed = impute_missing_values(data_incomplete, model)
+            assert False
+        except ValueError as e:
+            assert str(e) == "The model has not been fitted yet. Please call the fit method first."
