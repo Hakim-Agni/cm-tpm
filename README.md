@@ -14,7 +14,7 @@ cm-tpm requires:
 
 ### User installation
 
-The easiest way to instapp cm-tpm is using ``pip``:
+The easiest way to install cm-tpm is using ``pip``:
 ```
 pip install cm-tpm
 ```
