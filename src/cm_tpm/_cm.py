@@ -30,8 +30,6 @@ class CMImputer:
         Tolerance for the convergence criterion.
     lr:  float, optional (default=0.001)
         The learning rate for the optimizer
-    weight_sharing: bool, optional (default=True)
-        Whether to share parameters across mixture components.
     smooth: float, optional (default=1e-6)
         Smoothing parameter to avoid division by zero.
     random_state: int, RandomState instance or None, optional (default=None)
@@ -47,7 +45,7 @@ class CMImputer:
     ----------
     is_fitted_: bool
         Whether the model is fitted.
-    n_features_: int
+    n_features_in_: int
         Number of features in the input data.
     feature_names_in_: list of str
         Names of the input features.
@@ -76,7 +74,6 @@ class CMImputer:
             max_iter: int = 100,
             tol: float = 1e-4,
             lr: float = 0.001,
-            weight_sharing: bool = True,
             smooth: float = 1e-6, 
             random_state: int = None,
             verbose: int = 0,
@@ -95,7 +92,6 @@ class CMImputer:
         self.max_iter = max_iter
         self.tol = tol
         self.lr = lr
-        self.weight_sharing = weight_sharing
         self.smooth = smooth
         self.random_state = random_state
         self.verbose = verbose
@@ -104,7 +100,7 @@ class CMImputer:
 
         # Attributes
         self.is_fitted_ = False
-        self.n_features_ = None
+        self.n_features_in_ = None
         self.feature_names_in_ = None
         self.components_ = None
         self.log_likelihood_ = None
@@ -146,11 +142,22 @@ class CMImputer:
     def _preprocess_data(self, X: np.ndarray):
         """Preprocess the input data before imputation."""
         categorical_info = {}  
-        X_transformed = X.copy()
-        X_transformed = X_transformed.astype(float)
+
+        if self.copy:
+            X_transformed = X.copy()
+        X_transformed = X_transformed.astype(float)     # Make sure the values are floats
         
+        # Set all instances of 'missing_values' to NaN
         if self.missing_values is not np.nan:
             X_transformed[X_transformed == self.missing_values] = np.nan
+
+        if self.keep_empty_features:
+            # Fill columns that consist of only NaN with 0 
+            empty_features = np.where(np.all(np.isnan(X_transformed), axis=0))[0]
+            X_transformed[:, empty_features] = 0
+        else:
+            # Remove columns that consist of only NaN
+            X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
 
         for i in range(X.shape[1]):  
             col_data = X[:, i]
@@ -181,7 +188,9 @@ class CMImputer:
         if isinstance(X, str):
             X = self._load_file(X, sep=sep, decimal=decimal)
         # Transform the data to a NumPy array
-        X, _, _ = self._to_numpy(X)
+        X, _, feature_names = self._to_numpy(X)
+        self.n_features_in_ = X.shape[1]
+        self.feature_names_in_ = feature_names
 
         # Fit the model using X
         X_preprocessed, self.categorical_info_ = self._preprocess_data(X)
@@ -191,8 +200,10 @@ class CMImputer:
             latent_dim=4, 
             num_components=self.n_components, 
             net=self.net,
-            epochs=self.max_iter, 
+            epochs=self.max_iter,
+            tol=self.tol, 
             lr=self.lr,
+            smooth=self.smooth,
             random_state=self.random_state,
             verbose=self.verbose,
             )
@@ -304,7 +315,6 @@ class CMImputer:
             "max_iter": self.max_iter,
             "tol": self.tol,
             "lr": self.lr,
-            "weight_sharing": self.weight_sharing,
             "smooth": self.smooth,
             "random_state": self.random_state,
             "verbose": self.verbose,

@@ -9,7 +9,7 @@ import networkx as nx
 
 # TODO:
 #   Add settable mean and variance in rqmc sampler (?)
-#   Incorporate model parameters in _cm.py
+#   Implement verbose and random_state
 #   Dealing with missing values in training data
 #   Data preprocessing 
 #       - scale numerical features
@@ -17,7 +17,7 @@ import networkx as nx
 #       - handle binary features
 #   Add ways to use custom nets (layers etc)
 #   Allow custom Optimizers?
-#   Add PC structure(s) -> PCs, CLTs, ...
+#   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
 #   Improve Neural Network PhiNet
 #   Optimize latent selection (top-K selection)
 #   Implement latent optimization for fine-tuning integration points
@@ -25,7 +25,7 @@ import networkx as nx
 #   Choose optimal standard hyperparameters
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, smooth=1e-6):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -49,7 +49,7 @@ class CM_TPM(nn.Module):
         self.phi_net = PhiNet(latent_dim, input_dim, net=net)
 
         # Create multiple PCs (one per component)
-        self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
+        self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim, smooth) for _ in range(num_components)])
 
         self._is_trained = False
     
@@ -88,9 +88,10 @@ class CM_TPM(nn.Module):
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
     """Base Probabilistic Circuit, other PC structures inherit from this class"""
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, smooth=1e-6):
         super().__init__()
         self.input_dim = input_dim
+        self.smooth = smooth
 
     @abstractmethod
     def set_params(self, params):
@@ -104,8 +105,8 @@ class BaseProbabilisticCircuit(nn.Module, ABC):
 
 class FactorizedPC(BaseProbabilisticCircuit):
     """A factorized PC structure."""
-    def __init__(self, input_dim):
-        super().__init__(input_dim)
+    def __init__(self, input_dim, smooth=1e-6):
+        super().__init__(input_dim, smooth=smooth)
         self.params = None
     
     def set_params(self, params):
@@ -119,12 +120,12 @@ class FactorizedPC(BaseProbabilisticCircuit):
         if self.params.shape[0] != x.shape[1]:
             raise ValueError(f"The size of x and the size of params do not match. Expected shape for params: ({x.shape[1]}), but got shape: ({self.params.shape[0]}).")
         
-        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
+        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1)) + self.smooth  # Gaussian-like PC
 
 class SPN(BaseProbabilisticCircuit):
     """An SPN PC structure. (Not implemented yet)"""
-    def __init__(self, input_dim):
-        super().__init__(input_dim)
+    def __init__(self, input_dim, smooth=1e-6):
+        super().__init__(input_dim, smooth=smooth)
         self.params = None
     
     def set_params(self, params):
@@ -135,12 +136,12 @@ class SPN(BaseProbabilisticCircuit):
         """Placeholder for SPN computation"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
-        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1))  # Gaussian-like PC
+        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1)) + self.smooth  # Gaussian-like PC
 
 class ChowLiuTreePC(BaseProbabilisticCircuit):
     """A Chow Liu Tree PC structrue. (Not implemented yet)"""
-    def __init__(self, input_dim):
-        super().__init__(input_dim)
+    def __init__(self, input_dim, smooth=1e-6):
+        super().__init__(input_dim, smooth=smooth)
         self.params = None
         self.tree_structure = None
     
@@ -210,15 +211,15 @@ class ChowLiuTreePC(BaseProbabilisticCircuit):
 
         return log_likelihood
 
-def get_probabilistic_circuit(pc_type, input_dim):
+def get_probabilistic_circuit(pc_type, input_dim, smooth=1e-6):
     """Factory function for the different PC types."""
     types = ["factorized", "spn", "clt"]
     if pc_type == "factorized":
-        return FactorizedPC(input_dim)
+        return FactorizedPC(input_dim, smooth)
     elif pc_type == "spn":
-        return SPN(input_dim)
+        return SPN(input_dim, smooth)
     elif pc_type == "clt":
-        return ChowLiuTreePC(input_dim)
+        return ChowLiuTreePC(input_dim, smooth)
     else:
         raise ValueError(f"Unknown PC type: '{pc_type}', use one of the following types: {types}")
 
@@ -287,8 +288,10 @@ def train_cm_tpm(
         latent_dim=4, 
         num_components=256,
         net=None, 
-        epochs=100, 
+        epochs=100,
+        tol=1e-4, 
         lr=0.001,
+        smooth=1e-6,
         random_state=None,
         verbose=0,
         ):
@@ -302,6 +305,7 @@ def train_cm_tpm(
         num_components (optional): Number of mixture components.
         net (optional): A custom neural network
         epochs (optional): The number of training loops.
+        tol (optional): Tolerance for the convergence criterion.
         lr (optional): The learning rate of the optimizer.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
@@ -313,10 +317,11 @@ def train_cm_tpm(
         raise ValueError("NaN detected in training data. The training data cannot have missing values.")
     
     input_dim = train_data.shape[1]
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net)
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, smooth=smooth)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     z_samples, w = generate_rqmc_samples(num_components, latent_dim)    # This line inside or outside of loop?
 
+    prev_loss = -float('inf')
     for epoch in range(epochs):
         #z_samples, w = generate_rqmc_samples(num_components, latent_dim)
         x_batch = torch.tensor(train_data, dtype=torch.float32)
@@ -326,6 +331,10 @@ def train_cm_tpm(
 
         if torch.isnan(loss).any():
             raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+        
+        if abs(loss - prev_loss) < tol:
+            break
+        prev_loss = loss
 
         loss.backward()
 
@@ -338,6 +347,7 @@ def train_cm_tpm(
         if epoch % 10 == 0:
             print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
 
+    print(f"Final Log-Likelihood: {-loss.item()}")
     model._is_trained = True
     return model
 

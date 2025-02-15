@@ -21,7 +21,6 @@ class TestClass:
             max_iter=100,
             tol=1e-3,
             lr=0.01,
-            weight_sharing=False,
             smooth=False,
             random_state=42,
             verbose=2,
@@ -36,7 +35,6 @@ class TestClass:
         assert imputer.max_iter == 100
         assert imputer.tol == 1e-3
         assert imputer.lr == 0.01
-        assert imputer.weight_sharing == False
         assert imputer.smooth == False
         assert imputer.random_state == 42
         assert imputer.verbose == 2
@@ -47,7 +45,7 @@ class TestClass:
         """Test the model attributes."""
         imputer = CMImputer(random_state=42)
         assert imputer.is_fitted_ == False
-        assert imputer.n_features_ == None
+        assert imputer.n_features_in_ == None
         assert imputer.feature_names_in_ == None
         assert imputer.components_ == None
         assert imputer.log_likelihood_ == None
@@ -183,6 +181,54 @@ class TestRestoreFormat():
         assert isinstance(restored, np.ndarray)
         assert restored.shape == (2, 3)
 
+class TestPreprocess():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_preprocess_ints(self):
+        """Test preprocessing an array with integers."""
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2., 3.], [4., 5., 6.]]))
+
+    def test_preprocess_non_nan(self):
+        """Test preprocessing an array with a different missing value than NaN."""
+        self.imputer.missing_values = -1
+        X = np.array([[1., 2., -1], [4., 5., 6.]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        assert X.shape == X_preprocessed.shape
+        assert np.isnan(X_preprocessed[0, 2])
+
+    def test_preprocess_remove_nan_features(self):
+        """Test preprocessing removes NaN features."""
+        X = np.array([[1., 2., np.nan], [4., 5., np.nan]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2.], [4., 5.]]))
+
+    def test_preprocess_remove_missing_features(self):
+        """Test preprocessing removes other missing features."""
+        self.imputer.missing_values = -1
+        X = np.array([[1., 2., -1], [4., 5., -1]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2.], [4., 5.]]))
+
+    def test_preprocess_fill_nan_features(self):
+        """Test preprocessing fills NaN features."""
+        self.imputer.keep_empty_features = True
+        X = np.array([[1., 2., np.nan], [4., 5., np.nan]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.]]))
+
+    def test_preprocess_fill_missing_features(self):
+        """Test preprocessing fills other missing features."""
+        self.imputer.missing_values = -1
+        self.imputer.keep_empty_features = True
+        X = np.array([[1., 2., -1], [4., 5., -1]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.]]))
+
 class TestFit():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -190,10 +236,28 @@ class TestFit():
         self.imputer = CMImputer(n_components=1)
 
     def test_fitted(self):
-        """Test the is_fitted attribute."""
+        """Test the is_fitted_ attribute."""
         assert self.imputer.is_fitted_ == False
         self.imputer.fit(np.array([[1, 2, 3], [4, 5, 6]]))
         assert self.imputer.is_fitted_ == True
+
+    def test_n_features_in(self):
+        """Test the n_features_in_ attribute."""
+        assert self.imputer.n_features_in_ is None
+        self.imputer.fit(np.array([[1, 2, 3], [4, 5, 6]]))
+        assert self.imputer.n_features_in_ == 3
+
+    def test_feature_names_in(self):
+        """Test the feature_names_in_ attribute."""
+        assert self.imputer.feature_names_in_ is None
+        self.imputer.fit(pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]}))
+        assert np.array_equal(self.imputer.feature_names_in_, ["A", "B"])
+
+    def test_no_feature_names(self):
+        """Test the feature_names_in_ attribute without feature names."""
+        assert self.imputer.n_features_in_ is None
+        self.imputer.fit(np.array([[1, 2, 3], [4, 5, 6]]))
+        assert self.imputer.feature_names_in_ is None
 
     def test_fit_numpy(self):
         """Test fitting a NumPy array."""
@@ -341,7 +405,6 @@ class TestParams():
             max_iter=100,
             tol=1e-3,
             lr=0.01,
-            weight_sharing=False,
             smooth=False,
             random_state=42,
             verbose=2,
@@ -359,7 +422,6 @@ class TestParams():
         assert params["max_depth"] == 3
         assert params["max_iter"] == 100
         assert params["tol"] == 1e-3
-        assert params["weight_sharing"] == False
         assert params["smooth"] == False
         assert params["random_state"] == 42
         assert params["verbose"] == 2
@@ -376,7 +438,6 @@ class TestParams():
             max_iter=200,
             tol=1e-4,
             lr=0.001,
-            weight_sharing=True,
             smooth=True,
             random_state=43,
             verbose=1,
@@ -390,7 +451,6 @@ class TestParams():
         assert self.imputer.max_iter == 200
         assert self.imputer.tol == 1e-4
         assert self.imputer.lr == 0.001
-        assert self.imputer.weight_sharing == True
         assert self.imputer.smooth == True
         assert self.imputer.random_state == 43
         assert self.imputer.verbose == 1
