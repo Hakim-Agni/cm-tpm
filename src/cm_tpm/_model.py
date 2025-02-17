@@ -24,6 +24,7 @@ import networkx as nx
 #   Implement latent optimization for fine-tuning integration points
 #   Do some testing with accuracy/log likelihood etc.
 #   Choose optimal standard hyperparameters
+#   Add GPU acceleration
 
 class CM_TPM(nn.Module):
     def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, smooth=1e-6, random_state=None):
@@ -55,7 +56,7 @@ class CM_TPM(nn.Module):
             np.random.seed(random_state)
 
         # Neural network to generate PC parameters
-        self.phi_net = PhiNet(latent_dim, input_dim, net=net)
+        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net)
 
         # Create multiple PCs (one per component)
         self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim, smooth) for _ in range(num_components)])
@@ -180,8 +181,8 @@ class ChowLiuTreePC(BaseProbabilisticCircuit):
 
         for i in range(n_features):
             for j in range(i + 1, n_features):
-                mi = np.corrcoef(data[:, i], data[:, j])[0, 1]
-                mutual_info_matrix[i, j] = mutual_info_matrix[j, i] = mi
+                corr = np.corrcoef(data[:, i], data[:, j])[0, 1]
+                mutual_info_matrix[i, j] = mutual_info_matrix[j, i] = np.abs(corr)
 
         G = nx.Graph()
         for i in range(n_features):
@@ -241,9 +242,9 @@ class PhiNet(nn.Module):
         pc_param_dim: Dimensionality of the PC parameters.
         net (optional): A custom neural network.
     """
-    def __init__(self, latent_dim, pc_param_dim, net=None):
+    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None):
         super().__init__()
-        out_dim = pc_param_dim
+        out_dim = pc_param_dim if pc_type in ["factorized", "spn"] else pc_param_dim * 2
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
@@ -437,18 +438,18 @@ def impute_missing_values(
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
-    model = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
-    model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
+    model = train_cm_tpm(train_data, pc_type="clt", verbose=2)
+    # model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(x_incomplete, model, random_state=42)
-    x_imputed2 = impute_missing_values(x_incomplete, model2, random_state=42)
-    #print("Original Data:", train_data[:3])
-    #print("Data with missing:", x_incomplete)
+    x_imputed = impute_missing_values(x_incomplete, model)
+    # x_imputed2 = impute_missing_values(x_incomplete, model2, random_state=42)
+    print("Original Data:", train_data[:3])
+    print("Data with missing:", x_incomplete)
     print("Imputed values:", x_imputed)
-    print("Imputed values:", x_imputed2)
+    # print("Imputed values:", x_imputed2)
 
     # test_x = torch.randn(5, 10)  # Small test batch
     # test_pc = ChowLiuTreePC(input_dim=10)
