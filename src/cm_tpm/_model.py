@@ -10,7 +10,6 @@ import networkx as nx
 
 # TODO:
 #   Add settable mean and variance in rqmc sampler (?)
-#   Implement verbose and random_state
 #   Dealing with missing values in training data
 #   Data preprocessing 
 #       - scale numerical features
@@ -27,7 +26,7 @@ import networkx as nx
 #   Choose optimal standard hyperparameters
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, smooth=1e-6):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, smooth=1e-6, random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -36,6 +35,9 @@ class CM_TPM(nn.Module):
             input_dim: Dimensionality of input data.
             latent_dim: Dimensionality of latent variable z.
             num_components: Number of mixture components (integration points).
+            net (optional): A custom neural network for PC structure generation.
+            smooth (optional): A smooting parameter to avoid division by zero.
+            random_state (optional): Random seed for reproducibility.
 
         Attributes:
             phi_net: The neural network that is used to generate PCs.
@@ -46,6 +48,11 @@ class CM_TPM(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.num_components = num_components
+        self.random_state = random_state
+
+        if random_state is not None:
+            torch.manual_seed(random_state)
+            np.random.seed(random_state)
 
         # Neural network to generate PC parameters
         self.phi_net = PhiNet(latent_dim, input_dim, net=net)
@@ -266,7 +273,7 @@ class PhiNet(nn.Module):
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
         return self.net(z)
 
-def generate_rqmc_samples(num_samples, latent_dim):
+def generate_rqmc_samples(num_samples, latent_dim, random_state=None):
     """
     Generates samples using Randomized Quasi Monte Carlo.
     
@@ -278,7 +285,7 @@ def generate_rqmc_samples(num_samples, latent_dim):
         z_samples: The sampled values z of shape (num_samples, latent_dim)
         w: The weights for the mixture components
     """
-    sampler = qmc.Sobol(d=latent_dim, scramble=True)
+    sampler = qmc.Sobol(d=latent_dim, scramble=True, seed=random_state)
     z_samples = sampler.random(n=num_samples)
     z_samples = torch.tensor(qmc.scale(z_samples, -3, 3), dtype=torch.float32)  # Scale for Gaussian prior
     w = torch.full(size=(num_samples,), fill_value=1 / num_samples)     # Uniform weights
@@ -287,7 +294,7 @@ def generate_rqmc_samples(num_samples, latent_dim):
 def train_cm_tpm(
         train_data, 
         pc_type="factorized", 
-        latent_dim=4, 
+        latent_dim=16, 
         num_components=256,
         net=None, 
         epochs=100,
@@ -319,13 +326,13 @@ def train_cm_tpm(
         raise ValueError("NaN detected in training data. The training data cannot have missing values.")
     
     input_dim = train_data.shape[1]
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, smooth=smooth)
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, smooth=smooth, random_state=random_state)
 
     if verbose > 1:
         print(f"Finished building CM-TPM model with {num_components} components.")
 
     optimizer = optim.AdamW(model.parameters(), lr=lr)
-    z_samples, w = generate_rqmc_samples(num_components, latent_dim)    # This line inside or outside of loop?
+    z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)    # This line inside or outside of loop?
 
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
@@ -333,7 +340,7 @@ def train_cm_tpm(
     start_time = time.time()
     for epoch in range(epochs):
         start_time_epoch = time.time()
-        #z_samples, w = generate_rqmc_samples(num_components, latent_dim)
+        #z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
         x_batch = torch.tensor(train_data, dtype=torch.float32)
 
         optimizer.zero_grad()
@@ -401,7 +408,7 @@ def impute_missing_values(
         print(f"Starting with imputing data...")
     start_time = time.time()
 
-    z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim)
+    z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
     mask = ~torch.isnan(x_incomplete)
     x_filled = torch.where(mask, x_incomplete, torch.tensor(0.0, dtype=torch.float32))
@@ -430,15 +437,18 @@ def impute_missing_values(
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
-    model = train_cm_tpm(train_data, pc_type="factorized")
+    model = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
+    model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(x_incomplete, model)
-    print("Original Data:", train_data[:3])
-    print("Data with missing:", x_incomplete)
+    x_imputed = impute_missing_values(x_incomplete, model, random_state=42)
+    x_imputed2 = impute_missing_values(x_incomplete, model2, random_state=42)
+    #print("Original Data:", train_data[:3])
+    #print("Data with missing:", x_incomplete)
     print("Imputed values:", x_imputed)
+    print("Imputed values:", x_imputed2)
 
     # test_x = torch.randn(5, 10)  # Small test batch
     # test_pc = ChowLiuTreePC(input_dim=10)

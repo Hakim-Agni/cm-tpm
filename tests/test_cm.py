@@ -392,6 +392,17 @@ class TestTransform():
         assert X_imputed.shape == (2, 3)
         assert not np.any(X_imputed == -1)
 
+    def test_transform_seed(self):
+        imputer1 = CMImputer(n_components=1, random_state=42)
+        imputer2 = CMImputer(n_components=1, random_state=42)
+        X = np.array([[1., 2., 3.], [4., 5., 6.]])
+        imputer1.fit(X)
+        imputer2.fit(X)
+        X_missing = np.array([[np.nan, 2., 3.], [4., 5., 6.]])
+        X_imputed1 = imputer1.transform(X_missing)
+        X_imputed2 = imputer2.transform(X_missing)
+        assert np.array_equal(X_imputed1, X_imputed2)
+
 class TestParams():
     @pytest.fixture(autouse=True)
     def setup_method(self):
