@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,6 +16,7 @@ import networkx as nx
 #       - scale numerical features
 #       - handle categorical features
 #       - handle binary features
+#       - batches
 #   Add ways to use custom nets (layers etc)
 #   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
@@ -318,11 +320,19 @@ def train_cm_tpm(
     
     input_dim = train_data.shape[1]
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, smooth=smooth)
+
+    if verbose > 1:
+        print(f"Finished building CM-TPM model with {num_components} components.")
+
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     z_samples, w = generate_rqmc_samples(num_components, latent_dim)    # This line inside or outside of loop?
 
+    if verbose > 0:
+        print(f"Starting training with {epochs} epochs...")
     prev_loss = -float('inf')
+    start_time = time.time()
     for epoch in range(epochs):
+        start_time_epoch = time.time()
         #z_samples, w = generate_rqmc_samples(num_components, latent_dim)
         x_batch = torch.tensor(train_data, dtype=torch.float32)
 
@@ -333,6 +343,8 @@ def train_cm_tpm(
             raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
         
         if abs(loss - prev_loss) < tol:
+            if verbose > 1:
+                print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
             break
         prev_loss = loss
 
@@ -344,10 +356,17 @@ def train_cm_tpm(
        
         optimizer.step()
 
-        if epoch % 10 == 0:
-            print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
+        if verbose > 1:
+            print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}, Training time: {time.time() - start_time_epoch}")
+        elif verbose > 0:
+            if epoch % 10 == 0:
+                print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
 
-    print(f"Final Log-Likelihood: {-loss.item()}")
+    if verbose > 0:
+        print(f"Training complete.")
+        print(f"Final Log-Likelihood: {-loss.item()}")
+    if verbose > 1:
+        print(f"Total training time: {time.time() - start_time}")
     model._is_trained = True
     return model
 
@@ -378,6 +397,10 @@ def impute_missing_values(
     if x_incomplete.shape[1] != model.input_dim:
         raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")
     
+    if verbose > 0:
+        print(f"Starting with imputing data...")
+    start_time = time.time()
+
     z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim)
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
     mask = ~torch.isnan(x_incomplete)
@@ -395,6 +418,13 @@ def impute_missing_values(
     imputed_values = torch.mean(likelihoods, dim=0)
 
     x_imputed = torch.where(mask, x_incomplete, imputed_values)
+
+    if verbose > 0:
+        print(f"Finished imputing data.")
+        print(f"Succesfully imputed {torch.sum(~mask).item()} values.")
+    if verbose > 1:
+        print(f"Total imputation time: {time.time() - start_time}")
+
     return x_imputed.detach().cpu().numpy()
 
 # Example Usage
