@@ -20,6 +20,8 @@ class CMImputer:
         Number of components to use in the mixture model.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
+    missing_strategy: str, optional (default="integration"), allowed: "integration", "ignore"
+        The strategy to use for missing data in the training data. 
     net: nn.Sequential, optional (default=None)
         A custom neural network to use in the model.
     max_depth: int, optional (default=5)
@@ -69,6 +71,7 @@ class CMImputer:
             missing_values: int | float | str | None = np.nan,
             n_components: int = 10,
             pc_type: str = "factorized",
+            missing_strategy: str = "integration",
             net = None,
             max_depth: int = 5,
             max_iter: int = 100,
@@ -87,6 +90,7 @@ class CMImputer:
         self.missing_values = missing_values
         self.n_components = n_components
         self.pc_type = pc_type
+        self.missing_strategy = missing_strategy
         self.net = net
         self.max_depth = max_depth
         self.max_iter = max_iter
@@ -199,6 +203,7 @@ class CMImputer:
             pc_type=self.pc_type,
             latent_dim=4, 
             num_components=self.n_components, 
+            missing_strategy=self.missing_strategy,
             net=self.net,
             epochs=self.max_iter,
             tol=self.tol, 
@@ -310,6 +315,7 @@ class CMImputer:
             "missing_values": self.missing_values,
             "n_components": self.n_components,
             "pc_type": self.pc_type,
+            "missing_strategy": self.missing_strategy,
             "net": self.net,
             "max_depth": self.max_depth,
             "max_iter": self.max_iter,

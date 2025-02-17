@@ -27,7 +27,7 @@ import networkx as nx
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, smooth=1e-6, random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="integration", net=None, smooth=1e-6, random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -36,6 +36,7 @@ class CM_TPM(nn.Module):
             input_dim: Dimensionality of input data.
             latent_dim: Dimensionality of latent variable z.
             num_components: Number of mixture components (integration points).
+            missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "ignore").
             net (optional): A custom neural network for PC structure generation.
             smooth (optional): A smooting parameter to avoid division by zero.
             random_state (optional): Random seed for reproducibility.
@@ -49,7 +50,11 @@ class CM_TPM(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.num_components = num_components
+        self.missing_strategy = missing_strategy
         self.random_state = random_state
+
+        if missing_strategy not in ["integration", "ignore"]:
+            raise ValueError(f"Unknown missing values strategy: '{missing_strategy}', use one of the following: 'integration', 'ignore'.")
 
         if random_state is not None:
             torch.manual_seed(random_state)
@@ -81,16 +86,23 @@ class CM_TPM(nn.Module):
             raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({self.num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
         phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
-        
+        mask = ~torch.isnan(x)
+        x = torch.where(mask, x, torch.nanmean(x, dim=0, keepdim=True))
+
         likelihoods = []
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
             likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i)), shape: (batch_size)
-            
-            if torch.isnan(likelihood).any():
-                raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
 
-            likelihoods.append(likelihood * w[i])   # Add weighted likelihood to the list
+            if self.missing_strategy == "integration":
+                marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
+            elif self.missing_strategy == "ignore":
+                marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.tensor(1e-6).expand_as(mask))
+
+            if torch.isnan(marginalized_likelihood).any():
+                raise ValueError(f"NaN detected in likelihood at component {i}: {marginalized_likelihood}")
+
+            likelihoods.append(marginalized_likelihood * w[i])   # Add weighted likelihood to the list
 
         likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
         mixture_likelihood = torch.sum(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
@@ -297,6 +309,7 @@ def train_cm_tpm(
         pc_type="factorized", 
         latent_dim=16, 
         num_components=256,
+        missing_strategy="integration",
         net=None, 
         epochs=100,
         tol=1e-4, 
@@ -313,7 +326,8 @@ def train_cm_tpm(
         pc_type (optional): The type of PC to use (factorized, spn, clt).
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
-        net (optional): A custom neural network
+        missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "ignore").
+        net (optional): A custom neural network.
         epochs (optional): The number of training loops.
         tol (optional): Tolerance for the convergence criterion.
         lr (optional): The learning rate of the optimizer.
@@ -323,11 +337,11 @@ def train_cm_tpm(
     Returns:
         model: A trained CM-TPM model
     """
-    if np.isnan(train_data).any():
-        raise ValueError("NaN detected in training data. The training data cannot have missing values.")
+    # if np.isnan(train_data).any():
+    #     raise ValueError("NaN detected in training data. The training data cannot have missing values.")
     
     input_dim = train_data.shape[1]
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, smooth=smooth, random_state=random_state)
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, smooth=smooth, random_state=random_state)
 
     if verbose > 1:
         print(f"Finished building CM-TPM model with {num_components} components.")
@@ -438,13 +452,14 @@ def impute_missing_values(
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
-    model = train_cm_tpm(train_data, pc_type="clt", verbose=2)
+    train_data[999, 9] = np.nan
+    model = train_cm_tpm(train_data, pc_type="factorized", random_state=42, missing_strategy="ignore")
     # model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(x_incomplete, model)
+    x_imputed = impute_missing_values(x_incomplete, model, random_state=42)
     # x_imputed2 = impute_missing_values(x_incomplete, model2, random_state=42)
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)

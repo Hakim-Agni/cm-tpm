@@ -14,7 +14,8 @@ class TestCM_TPM():
             pc_type="factorized",
             input_dim=20,
             latent_dim=10,
-            num_components=64
+            num_components=64,
+            missing_strategy="ignore",
         )
 
     def test_instance(self):
@@ -30,6 +31,7 @@ class TestCM_TPM():
         assert self.model.pcs[0].input_dim == 20
         assert self.model.latent_dim == 10
         assert self.model.num_components == 64
+        assert self.model.missing_strategy == "ignore"
         assert isinstance(self.model.phi_net, PhiNet)
 
     def test_invalid_pc_type(self):
@@ -44,6 +46,20 @@ class TestCM_TPM():
             assert False
         except ValueError as e:
             assert str(e).startswith("Unknown PC type: 'some pc'")
+
+    def test_invalid_missing_strategy(self):
+        """Test instantiating a model with an invalid missing strategy"""
+        try:
+            model = CM_TPM(
+                pc_type="factorized",
+                input_dim=20,
+                latent_dim=10,
+                num_components=64,
+                missing_strategy="some strategy"
+            )
+            assert False
+        except ValueError as e:
+            assert str(e).startswith("Unknown missing values strategy: 'some strategy'")
 
     def test_forward(self):
         """"Test the forward function of the model"""
@@ -273,11 +289,15 @@ class TestTrainCM_TPM():
         """Test training data with missing values"""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
-        try:
-            model = train_cm_tpm(train_data=train_data, pc_type="spn", latent_dim=6, num_components=64, epochs=50, lr=0.01)
-            assert False
-        except ValueError as e:
-            assert str(e) == "NaN detected in training data. The training data cannot have missing values."
+        model = train_cm_tpm(train_data=train_data)
+        assert isinstance(model, CM_TPM)
+
+    def test_train_missing_values_other_strategy(self):
+        """Test training data with missing values using another missing values strategy"""
+        train_data = np.random.rand(100, 10)
+        train_data[0, 0] = np.nan
+        model = train_cm_tpm(train_data=train_data, missing_strategy="ignore")
+        assert isinstance(model, CM_TPM)
 
 class TestImpute():
     @pytest.fixture(autouse=True)

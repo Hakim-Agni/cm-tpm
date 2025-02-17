@@ -16,6 +16,7 @@ class TestClass:
             missing_values="",
             n_components=5,
             pc_type="spn",
+            missing_strategy="ignore",
             net=None,
             max_depth=3,
             max_iter=100,
@@ -30,6 +31,7 @@ class TestClass:
         assert imputer.missing_values == ""
         assert imputer.n_components == 5
         assert imputer.pc_type == "spn"
+        assert imputer.missing_strategy == "ignore"
         assert imputer.net == None
         assert imputer.max_depth == 3
         assert imputer.max_iter == 100
@@ -411,6 +413,7 @@ class TestParams():
             missing_values="",
             n_components=5,
             pc_type="spn",
+            missing_strategy="ignore",
             net=None,
             max_depth=3,
             max_iter=100,
@@ -429,6 +432,7 @@ class TestParams():
         assert params["missing_values"] == ""
         assert params["n_components"] == 5
         assert params["pc_type"] == "spn"
+        assert params["missing_strategy"] == "ignore"
         assert params["net"] is None
         assert params["max_depth"] == 3
         assert params["max_iter"] == 100
@@ -445,6 +449,7 @@ class TestParams():
             missing_values=np.nan, 
             n_components=10,
             pc_type="clt",
+            missing_strategy="integration",
             max_depth=5,
             max_iter=200,
             tol=1e-4,
@@ -458,6 +463,7 @@ class TestParams():
         assert np.isnan(self.imputer.missing_values)
         assert self.imputer.n_components == 10
         assert self.imputer.pc_type == "clt"
+        assert self.imputer.missing_strategy == "integration"
         assert self.imputer.max_depth == 5
         assert self.imputer.max_iter == 200
         assert self.imputer.tol == 1e-4
