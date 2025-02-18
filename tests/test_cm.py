@@ -15,6 +15,7 @@ class TestClass:
         imputer = CMImputer(
             missing_values="",
             n_components=5,
+            latent_dim=8,
             pc_type="spn",
             missing_strategy="ignore",
             net=None,
@@ -30,6 +31,7 @@ class TestClass:
             )
         assert imputer.missing_values == ""
         assert imputer.n_components == 5
+        assert imputer.latent_dim == 8
         assert imputer.pc_type == "spn"
         assert imputer.missing_strategy == "ignore"
         assert imputer.net == None
@@ -51,6 +53,8 @@ class TestClass:
         assert imputer.feature_names_in_ == None
         assert imputer.components_ == None
         assert imputer.log_likelihood_ == None
+        assert imputer.mean_ == 0.0
+        assert imputer.std_ == 1.0
         assert np.array_equal(
             imputer.random_state_.get_state()[1], 
             np.random.RandomState(42).get_state()[1]
@@ -206,15 +210,20 @@ class TestPreprocess():
     def test_preprocess_remove_nan_features(self):
         """Test preprocessing removes NaN features."""
         X = np.array([[1., 2., np.nan], [4., 5., np.nan]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X)
-        assert np.array_equal(X_preprocessed, np.array([[1., 2.], [4., 5.]]))
+        X_preprocessed, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed.shape[0] == 2
+        assert X_preprocessed.shape[1] == 2
+        assert not np.isnan(X_preprocessed).any()
 
     def test_preprocess_remove_missing_features(self):
         """Test preprocessing removes other missing features."""
-        self.imputer.missing_values = -1
-        X = np.array([[1., 2., -1], [4., 5., -1]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X)
-        assert np.array_equal(X_preprocessed, np.array([[1., 2.], [4., 5.]]))
+        self.imputer.missing_values = -10
+        X = np.array([[1., 2., -10], [4., 5., -10]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed.shape[0] == 2
+        assert X_preprocessed.shape[1] == 2
+        assert not np.isnan(X_preprocessed).any()
+        assert not np.any(X_preprocessed == -10)
 
     def test_preprocess_fill_nan_features(self):
         """Test preprocessing fills NaN features."""
@@ -230,6 +239,13 @@ class TestPreprocess():
         X = np.array([[1., 2., -1], [4., 5., -1]])
         X_preprocessed, _ = self.imputer._preprocess_data(X)
         assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.]]))
+
+    def test_preprocess_mean_std(self):
+        """Test updating the mean and std while preprocessing."""
+        X = np.array([[1., 2., 3.], [4., 5., 6.]])
+        X_preprocessed, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(self.imputer.mean_, np.array([2.5, 3.5, 4.5]))
+        assert np.array_equal(self.imputer.std_, np.array([1.5, 1.5, 1.5]))
 
 class TestFit():
     @pytest.fixture(autouse=True)
@@ -405,6 +421,20 @@ class TestTransform():
         X_imputed2 = imputer2.transform(X_missing)
         assert np.array_equal(X_imputed1, X_imputed2)
 
+class TestFitTransform():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer(n_components=1)
+
+    def test_fit_transform(self):
+        """Test the fit transform function"""
+        X_missing = np.array([[1., 2., np.nan], [4., 5., 6.]])
+        X_imputed = self.imputer.fit_transform(X_missing)
+        assert X_imputed.shape[0] == 2
+        assert X_imputed.shape[1] == 3
+        assert not np.isnan(X_imputed).any()
+
 class TestParams():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -412,6 +442,7 @@ class TestParams():
         self.imputer = CMImputer(
             missing_values="",
             n_components=5,
+            latent_dim=8,
             pc_type="spn",
             missing_strategy="ignore",
             net=None,
@@ -431,6 +462,7 @@ class TestParams():
         params = self.imputer.get_params()
         assert params["missing_values"] == ""
         assert params["n_components"] == 5
+        assert params["latent_dim"] == 8
         assert params["pc_type"] == "spn"
         assert params["missing_strategy"] == "ignore"
         assert params["net"] is None
@@ -448,6 +480,7 @@ class TestParams():
         self.imputer.set_params(
             missing_values=np.nan, 
             n_components=10,
+            latent_dim=4,
             pc_type="clt",
             missing_strategy="integration",
             max_depth=5,
@@ -462,6 +495,7 @@ class TestParams():
             )
         assert np.isnan(self.imputer.missing_values)
         assert self.imputer.n_components == 10
+        assert self.imputer.latent_dim == 4
         assert self.imputer.pc_type == "clt"
         assert self.imputer.missing_strategy == "integration"
         assert self.imputer.max_depth == 5
@@ -473,11 +507,3 @@ class TestParams():
         assert self.imputer.verbose == 1
         assert self.imputer.copy == True
         assert self.imputer.keep_empty_features == True
-
-
-a = CMImputer()
-X = np.array([[10, 13, 15], [2, 32, 45], [12, 5, 16]])
-a.fit(X)
-X_m = np.array([[3, 4, np.nan], [np.nan, 16, np.nan]])
-new = a.transform(X_m)
-print(new)

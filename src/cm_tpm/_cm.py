@@ -16,8 +16,10 @@ class CMImputer:
     ----------
     missing_values: float, optional (default=np.nan)
         The placeholder for missing values in the input data, all instances of missing_values will be imputed.
-    n_components: int, optional (default=10)
+    n_components: int, optional (default=8)
         Number of components to use in the mixture model.
+    latent_dim: int, optional (default=16)
+        Dimensionality of the latent variable.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
     missing_strategy: str, optional (default="integration"), allowed: "integration", "ignore"
@@ -55,6 +57,10 @@ class CMImputer:
         List of trained components in the mixture model.
     log_likelihood_: float
         Log likelihood of the data under the model.
+    mean_: float
+        The mean value for each feature observed during training.
+    std_: float
+        The standard deviation for each feature observed during training.
     random_state_: RandomState instance
         RandomState instance that is generated from a seed or a random number generator.
 
@@ -69,7 +75,8 @@ class CMImputer:
     def __init__(
             self,
             missing_values: int | float | str | None = np.nan,
-            n_components: int = 10,
+            n_components: int = 8,
+            latent_dim: int = 16,
             pc_type: str = "factorized",
             missing_strategy: str = "integration",
             net = None,
@@ -89,6 +96,7 @@ class CMImputer:
         # Parameters
         self.missing_values = missing_values
         self.n_components = n_components
+        self.latent_dim = latent_dim
         self.pc_type = pc_type
         self.missing_strategy = missing_strategy
         self.net = net
@@ -151,7 +159,7 @@ class CMImputer:
 
         if self.copy:
             X_transformed = X.copy()
-        #X_transformed = X_transformed.astype(float)     # Make sure the values are floats
+        X_transformed = X_transformed.astype(float)     # Make sure the values are floats
         
         # Set all instances of 'missing_values' to NaN
         if self.missing_values is not np.nan:
@@ -163,20 +171,21 @@ class CMImputer:
             X_transformed[:, empty_features] = 0
         else:
             # Remove columns that consist of only NaN
-            if train:
-                self.feature_names_in_ = self.feature_names_in_[~np.all(np.isnan(X_transformed), axis=0)] if self.feature_names_in_ else None
+            if train:       # If we are in training process, update feature names and number of features
+                self.feature_names_in_ = None if self.feature_names_in_ is None else self.feature_names_in_[~np.all(np.isnan(X_transformed), axis=0)]
                 X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
                 self.n_features_in_ = X_transformed.shape[1]
-            elif self.n_features_in_ and X_transformed.shape[1] != self.n_features_in_:
+            elif self.n_features_in_ and X_transformed.shape[1] != self.n_features_in_:     # Only remove features if they were also removed during training
                 X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
 
-        if train:
+        if train:       # Update the means and stds only during training
             self.mean_ = np.nanmean(X_transformed, axis=0)
-            self.mean_ = np.where(np.isnan(self.mean_), 0, self.mean_)
+            self.mean_ = np.where(np.isnan(self.mean_), 0, self.mean_)      # Replace mean NaNs with 0
             self.std_ = np.nanstd(X_transformed, axis=0)
-            self.std_ = np.where(np.isnan(self.std_), 1, self.std_)
-            self.std_[self.std_ == 0] = 1e-8
-        print(self.std_)
+            self.std_ = np.where(np.isnan(self.std_), 1, self.std_)         # Replace std NaNs with 1
+            self.std_[self.std_ == 0] = 1e-8        # Replace 0 with a small value to avoid zero division
+        
+        # Scale the data
         X_scaled = (X_transformed - self.mean_) / self.std_
         
         for i in range(X.shape[1]):  
@@ -217,7 +226,7 @@ class CMImputer:
         self.model = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
-            latent_dim=4, 
+            latent_dim=self.latent_dim, 
             num_components=self.n_components, 
             missing_strategy=self.missing_strategy,
             net=self.net,
@@ -309,11 +318,16 @@ class CMImputer:
             self.model,
             random_state=self.random_state,
             verbose = self.verbose,
-            )
+        )
         
+        # Scale the data back to the original
         X_scaled = (X_imputed * self.std_) + self.mean_
 
-        return X_scaled
+        # Make sure the original values remain the same
+        mask = ~np.isnan(X_preprocessed)
+        X_filled = np.where(mask, X, X_scaled)
+
+        return X_filled
     
     def get_feature_names_out(input_features=None):
         """
@@ -332,6 +346,7 @@ class CMImputer:
         return {
             "missing_values": self.missing_values,
             "n_components": self.n_components,
+            "latent_dim": self.latent_dim,
             "pc_type": self.pc_type,
             "missing_strategy": self.missing_strategy,
             "net": self.net,
