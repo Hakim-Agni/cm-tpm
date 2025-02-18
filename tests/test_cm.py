@@ -473,3 +473,11 @@ class TestParams():
         assert self.imputer.verbose == 1
         assert self.imputer.copy == True
         assert self.imputer.keep_empty_features == True
+
+
+a = CMImputer()
+X = np.array([[10, 13, 15], [2, 32, 45], [12, 5, 16]])
+a.fit(X)
+X_m = np.array([[3, 4, np.nan], [np.nan, 16, np.nan]])
+new = a.transform(X_m)
+print(new)

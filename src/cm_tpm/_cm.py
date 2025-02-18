@@ -108,6 +108,8 @@ class CMImputer:
         self.feature_names_in_ = None
         self.components_ = None
         self.log_likelihood_ = None
+        self.mean_ = 0.0
+        self.std_ = 1.0
         self.categorical_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
@@ -143,13 +145,13 @@ class CMImputer:
             return X_imputed.tolist()
         return X_imputed
     
-    def _preprocess_data(self, X: np.ndarray):
+    def _preprocess_data(self, X: np.ndarray, train: bool = False):
         """Preprocess the input data before imputation."""
         categorical_info = {}  
 
         if self.copy:
             X_transformed = X.copy()
-        X_transformed = X_transformed.astype(float)     # Make sure the values are floats
+        #X_transformed = X_transformed.astype(float)     # Make sure the values are floats
         
         # Set all instances of 'missing_values' to NaN
         if self.missing_values is not np.nan:
@@ -161,8 +163,22 @@ class CMImputer:
             X_transformed[:, empty_features] = 0
         else:
             # Remove columns that consist of only NaN
-            X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
+            if train:
+                self.feature_names_in_ = self.feature_names_in_[~np.all(np.isnan(X_transformed), axis=0)] if self.feature_names_in_ else None
+                X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
+                self.n_features_in_ = X_transformed.shape[1]
+            elif self.n_features_in_ and X_transformed.shape[1] != self.n_features_in_:
+                X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
 
+        if train:
+            self.mean_ = np.nanmean(X_transformed, axis=0)
+            self.mean_ = np.where(np.isnan(self.mean_), 0, self.mean_)
+            self.std_ = np.nanstd(X_transformed, axis=0)
+            self.std_ = np.where(np.isnan(self.std_), 1, self.std_)
+            self.std_[self.std_ == 0] = 1e-8
+        print(self.std_)
+        X_scaled = (X_transformed - self.mean_) / self.std_
+        
         for i in range(X.shape[1]):  
             col_data = X[:, i]
 
@@ -173,7 +189,7 @@ class CMImputer:
                 # X_transformed[:, i] = encoded_values
                 # categorical_info[i] = unique_values  # Store mapping of index → categories
 
-        return X_transformed.astype(float), categorical_info
+        return X_scaled.astype(float), categorical_info
 
     def fit(self, X: str | np.ndarray | pd.DataFrame | list, sep=",", decimal=".") -> "CMImputer":
         """
@@ -197,7 +213,7 @@ class CMImputer:
         self.feature_names_in_ = feature_names
 
         # Fit the model using X
-        X_preprocessed, self.categorical_info_ = self._preprocess_data(X)
+        X_preprocessed, self.categorical_info_ = self._preprocess_data(X, train=True)
         self.model = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
@@ -283,7 +299,7 @@ class CMImputer:
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
-        X_preprocessed, _ = self._preprocess_data(X)
+        X_preprocessed, _ = self._preprocess_data(X, train=False)
 
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
@@ -294,8 +310,10 @@ class CMImputer:
             random_state=self.random_state,
             verbose = self.verbose,
             )
+        
+        X_scaled = (X_imputed * self.std_) + self.mean_
 
-        return X_imputed
+        return X_scaled
     
     def get_feature_names_out(input_features=None):
         """
