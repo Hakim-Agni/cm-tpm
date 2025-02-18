@@ -292,11 +292,18 @@ class TestTrainCM_TPM():
         model = train_cm_tpm(train_data=train_data)
         assert isinstance(model, CM_TPM)
 
-    def test_train_missing_values_other_strategy(self):
-        """Test training data with missing values using another missing values strategy"""
+    def test_train_missing_values_ignore_strategy(self):
+        """Test training data with missing values using the ignore strategy"""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
         model = train_cm_tpm(train_data=train_data, missing_strategy="ignore")
+        assert isinstance(model, CM_TPM)
+
+    def test_train_missing_values_em_strategy(self):
+        """Test training data with missing values using the EM strategy"""
+        train_data = np.random.rand(100, 10)
+        train_data[0, 0] = np.nan
+        model = train_cm_tpm(train_data=train_data, missing_strategy="em")
         assert isinstance(model, CM_TPM)
 
 class TestImpute():

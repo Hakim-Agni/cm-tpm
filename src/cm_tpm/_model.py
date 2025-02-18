@@ -10,7 +10,6 @@ import networkx as nx
 
 # TODO:
 #   Add settable mean and variance in rqmc sampler (?)
-#   Dealing with missing values in training data
 #   Data preprocessing 
 #       - scale numerical features
 #       - handle categorical features
@@ -36,7 +35,7 @@ class CM_TPM(nn.Module):
             input_dim: Dimensionality of input data.
             latent_dim: Dimensionality of latent variable z.
             num_components: Number of mixture components (integration points).
-            missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "ignore").
+            missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "em", "ignore").
             net (optional): A custom neural network for PC structure generation.
             smooth (optional): A smooting parameter to avoid division by zero.
             random_state (optional): Random seed for reproducibility.
@@ -53,7 +52,7 @@ class CM_TPM(nn.Module):
         self.missing_strategy = missing_strategy
         self.random_state = random_state
 
-        if missing_strategy not in ["integration", "ignore"]:
+        if missing_strategy not in ["integration", "em", "ignore"]:
             raise ValueError(f"Unknown missing values strategy: '{missing_strategy}', use one of the following: 'integration', 'ignore'.")
 
         if random_state is not None:
@@ -98,6 +97,8 @@ class CM_TPM(nn.Module):
                 marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
             elif self.missing_strategy == "ignore":
                 marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.tensor(1e-6).expand_as(mask))
+            else:
+                marginalized_likelihood = likelihood
 
             if torch.isnan(marginalized_likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {marginalized_likelihood}")
@@ -326,7 +327,7 @@ def train_cm_tpm(
         pc_type (optional): The type of PC to use (factorized, spn, clt).
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
-        missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "ignore").
+        missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "em", "ignore").
         net (optional): A custom neural network.
         epochs (optional): The number of training loops.
         tol (optional): Tolerance for the convergence criterion.
@@ -337,9 +338,6 @@ def train_cm_tpm(
     Returns:
         model: A trained CM-TPM model
     """
-    # if np.isnan(train_data).any():
-    #     raise ValueError("NaN detected in training data. The training data cannot have missing values.")
-    
     input_dim = train_data.shape[1]
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, smooth=smooth, random_state=random_state)
 
@@ -347,42 +345,49 @@ def train_cm_tpm(
         print(f"Finished building CM-TPM model with {num_components} components.")
 
     optimizer = optim.AdamW(model.parameters(), lr=lr)
-    z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)    # This line inside or outside of loop?
 
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
     prev_loss = -float('inf')
     start_time = time.time()
-    for epoch in range(epochs):
-        start_time_epoch = time.time()
-        #z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
-        x_batch = torch.tensor(train_data, dtype=torch.float32)
 
-        optimizer.zero_grad()
-        loss = -model(x_batch, z_samples, w)
+    em_iters = 5 if missing_strategy == "em" and np.isnan(train_data).any() else 1
+    for em_iter in range(em_iters):
+        if verbose > 0 and em_iters > 1:
+            print(f"EM Iteration {em_iter + 1}/{em_iters}")
 
-        if torch.isnan(loss).any():
-            raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+        z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)    # This line inside or outside of epoch loop?
+        imputed_data = impute_missing_values(train_data, model, skip=True)
+        x_batch = torch.tensor(imputed_data, dtype=torch.float32)
+
+        for epoch in range(epochs):
+            start_time_epoch = time.time()
+
+            optimizer.zero_grad()
+            loss = -model(x_batch, z_samples, w)
+
+            if torch.isnan(loss).any():
+                raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+            
+            if abs(loss - prev_loss) < tol:
+                if verbose > 1:
+                    print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
+                break
+            prev_loss = loss
+
+            loss.backward()
+
+            for name, param in model.named_parameters():
+                if param.grad is not None and torch.isnan(param.grad).any():
+                    raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
         
-        if abs(loss - prev_loss) < tol:
+            optimizer.step()
+
             if verbose > 1:
-                print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
-            break
-        prev_loss = loss
-
-        loss.backward()
-
-        for name, param in model.named_parameters():
-            if param.grad is not None and torch.isnan(param.grad).any():
-                raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
-       
-        optimizer.step()
-
-        if verbose > 1:
-            print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}, Training time: {time.time() - start_time_epoch}")
-        elif verbose > 0:
-            if epoch % 10 == 0:
-                print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
+                print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}, Training time: {time.time() - start_time_epoch}")
+            elif verbose > 0:
+                if epoch % 10 == 0:
+                    print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
 
     if verbose > 0:
         print(f"Training complete.")
@@ -397,6 +402,7 @@ def impute_missing_values(
         model,
         random_state=None,
         verbose=0,
+        skip=False,
         ):
     """
     Imputes missing data using a specified model.
@@ -406,6 +412,7 @@ def impute_missing_values(
         model: A CM-TPM model to use for data imputation.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
+        skip (optional): Skips the model fitted check, used for EM.
 
     Returns:
         x_imputed: A copy of x_incomplete with the missing values imputed.
@@ -413,7 +420,7 @@ def impute_missing_values(
     if not np.isnan(x_incomplete).any():
         return x_incomplete
     
-    if not model._is_trained:
+    if not model._is_trained and not skip:
         raise ValueError("The model has not been fitted yet. Please call the fit method first.")
     
     if x_incomplete.shape[1] != model.input_dim:
@@ -453,7 +460,7 @@ def impute_missing_values(
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
     train_data[999, 9] = np.nan
-    model = train_cm_tpm(train_data, pc_type="factorized", random_state=42, missing_strategy="ignore")
+    model = train_cm_tpm(train_data, pc_type="factorized", random_state=42, missing_strategy="em", verbose=1)
     # model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
 
     x_incomplete = train_data[:3].copy()
