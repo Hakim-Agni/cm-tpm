@@ -1,4 +1,5 @@
 import pytest
+import math
 import numpy as np
 import pandas as pd
 import os.path
@@ -55,6 +56,8 @@ class TestClass:
         assert imputer.log_likelihood_ == None
         assert imputer.mean_ == 0.0
         assert imputer.std_ == 1.0
+        assert imputer.binary_info_ is None
+        assert imputer.categorical_info_ is None
         assert np.array_equal(
             imputer.random_state_.get_state()[1], 
             np.random.RandomState(42).get_state()[1]
@@ -195,32 +198,32 @@ class TestPreprocess():
 
     def test_preprocess_ints(self):
         """Test preprocessing an array with integers."""
-        X = np.array([[1, 2, 3], [4, 5, 6]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X)
-        assert np.array_equal(X_preprocessed, np.array([[1., 2., 3.], [4., 5., 6.]]))
+        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]))
 
     def test_preprocess_non_nan(self):
         """Test preprocessing an array with a different missing value than NaN."""
         self.imputer.missing_values = -1
-        X = np.array([[1., 2., -1], [4., 5., 6.]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X)
+        X = np.array([[1., 2., -1], [4., 5., 6.], [7., 8., 9.]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X)
         assert X.shape == X_preprocessed.shape
         assert np.isnan(X_preprocessed[0, 2])
 
     def test_preprocess_remove_nan_features(self):
         """Test preprocessing removes NaN features."""
-        X = np.array([[1., 2., np.nan], [4., 5., np.nan]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X, train=True)
-        assert X_preprocessed.shape[0] == 2
+        X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed.shape[0] == 3
         assert X_preprocessed.shape[1] == 2
         assert not np.isnan(X_preprocessed).any()
 
     def test_preprocess_remove_missing_features(self):
         """Test preprocessing removes other missing features."""
         self.imputer.missing_values = -10
-        X = np.array([[1., 2., -10], [4., 5., -10]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X, train=True)
-        assert X_preprocessed.shape[0] == 2
+        X = np.array([[1., 2., -10], [4., 5., -10], [7., 8., -10]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed.shape[0] == 3
         assert X_preprocessed.shape[1] == 2
         assert not np.isnan(X_preprocessed).any()
         assert not np.any(X_preprocessed == -10)
@@ -228,24 +231,43 @@ class TestPreprocess():
     def test_preprocess_fill_nan_features(self):
         """Test preprocessing fills NaN features."""
         self.imputer.keep_empty_features = True
-        X = np.array([[1., 2., np.nan], [4., 5., np.nan]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X)
-        assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.]]))
+        X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.], [7., 8., 0.]]))
 
     def test_preprocess_fill_missing_features(self):
         """Test preprocessing fills other missing features."""
         self.imputer.missing_values = -1
         self.imputer.keep_empty_features = True
-        X = np.array([[1., 2., -1], [4., 5., -1]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X)
-        assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.]]))
+        X = np.array([[1., 2., -1], [4., 5., -1], [7., 8., -1]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X)
+        assert np.array_equal(X_preprocessed, np.array([[1., 2., 0.], [4., 5., 0.], [7., 8., 0.]]))
 
     def test_preprocess_mean_std(self):
         """Test updating the mean and std while preprocessing."""
-        X = np.array([[1., 2., 3.], [4., 5., 6.]])
-        X_preprocessed, _ = self.imputer._preprocess_data(X, train=True)
-        assert np.array_equal(self.imputer.mean_, np.array([2.5, 3.5, 4.5]))
-        assert np.array_equal(self.imputer.std_, np.array([1.5, 1.5, 1.5]))
+        X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(self.imputer.mean_, np.array([4., 5., 6.]))
+        assert np.array_equal(self.imputer.std_, np.array([math.sqrt(6), math.sqrt(6), math.sqrt(6)]))
+
+    def test_preprocess_binary_info(self):
+        """Test if the binary info is set correctly during preprocessing"""
+        X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])
+        X_preprocessed, (binary_mask, _), _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(binary_mask, np.array([True, False, False]))
+        assert X_preprocessed[0, 0] == 0
+        assert X_preprocessed[1, 0] == 1
+        assert X_preprocessed[2, 0] == 0
+
+    # def test_preprocess_binary_string(self):
+    #     """Test if binary values are converted to 0/1."""
+    #     X = np.array([["Yes", 2., 3.], ["No", 5., 6.], ["Yes", 8., 9.]])
+    #     X_preprocessed, (binary_mask, _), _ = self.imputer._preprocess_data(X, train=True)
+    #     assert np.array_equal(binary_mask, np.array([True, False, False]))
+    #     assert X_preprocessed[0, 0] == 0
+    #     assert X_preprocessed[1, 0] == 1
+    #     assert X_preprocessed[2, 0] == 0
+
 
 class TestFit():
     @pytest.fixture(autouse=True)
@@ -333,7 +355,7 @@ class TestTransform():
 
     def test_transform_numpy(self):
         """Test the transform method on a NumPy array."""
-        X = np.array([[1, 2, 3], [4, 5, 6]])
+        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
         imputer = self.imputer.fit(X)
         X_missing = np.array([[np.nan, 2., 3.], [4., 5., 6.]])
         X_imputed = imputer.transform(X_missing)
@@ -355,7 +377,7 @@ class TestTransform():
 
     def test_transform_list(self):
         """Test the transform method on a list."""
-        X = [[1, 2, 3], [4, 5, 6]]
+        X = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         imputer = self.imputer.fit(X)
         X_missing = [[np.nan, 2., 3.], [4., 5., 6.]]
         X_imputed = imputer.transform(X_missing)
@@ -402,7 +424,7 @@ class TestTransform():
     def test_transform_non_nan(self):
         """Test the transform method with a different missing value than nan."""
         self.imputer.missing_values = -1
-        X = np.array([[1, 2, 3], [4, 5, 6]])
+        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
         imputer = self.imputer.fit(X)
         X_missing = np.array([[-1, 2., 3.], [4., 5., 6.]])
         X_imputed = imputer.transform(X_missing)
@@ -413,13 +435,24 @@ class TestTransform():
     def test_transform_seed(self):
         imputer1 = CMImputer(n_components=1, random_state=42)
         imputer2 = CMImputer(n_components=1, random_state=42)
-        X = np.array([[1., 2., 3.], [4., 5., 6.]])
+        X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
         imputer1.fit(X)
         imputer2.fit(X)
         X_missing = np.array([[np.nan, 2., 3.], [4., 5., 6.]])
         X_imputed1 = imputer1.transform(X_missing)
         X_imputed2 = imputer2.transform(X_missing)
         assert np.array_equal(X_imputed1, X_imputed2)
+
+    def test_transform_binary(self):
+        """Test the transform method with a binary feature"""
+        X = np.array([[1, 2, 3], [0, 5, 6], [0, 3, 2]])
+        imputer = self.imputer.fit(X)
+        X_missing = np.array([[np.nan, 2., 3.], [1, 5., 6.]])
+        X_imputed = imputer.transform(X_missing)
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (2, 3)
+        assert not np.isnan(X_imputed).any()
+        assert X_imputed[0, 0] == 0 or X_imputed[0, 0] == 1
 
 class TestFitTransform():
     @pytest.fixture(autouse=True)
@@ -429,9 +462,9 @@ class TestFitTransform():
 
     def test_fit_transform(self):
         """Test the fit transform function"""
-        X_missing = np.array([[1., 2., np.nan], [4., 5., 6.]])
+        X_missing = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
         X_imputed = self.imputer.fit_transform(X_missing)
-        assert X_imputed.shape[0] == 2
+        assert X_imputed.shape[0] == 3
         assert X_imputed.shape[1] == 3
         assert not np.isnan(X_imputed).any()
 

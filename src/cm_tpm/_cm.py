@@ -61,6 +61,10 @@ class CMImputer:
         The mean value for each feature observed during training.
     std_: float
         The standard deviation for each feature observed during training.
+    binary_info_: list
+        The information about binary features observed during training.
+    categorical_info_: list
+        The information about categorical features observed during training.
     random_state_: RandomState instance
         RandomState instance that is generated from a seed or a random number generator.
 
@@ -118,6 +122,7 @@ class CMImputer:
         self.log_likelihood_ = None
         self.mean_ = 0.0
         self.std_ = 1.0
+        self.binary_info_ = None
         self.categorical_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
@@ -153,12 +158,33 @@ class CMImputer:
             return X_imputed.tolist()
         return X_imputed
     
+    def _convert_binary_columns(self, X: np.ndarray):
+        """Converts binary categorical features into 0/1."""
+        X = np.array(X, dtype=str)
+        binary_mask = np.full(X.shape[1], False)
+        binary_info = {}
+
+        for i in range(X.shape[1]):
+            unique_values = np.unique(X[:, i])
+            if "nan" in unique_values:
+                unique_values = np.delete(unique_values, np.argwhere(unique_values=="nan"))
+
+            if len(unique_values) == 2:
+                binary_mask[i] = True
+                value_map = {unique_values[0]: 0, unique_values[1]: 1}
+                binary_info[i] = value_map
+                X[:, i] = [value_map[val] if val in value_map else np.nan for val in X[:, i]]
+
+        return X.astype(float), binary_mask, binary_info
+    
     def _preprocess_data(self, X: np.ndarray, train: bool = False):
         """Preprocess the input data before imputation."""
         categorical_info = {}  
 
         if self.copy:
             X_transformed = X.copy()
+
+        # TODO: Convert non-floats (e.g. strings) to floats using encoding
         X_transformed = X_transformed.astype(float)     # Make sure the values are floats
         
         # Set all instances of 'missing_values' to NaN
@@ -178,6 +204,14 @@ class CMImputer:
             elif self.n_features_in_ and X_transformed.shape[1] != self.n_features_in_:     # Only remove features if they were also removed during training
                 X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
 
+        # Check which features are binary features (only consisting of 0s and 1s)
+        binary_mask = np.array([
+            np.isin(np.unique(X_transformed[:, i][~np.isnan(X_transformed[:, i])]), [0, 1]).all()
+            for i in range(X_transformed.shape[1])
+        ])
+        binary_info = []
+        #X_transformed, binary_mask, binary_info = self._convert_binary_columns(X_transformed)
+
         if train:       # Update the means and stds only during training
             self.mean_ = np.nanmean(X_transformed, axis=0)
             self.mean_ = np.where(np.isnan(self.mean_), 0, self.mean_)      # Replace mean NaNs with 0
@@ -187,18 +221,19 @@ class CMImputer:
         
         # Scale the data
         X_scaled = (X_transformed - self.mean_) / self.std_
+        X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
         
-        for i in range(X.shape[1]):  
-            col_data = X[:, i]
+        # for i in range(X.shape[1]):  
+        #     col_data = X[:, i]
 
-            # Detect categorical columns (string or object)
-            if np.issubdtype(col_data.dtype, np.object_) or np.issubdtype(col_data.dtype, np.str_):
-                raise ValueError("Categorical columns are not supported yet.")
-                # unique_values, encoded_values = np.unique(col_data, return_inverse=True)
-                # X_transformed[:, i] = encoded_values
-                # categorical_info[i] = unique_values  # Store mapping of index → categories
+        #     # Detect categorical columns (string or object)
+        #     if np.issubdtype(col_data.dtype, np.object_) or np.issubdtype(col_data.dtype, np.str_):
+        #         raise ValueError("Categorical columns are not supported yet.")
+        #         # unique_values, encoded_values = np.unique(col_data, return_inverse=True)
+        #         # X_transformed[:, i] = encoded_values
+        #         # categorical_info[i] = unique_values  # Store mapping of index → categories
 
-        return X_scaled.astype(float), categorical_info
+        return X_scaled.astype(float), (binary_mask, binary_info), categorical_info
 
     def fit(self, X: str | np.ndarray | pd.DataFrame | list, sep=",", decimal=".") -> "CMImputer":
         """
@@ -222,7 +257,7 @@ class CMImputer:
         self.feature_names_in_ = feature_names
 
         # Fit the model using X
-        X_preprocessed, self.categorical_info_ = self._preprocess_data(X, train=True)
+        X_preprocessed, self.binary_info_, self.categorical_info_ = self._preprocess_data(X, train=True)
         self.model = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
@@ -308,10 +343,13 @@ class CMImputer:
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
-        X_preprocessed, _ = self._preprocess_data(X, train=False)
+        X_preprocessed, _, _ = self._preprocess_data(X, train=False)
+        print(X_preprocessed)
 
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
+
+        # Add checks that train and missing data are of similar types (same binary features etc.)
 
         X_imputed = impute_missing_values(
             X_preprocessed, 
@@ -319,14 +357,20 @@ class CMImputer:
             random_state=self.random_state,
             verbose = self.verbose,
         )
+        print(X_imputed)
         
         # Scale the data back to the original
         X_scaled = (X_imputed * self.std_) + self.mean_
 
+        # Round the binary features to the nearest option
+        binary_mask, binary_info = self.binary_info_
+        X_scaled[:, binary_mask] = np.round(X_imputed[:, binary_mask])
+        print(X_scaled)
+
         # Make sure the original values remain the same
         mask = ~np.isnan(X_preprocessed)
         X_filled = np.where(mask, X, X_scaled)
-
+        print(X_filled)
         return X_filled
     
     def get_feature_names_out(input_features=None):
