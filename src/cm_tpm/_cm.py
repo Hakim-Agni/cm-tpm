@@ -209,6 +209,35 @@ class CMImputer:
             return restored
         except ValueError:
             return restored
+        
+    def _check_consistency(self, X: np.ndarray):
+        """Ensures that the input data is consistent with the training data."""
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f"Mismatch in number of features. Expected {self.n_features_in_}, got {X.shape[1]}.")
+        
+        mask, info = self.encoding_info_
+        for i in range(X.shape[1]):
+            if mask[i]:     # Feature is categorical
+                if self._all_numeric(X[:, i]):
+                    raise ValueError(f"Feature {i} was categorical during training but numeric in new data.")
+                
+                enc_info = info[i]
+                # If there are new non-binary feature values in the input data, update the encoding info
+                next_index = max(enc_info.values(), default=-1) + 1
+                for val in X[:, i]:
+                    if val not in enc_info and not self.binary_info_[i] and val != "nan":
+                        enc_info[val] = next_index
+                        next_index += 1
+
+                # Apply the same encoding
+                X[:, i] = [enc_info[val] if val in enc_info else np.nan for val in X[:, i]]
+
+            else:       # Feature is numeric
+                if not self._all_numeric(X[:, i]):
+                    raise ValueError(f"Feature {i} was numeric during training but categorical in new data.")
+
+        return X.astype(float), mask, info
+
     
     def _preprocess_data(self, X: np.ndarray, train: bool = False):
         """Preprocess the input data before imputation."""
@@ -217,13 +246,22 @@ class CMImputer:
         if self.copy:
             X_transformed = X.copy()
 
-        # TODO: Convert non-floats (e.g. strings) to floats using encoding
-        X_transformed, encoding_mask, encoding_info = self._integer_encoding(X_transformed)
-        #X_transformed = X_transformed.astype(float)     # Make sure the values are floats
-        
         # Set all instances of 'missing_values' to NaN
         if self.missing_values is not np.nan:
-            X_transformed[X_transformed == self.missing_values] = np.nan
+            try:
+                # If the data is numerical, set np.nan
+                X_transformed = X_transformed.astype(float)
+                X_transformed[X_transformed == self.missing_values] = np.nan
+            except ValueError:
+                # If the data is not numerical, set string 'nan'
+                X_transformed[X_transformed == self.missing_values] = "nan"
+
+        # TODO: Convert non-floats (e.g. strings) to floats using encoding
+        if train:
+            X_transformed, encoding_mask, encoding_info = self._integer_encoding(X_transformed)
+        else:
+            X_transformed, encoding_mask, encoding_info = self._check_consistency(X_transformed)
+        self.encoding_info_ = (encoding_mask, encoding_info)
 
         if self.keep_empty_features:
             # Fill columns that consist of only NaN with 0 
@@ -380,8 +418,6 @@ class CMImputer:
 
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
-
-        # Add checks that train and missing data are of similar types (same binary features etc.)
 
         X_imputed = impute_missing_values(
             X_preprocessed, 
