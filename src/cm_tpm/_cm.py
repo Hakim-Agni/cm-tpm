@@ -414,7 +414,6 @@ class CMImputer:
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
         X_preprocessed, _, _, _ = self._preprocess_data(X, train=False)
-        print(X_preprocessed)
 
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
@@ -425,14 +424,12 @@ class CMImputer:
             random_state=self.random_state,
             verbose = self.verbose,
         )
-        print(X_imputed)
         
         # Scale the data back to the original
         X_scaled = (X_imputed * self.std_) + self.mean_
 
         # Round the binary features to the nearest option
         X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
-        print(X_scaled)
 
         encoding_mask, encoding_info = self.encoding_info_
         X_decoded = self._restore_encoding(X_scaled, encoding_mask, encoding_info)
@@ -440,7 +437,6 @@ class CMImputer:
         # Make sure the original values remain the same
         mask = ~np.isnan(X_preprocessed)
         X_filled = np.where(mask, X, X_decoded)
-        print(X_filled)
         return X_filled
     
     def get_feature_names_out(input_features=None):

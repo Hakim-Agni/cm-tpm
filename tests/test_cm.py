@@ -657,6 +657,16 @@ class TestTransform():
         assert not np.isnan(X_imputed).any()
         assert X_imputed[0, 0] == 0 or X_imputed[0, 0] == 1
 
+    def test_transform_non_numeric(self):
+        """Test the transform method with a non-numerical feature."""
+        X = np.array([["High", 2, 3], ["Medium", 5, 6], ["Low", 3, 2]])
+        imputer = self.imputer.fit(X)
+        X_missing = np.array([[np.nan, 2., 3.], ["Low", 5., 6.]])
+        X_imputed = imputer.transform(X_missing)
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (2, 3)
+        assert X_imputed[0, 0] == "High" or X_imputed[0, 0] == "Medium" or X_imputed[0, 0] == "Low"
+
 class TestFitTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
