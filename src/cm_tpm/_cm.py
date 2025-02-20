@@ -123,6 +123,7 @@ class CMImputer:
         self.mean_ = 0.0
         self.std_ = 1.0
         self.binary_info_ = None
+        self.encoding_info_ = None
         self.categorical_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
@@ -158,24 +159,56 @@ class CMImputer:
             return X_imputed.tolist()
         return X_imputed
     
-    def _convert_binary_columns(self, X: np.ndarray):
-        """Converts binary categorical features into 0/1."""
-        X = np.array(X, dtype=str)
-        binary_mask = np.full(X.shape[1], False)
-        binary_info = {}
+    def _all_numeric(self, X: np.ndarray):
+        """Checks if all values in a 1D array are numerical."""
+        for x in X:
+            try:
+                float(x)
+            except ValueError:
+                return False
+        return True
 
+    def _integer_encoding(self, X: np.ndarray):
+        """Converts Non-numeric features into integers."""
+        encoding_mask = np.full(X.shape[1], False)
+        encoding_info = {}
+        
+        try:
+            # If all values are numerical, return the input array.
+            X = X.astype(float)
+            return X, encoding_mask, encoding_info
+        except ValueError:
+            # Look at each column seperately
+            for i in range(X.shape[1]):
+                if not self._all_numeric(X[:, i]):
+                    # Get unique values in column
+                    unique_values = np.unique(X[:, i])
+                    if "nan" in unique_values:      # Remove NaN from unique values
+                        unique_values = np.delete(unique_values, np.argwhere(unique_values=="nan"))
+                        
+                    encoding_mask[i] = True
+                    value_map = {unique_values[i]: i for i in range(len(unique_values))}    # Create value map for unique values
+                    encoding_info[i] = value_map
+                    X[:, i] = [value_map[val] if val in value_map else np.nan for val in X[:, i]]   # Apply value map to array
+
+        return X.astype(float), encoding_mask, encoding_info
+    
+    def _restore_encoding(self, X: np.ndarray, mask, info):
+        """Restores encoded features to the original type."""
+        restored = X.copy()
+        restored = restored.astype(str)
+        
         for i in range(X.shape[1]):
-            unique_values = np.unique(X[:, i])
-            if "nan" in unique_values:
-                unique_values = np.delete(unique_values, np.argwhere(unique_values=="nan"))
+            if mask[i]:  # Restore only encoded columns
+                reverse_map = {v: k for k, v in info[i].items()}  # Reverse integer mapping
+                restored[:, i] = [reverse_map.get(round(val), np.nan) if not np.isnan(val) else np.nan 
+                                    for val in X[:, i]]
 
-            if len(unique_values) == 2:
-                binary_mask[i] = True
-                value_map = {unique_values[0]: 0, unique_values[1]: 1}
-                binary_info[i] = value_map
-                X[:, i] = [value_map[val] if val in value_map else np.nan for val in X[:, i]]
-
-        return X.astype(float), binary_mask, binary_info
+        try:
+            restored = restored.astype(float)
+            return restored
+        except ValueError:
+            return restored
     
     def _preprocess_data(self, X: np.ndarray, train: bool = False):
         """Preprocess the input data before imputation."""
@@ -185,7 +218,8 @@ class CMImputer:
             X_transformed = X.copy()
 
         # TODO: Convert non-floats (e.g. strings) to floats using encoding
-        X_transformed = X_transformed.astype(float)     # Make sure the values are floats
+        X_transformed, encoding_mask, encoding_info = self._integer_encoding(X_transformed)
+        #X_transformed = X_transformed.astype(float)     # Make sure the values are floats
         
         # Set all instances of 'missing_values' to NaN
         if self.missing_values is not np.nan:
@@ -209,8 +243,6 @@ class CMImputer:
             np.isin(np.unique(X_transformed[:, i][~np.isnan(X_transformed[:, i])]), [0, 1]).all()
             for i in range(X_transformed.shape[1])
         ])
-        binary_info = []
-        #X_transformed, binary_mask, binary_info = self._convert_binary_columns(X_transformed)
 
         if train:       # Update the means and stds only during training
             self.mean_ = np.nanmean(X_transformed, axis=0)
@@ -233,7 +265,7 @@ class CMImputer:
         #         # X_transformed[:, i] = encoded_values
         #         # categorical_info[i] = unique_values  # Store mapping of index → categories
 
-        return X_scaled.astype(float), (binary_mask, binary_info), categorical_info
+        return X_scaled.astype(float), binary_mask, (encoding_mask, encoding_info), categorical_info
 
     def fit(self, X: str | np.ndarray | pd.DataFrame | list, sep=",", decimal=".") -> "CMImputer":
         """
@@ -257,7 +289,7 @@ class CMImputer:
         self.feature_names_in_ = feature_names
 
         # Fit the model using X
-        X_preprocessed, self.binary_info_, self.categorical_info_ = self._preprocess_data(X, train=True)
+        X_preprocessed, self.binary_info_, self.encoding_info_, self.categorical_info_ = self._preprocess_data(X, train=True)
         self.model = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
@@ -343,7 +375,7 @@ class CMImputer:
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
-        X_preprocessed, _, _ = self._preprocess_data(X, train=False)
+        X_preprocessed, _, _, _ = self._preprocess_data(X, train=False)
         print(X_preprocessed)
 
         if not np.any(np.isnan(X_preprocessed)):
@@ -363,13 +395,15 @@ class CMImputer:
         X_scaled = (X_imputed * self.std_) + self.mean_
 
         # Round the binary features to the nearest option
-        binary_mask, binary_info = self.binary_info_
-        X_scaled[:, binary_mask] = np.round(X_imputed[:, binary_mask])
+        X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
         print(X_scaled)
+
+        encoding_mask, encoding_info = self.encoding_info_
+        X_decoded = self._restore_encoding(X_scaled, encoding_mask, encoding_info)
 
         # Make sure the original values remain the same
         mask = ~np.isnan(X_preprocessed)
-        X_filled = np.where(mask, X, X_scaled)
+        X_filled = np.where(mask, X, X_decoded)
         print(X_filled)
         return X_filled
     
