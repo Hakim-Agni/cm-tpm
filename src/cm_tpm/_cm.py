@@ -409,8 +409,6 @@ class CMImputer:
 
         # Decode the non-numerical features
         encoding_mask, encoding_info = self.encoding_info_
-
-        # TODO: What happens when binary value is a known value (e.g. 111 = 7, but only 6 known values for the feature)
         X_decoded = _restore_binary_encoding(X_scaled, self.bin_encoding_info_)
         X_decoded = _restore_encoding(X_decoded, encoding_mask, encoding_info)
 

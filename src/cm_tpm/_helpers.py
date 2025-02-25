@@ -116,7 +116,7 @@ def _binary_encoding(X: np.ndarray, mask, info):
                     X_new[j] = np.nan if np.isnan(X[j, i]) else bin_vals[int(X[j, i])]
 
                 replacing[i] = X_new  # Store transformed binary columns
-                bin_info.append(num_cols)   # Store binary encoding info
+                bin_info.append([num_cols, n_unique])   # Store binary encoding info
             else:
                 bin_info.append(-1)
 
@@ -131,7 +131,7 @@ def _binary_encoding(X: np.ndarray, mask, info):
         X_encoded = np.hstack(X_transformed)  # Combine into final array
         return X_encoded, bin_info
     
-def _restore_binary_encoding(X: np.ndarray, info):
+def _restore_binary_encoding(X: np.ndarray, info, X_prob: np.ndarray):
     """Restores the binary encoding for encoded features."""
     X = X.astype(str)
     restored = np.zeros((X.shape[0], len(info)))
@@ -139,15 +139,28 @@ def _restore_binary_encoding(X: np.ndarray, info):
     for i in range(len(info)):
         if info[i] != -1:       # If the column is binary encoded, continue
             # Create reverse binary mappings
-            bin_map = {format(val, f'0{info[i]}b'): val for val in range(2**info[i])}
+            bin_map = {format(val, f'0{info[i][0]}b'): val for val in range(2**info[i][0])}
 
             for j in range(X.shape[0]):     # Look at each row seperately
                 bin_value = ""
-                for n in range(info[i]):       # Obtain the binary value from multiple columns
+                for n in range(info[i][0]):       # Obtain the binary value from multiple columns
                     bin_value += X[j, i+n][0]
-                restored[j, i] = bin_map.get(bin_value)
+                int_value = bin_map.get(bin_value)
+            
+                while int_value > info[i][1]:   # Check if the value exceeds the maximum value for this feature
+                    one_indices = np.where(X_prob[j] >= 0.5)[0]     # Get the indices of values that are rounded to 1
+                    min_pos = one_indices[np.argmin(X_prob[j][one_indices])]    # Get the position of the lowest probability that is rounded to 1
+                    X[j, min_pos] = "0.0"       # Set the lowest probability to 0 to reduce the integer value
+                    X_prob[j, min_pos] = 0.0    # Update for future loops
+
+                    bin_value = ""      # Same steps for obtaining integer value
+                    for n in range(info[i][0]):     
+                        bin_value += X[j, i+n][0]
+                    int_value = bin_map.get(bin_value)
+
+                restored[j, i] = int_value
                 
-            for _ in range(1, info[i]):        # Remove binary rows for future loops
+            for _ in range(1, info[i][0]):        # Remove binary rows for future loops
                 X = np.delete(X, i+1, 1)
         else:
             restored[:, i] = X[:, i]

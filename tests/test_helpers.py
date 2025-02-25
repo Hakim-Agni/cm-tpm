@@ -217,7 +217,7 @@ class testBinaryEncoding():
         info = {0: {np.str_("No"): 0, np.str_("Yes"): 1}}
         X_encoded, bin_info = _binary_encoding(X, mask, info)
         assert np.array_equal(X, X_encoded)
-        assert bin_info == [1, -1, -1]
+        assert bin_info == [[1, 1], -1, -1]
 
     def test_non_numerical_features(self):
         """Test the binary encoding on non-numerical features"""
@@ -227,7 +227,7 @@ class testBinaryEncoding():
         X_encoded, bin_info = _binary_encoding(X, mask, info)
         assert np.array_equal(X_encoded[:2], np.array([[0, 0], [0, 1], [1, 0]]))
         assert np.array_equal(X_encoded[2:], X[1:])
-        assert bin_info == [2, -1, -1]
+        assert bin_info == [[2, 2], -1, -1]
 
     def test_larger_non_numerical_features(self):
         """Test the binary encoding on more non-numerical features"""
@@ -240,28 +240,28 @@ class testBinaryEncoding():
         assert np.array_equal(X_encoded[:3], np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 1], 
                                                        [1, 1, 1], [1, 0, 0], [1, 1, 0], [0, 1, 1]]))
         assert np.array_equal(X_encoded[3:], X[1:])
-        assert bin_info == [3, -1, -1]
+        assert bin_info == [[3, 7], -1, -1]
 
 class TestRestoreBinary():
     def test_restore_none(self):
         """Test the restore function when nothing needs to be restored."""
         X_encoded = np.array([[0.2, 2., 0.8], [0.1, 1., 0.4], [0.6, 1.4, 0.5]])
         info = [-1, -1, -1]
-        X_decoded = _restore_binary_encoding(X_encoded, info)
+        X_decoded = _restore_binary_encoding(X_encoded, info, None)
         assert np.array_equal(X_encoded, X_decoded)
 
     def test_restore_binary(self):
         """Test the restore function on a binary feature."""
         X_encoded = np.array([[0.2, 0., 0.8], [0.1, 1., 0.4], [0.6, 0., 0.5]])
-        info = [-1, 1, -1]
-        X_decoded = _restore_binary_encoding(X_encoded, info)
+        info = [-1, [1, 1], -1]
+        X_decoded = _restore_binary_encoding(X_encoded, info, None)
         assert np.array_equal(X_encoded, X_decoded)
 
     def test_restore_non_numerical(self):
         """Test the restore function on a non_numerical feature."""
         X_encoded = np.array([[0.2, 0., 0., 0.8], [0.1, 1., 0., 0.4], [0.6, 1., 1., 0.5]])
-        info = [-1, 2, -1]
-        X_decoded = _restore_binary_encoding(X_encoded, info)
+        info = [-1, [2, 3], -1]
+        X_decoded = _restore_binary_encoding(X_encoded, info, None)
         assert np.array_equal(X_decoded[:, 0], X_encoded[:, 0])
         assert np.array_equal(X_decoded[:, 2], X_encoded[:, 3])
         assert np.array_equal(X_decoded[:, 1], np.array([0., 2., 3.]))
@@ -270,9 +270,21 @@ class TestRestoreBinary():
         """Test the restore function on a non_numerical feature."""
         X_encoded = np.array([[0.2, 0., 0., 0., 0., 1., 0.8], [0.1, 1., 0., 1., 0., 1., 0.4], 
                               [0.6, 1., 1., 0., 1., 1., 0.5]])
-        info = [-1, 2, 3, -1]
-        X_decoded = _restore_binary_encoding(X_encoded, info)
+        info = [-1, [2, 3], [3, 5], -1]
+        X_decoded = _restore_binary_encoding(X_encoded, info, None)
         assert np.array_equal(X_decoded[:, 0], X_encoded[:, 0])
         assert np.array_equal(X_decoded[:, 3], X_encoded[:, 6])
         assert np.array_equal(X_decoded[:, 1], np.array([0., 2., 3.]))
         assert np.array_equal(X_decoded[:, 2], np.array([1., 5., 3.]))
+
+    def test_restore_exceeds_maximum(self):
+        """Test the restore function when the decoded integer exceeds the maximum value."""
+        X_encoded = np.array([[0.2, 0., 0., 1., 0.8], [0.1, 1., 0., 1., 0.4], 
+                              [0.6, 0., 1., 1., 0.5]])
+        X_probs = np.array([[0.2, 0.1, 0.3, 0.83, 0.8], [0.1, 0.84, 0.1, 0.56, 0.4], 
+                              [0.6, 0.3, 0.9, 0.8, 0.5]])
+        info = [-1, [3, 4], -1]
+        X_decoded = _restore_binary_encoding(X_encoded, info, None)
+        assert np.array_equal(X_decoded[:, 0], X_encoded[:, 0])
+        assert np.array_equal(X_decoded[:, 2], X_encoded[:, 4])
+        assert np.array_equal(X_decoded[:, 1], np.array([1., 4., 3.]))

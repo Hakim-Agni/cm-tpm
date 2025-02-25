@@ -64,182 +64,6 @@ class TestClass:
             np.random.RandomState(42).get_state()[1]
         )  
 
-class TestConsistency():
-    @pytest.fixture(autouse=True)
-    def setup_method(self):
-        """Setup method for the test class."""
-        self.imputer = CMImputer()
-
-    def test_consistent(self):
-        """Test an instance where the training and input data are consistent."""
-        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
-        self.imputer.n_features_in_ = 4
-        self.imputer.binary_info_ = np.array([False, False, True, False])
-        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
-                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
-        X_missing = np.array([[5, np.nan, "No", "High"], [3, 0.5, "No", np.nan], [12, 0.15, "No", "Low"]])
-        X, mask, info = self.imputer._check_consistency(X_missing)
-        assert X.shape == X_missing.shape
-        assert self.imputer.encoding_info_ == (mask, info)
-
-    def test_inconsistent_features(self):
-        """Test an instance where the training and input data have a different amount of features."""
-        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
-        self.imputer.n_features_in_ = 4
-        self.imputer.binary_info_ = np.array([False, False, True, False])
-        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
-                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
-        X_missing = np.array([[5, np.nan, "No"], [3, 0.5, "No"], [12, 0.15, "No"]])
-        try:
-            X, mask, info = self.imputer._check_consistency(X_missing)
-            assert False
-        except ValueError as e:
-            assert str(e) == "Mismatch in number of features. Expected 4, got 3."
-
-    def test_inconsistent_cat_to_num(self):
-        """Test an instance where the training and input data have a different features (categorical to numerical)."""
-        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
-        self.imputer.n_features_in_ = 4
-        self.imputer.binary_info_ = np.array([False, False, True, False])
-        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
-                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
-        X_missing = np.array([[5, np.nan, 0, "High"], [3, 0.5, 1, np.nan], [12, 0.15, 0, "Low"]])
-        try:
-            X, mask, info = self.imputer._check_consistency(X_missing)
-            assert False
-        except ValueError as e:
-            assert str(e) == "Feature 2 was categorical during training but numeric in new data."
-
-    def test_inconsistent_num_to_cat(self):
-        """Test an instance where the training and input data have a different features (numerical to categorical)."""
-        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
-        self.imputer.n_features_in_ = 4
-        self.imputer.binary_info_ = np.array([False, False, True, False])
-        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
-                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
-        X_missing = np.array([["Yes", np.nan, "No", "High"], ["No", 0.5, "No", np.nan], ["Maybe", 0.15, "No", "Low"]])
-        try:
-            X, mask, info = self.imputer._check_consistency(X_missing)
-            assert False
-        except ValueError as e:
-            assert str(e) == "Feature 0 was numeric during training but categorical in new data."
-
-    def test_update_encoding(self):
-        """Test an instance where the training data adds a new value to a categorical feature."""
-        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
-        self.imputer.n_features_in_ = 4
-        self.imputer.binary_info_ = np.array([False, False, True, False])
-        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
-                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
-        X_missing = np.array([[5, np.nan, "No", "Extremely High"], [3, 0.5, "No", np.nan], [12, 0.15, "No", "Low"]])
-        X, mask, info = self.imputer._check_consistency(X_missing)
-        assert X.shape == X_missing.shape
-        assert np.array_equal(mask, np.array([False, False, True, True]))
-        assert info == {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2, np.str_("Extremely High"): 3}}
-        assert X[0, 3] == 3
-
-class TestPreprocess():
-    @pytest.fixture(autouse=True)
-    def setup_method(self):
-        """Setup method for the test class."""
-        self.imputer = CMImputer()
-
-    def test_preprocess_ints(self):
-        """Test preprocessing an array with integers."""
-        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert isinstance(X_preprocessed, np.ndarray)
-
-    def test_preprocess_nan(self):
-        """Test preprocessing an array with a missing value."""
-        X = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert X.shape == X_preprocessed.shape
-        assert np.isnan(X_preprocessed[0, 2])
-
-    def test_preprocess_non_nan(self):
-        """Test preprocessing an array with a different missing value than NaN."""
-        self.imputer.missing_values = -1
-        X = np.array([[1., 2., -1], [4., 5., 6.], [7., 8., 9.]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert X.shape == X_preprocessed.shape
-        assert np.isnan(X_preprocessed[0, 2])
-
-    def test_preprocess_remove_nan_features(self):
-        """Test preprocessing removes NaN features."""
-        X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert X_preprocessed.shape[0] == 3
-        assert X_preprocessed.shape[1] == 2
-        assert not np.isnan(X_preprocessed).any()
-
-    def test_preprocess_remove_missing_features(self):
-        """Test preprocessing removes other missing features."""
-        self.imputer.missing_values = -10
-        X = np.array([[1., 2., -10], [4., 5., -10], [7., 8., -10]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert X_preprocessed.shape[0] == 3
-        assert X_preprocessed.shape[1] == 2
-        assert not np.isnan(X_preprocessed).any()
-        assert not np.any(X_preprocessed == -10)
-
-    def test_preprocess_fill_nan_features(self):
-        """Test preprocessing fills NaN features."""
-        self.imputer.keep_empty_features = True
-        X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert X_preprocessed[0, 2] == 0
-        assert X_preprocessed[1, 2] == 0 
-        assert X_preprocessed[2, 2] == 0 
-
-    def test_preprocess_fill_missing_features(self):
-        """Test preprocessing fills other missing features."""
-        self.imputer.missing_values = -1
-        self.imputer.keep_empty_features = True
-        X = np.array([[1., 2., -1], [4., 5., -1], [7., 8., -1]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert X_preprocessed[0, 2] == 0
-        assert X_preprocessed[1, 2] == 0 
-        assert X_preprocessed[2, 2] == 0 
-
-    def test_preprocess_mean_std(self):
-        """Test updating the mean and std while preprocessing."""
-        X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert np.array_equal(self.imputer.mean_, np.array([4., 5., 6.]))
-        assert np.array_equal(self.imputer.std_, np.array([math.sqrt(6), math.sqrt(6), math.sqrt(6)]))
-
-    def test_preprocess_binary_info(self):
-        """Test if the binary info is set correctly during preprocessing"""
-        X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])
-        X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
-        assert np.array_equal(binary_mask, np.array([True, False, False]))
-        assert X_preprocessed[0, 0] == 0
-        assert X_preprocessed[1, 0] == 1
-        assert X_preprocessed[2, 0] == 0
-
-    def test_preprocess_binary_string(self):
-        """Test if binary values are converted to 0/1."""
-        X = np.array([["Yes", 2., 3.], ["No", 5., 6.], ["Yes", 8., 9.]])
-        X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
-        assert np.array_equal(binary_mask, np.array([True, False, False]))
-        assert X_preprocessed[0, 0] == 1
-        assert X_preprocessed[1, 0] == 0
-        assert X_preprocessed[2, 0] == 1
-
-    def test_preprocess_non_numerical(self):
-        """Test if non numerical feature values are converted to integers."""
-        X = np.array([["Yes", "Medium", 3.], ["No", "High", 6.], ["Maybe", "Low", 9.]])
-        X_preprocessed, binary_mask, (encoding_mask, _) = self.imputer._preprocess_data(X, train=True)
-        #assert np.array_equal(binary_mask, np.array([False, False, False]))
-        assert np.array_equal(encoding_mask, np.array([True, True, False]))
-
 class TestFit():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -532,3 +356,181 @@ class TestParams():
         assert self.imputer.verbose == 1
         assert self.imputer.copy == True
         assert self.imputer.keep_empty_features == True
+
+class TestConsistency():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_consistent(self):
+        """Test an instance where the training and input data are consistent."""
+        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
+        self.imputer.n_features_in_ = 4
+        self.imputer.binary_info_ = np.array([False, False, True, False])
+        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
+                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
+        X_missing = np.array([[5, np.nan, "No", "High"], [3, 0.5, "No", np.nan], [12, 0.15, "No", "Low"]])
+        X, mask, info = self.imputer._check_consistency(X_missing)
+        assert X.shape == X_missing.shape
+        assert self.imputer.encoding_info_ == (mask, info)
+
+    def test_inconsistent_features(self):
+        """Test an instance where the training and input data have a different amount of features."""
+        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
+        self.imputer.n_features_in_ = 4
+        self.imputer.binary_info_ = np.array([False, False, True, False])
+        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
+                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
+        X_missing = np.array([[5, np.nan, "No"], [3, 0.5, "No"], [12, 0.15, "No"]])
+        try:
+            X, mask, info = self.imputer._check_consistency(X_missing)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Mismatch in number of features. Expected 4, got 3."
+
+    def test_inconsistent_cat_to_num(self):
+        """Test an instance where the training and input data have a different features (categorical to numerical)."""
+        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
+        self.imputer.n_features_in_ = 4
+        self.imputer.binary_info_ = np.array([False, False, True, False])
+        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
+                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
+        X_missing = np.array([[5, np.nan, 0, "High"], [3, 0.5, 1, np.nan], [12, 0.15, 0, "Low"]])
+        try:
+            X, mask, info = self.imputer._check_consistency(X_missing)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Feature 2 was categorical during training but numeric in new data."
+
+    def test_inconsistent_num_to_cat(self):
+        """Test an instance where the training and input data have a different features (numerical to categorical)."""
+        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
+        self.imputer.n_features_in_ = 4
+        self.imputer.binary_info_ = np.array([False, False, True, False])
+        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
+                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
+        X_missing = np.array([["Yes", np.nan, "No", "High"], ["No", 0.5, "No", np.nan], ["Maybe", 0.15, "No", "Low"]])
+        try:
+            X, mask, info = self.imputer._check_consistency(X_missing)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Feature 0 was numeric during training but categorical in new data."
+
+    def test_update_encoding(self):
+        """Test an instance where the training data adds a new value to a categorical feature."""
+        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
+        self.imputer.n_features_in_ = 4
+        self.imputer.binary_info_ = np.array([False, False, True, False])
+        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
+                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
+        X_missing = np.array([[5, np.nan, "No", "Extremely High"], [3, 0.5, "No", np.nan], [12, 0.15, "No", "Low"]])
+        X, mask, info = self.imputer._check_consistency(X_missing)
+        assert X.shape == X_missing.shape
+        assert np.array_equal(mask, np.array([False, False, True, True]))
+        assert info == {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2, np.str_("Extremely High"): 3}}
+        assert X[0, 3] == 3
+
+class TestPreprocess():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_preprocess_ints(self):
+        """Test preprocessing an array with integers."""
+        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert isinstance(X_preprocessed, np.ndarray)
+
+    def test_preprocess_nan(self):
+        """Test preprocessing an array with a missing value."""
+        X = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X.shape == X_preprocessed.shape
+        assert np.isnan(X_preprocessed[0, 2])
+
+    def test_preprocess_non_nan(self):
+        """Test preprocessing an array with a different missing value than NaN."""
+        self.imputer.missing_values = -1
+        X = np.array([[1., 2., -1], [4., 5., 6.], [7., 8., 9.]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X.shape == X_preprocessed.shape
+        assert np.isnan(X_preprocessed[0, 2])
+
+    def test_preprocess_remove_nan_features(self):
+        """Test preprocessing removes NaN features."""
+        X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed.shape[0] == 3
+        assert X_preprocessed.shape[1] == 2
+        assert not np.isnan(X_preprocessed).any()
+
+    def test_preprocess_remove_missing_features(self):
+        """Test preprocessing removes other missing features."""
+        self.imputer.missing_values = -10
+        X = np.array([[1., 2., -10], [4., 5., -10], [7., 8., -10]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed.shape[0] == 3
+        assert X_preprocessed.shape[1] == 2
+        assert not np.isnan(X_preprocessed).any()
+        assert not np.any(X_preprocessed == -10)
+
+    def test_preprocess_fill_nan_features(self):
+        """Test preprocessing fills NaN features."""
+        self.imputer.keep_empty_features = True
+        X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed[0, 2] == 0
+        assert X_preprocessed[1, 2] == 0 
+        assert X_preprocessed[2, 2] == 0 
+
+    def test_preprocess_fill_missing_features(self):
+        """Test preprocessing fills other missing features."""
+        self.imputer.missing_values = -1
+        self.imputer.keep_empty_features = True
+        X = np.array([[1., 2., -1], [4., 5., -1], [7., 8., -1]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert X_preprocessed[0, 2] == 0
+        assert X_preprocessed[1, 2] == 0 
+        assert X_preprocessed[2, 2] == 0 
+
+    def test_preprocess_mean_std(self):
+        """Test updating the mean and std while preprocessing."""
+        X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
+        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(self.imputer.mean_, np.array([4., 5., 6.]))
+        assert np.array_equal(self.imputer.std_, np.array([math.sqrt(6), math.sqrt(6), math.sqrt(6)]))
+
+    def test_preprocess_binary_info(self):
+        """Test if the binary info is set correctly during preprocessing"""
+        X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])
+        X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(binary_mask, np.array([True, False, False]))
+        assert X_preprocessed[0, 0] == 0
+        assert X_preprocessed[1, 0] == 1
+        assert X_preprocessed[2, 0] == 0
+
+    def test_preprocess_binary_string(self):
+        """Test if binary values are converted to 0/1."""
+        X = np.array([["Yes", 2., 3.], ["No", 5., 6.], ["Yes", 8., 9.]])
+        X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(binary_mask, np.array([True, False, False]))
+        assert X_preprocessed[0, 0] == 1
+        assert X_preprocessed[1, 0] == 0
+        assert X_preprocessed[2, 0] == 1
+
+    def test_preprocess_non_numerical(self):
+        """Test if non numerical feature values are converted to integers."""
+        X = np.array([["Yes", "Medium", 3.], ["No", "High", 6.], ["Maybe", "Low", 9.]])
+        X_preprocessed, binary_mask, (encoding_mask, _) = self.imputer._preprocess_data(X, train=True)
+        #assert np.array_equal(binary_mask, np.array([False, False, False]))
+        assert np.array_equal(encoding_mask, np.array([True, True, False]))
+
+# TODO: Add tests for _impute, feature names and evaluate
