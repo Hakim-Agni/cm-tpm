@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import pandas as pd
 import warnings
@@ -124,6 +125,7 @@ class CMImputer:
         self.std_ = 1.0
         self.binary_info_ = None
         self.encoding_info_ = None
+        self.bin_encoding_info_ = None
         self.categorical_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
@@ -158,6 +160,18 @@ class CMImputer:
         elif original_format == "list":
             return X_imputed.tolist()
         return X_imputed
+    
+    def _missing_to_nan(self, X: np.ndarray):
+        """ Set all instances of 'missing_values' to NaN."""
+        if self.missing_values is not np.nan:
+            try:
+                # If the data is numerical, set np.nan
+                X = X.astype(float)
+                X[X == self.missing_values] = np.nan
+            except ValueError:
+                # If the data is not numerical, set string 'nan'
+                X[X == self.missing_values] = "nan"
+        return X
     
     def _all_numeric(self, X: np.ndarray):
         """Checks if all values in a 1D array are numerical."""
@@ -210,6 +224,68 @@ class CMImputer:
         except ValueError:
             return restored
         
+    def _binary_encoding(self, X: np.ndarray, mask, info):
+        """Converts integer encoded features into multiple binary features."""
+        replacing = {}
+        bin_info = []
+        for i in range(X.shape[1]):
+            if mask[i]:     # If the column is integer encoded, continue
+                n_unique = max(info[i].values()) + 1  # Get number of unique values
+                
+                num_cols = math.ceil(math.log2(n_unique))  # Compute bit length
+                X_new = np.zeros((X.shape[0], num_cols))  # Initialize binary column array
+                
+                # Create binary mappings
+                bin_vals = {val: list(map(int, format(val, f'0{num_cols}b'))) for val in range(n_unique)}
+
+                # Convert integer feature into binary representation
+                for j in range(X.shape[0]):
+                    X_new[j] = np.nan if np.isnan(X[j, i]) else bin_vals[int(X[j, i])]
+
+                replacing[i] = X_new  # Store transformed binary columns
+                bin_info.append(num_cols)   # Store binary encoding info
+            else:
+                bin_info.append(-1)
+
+        # Construct final transformed dataset
+        X_transformed = []
+        for i in range(X.shape[1]):
+            if i in replacing:
+                X_transformed.append(replacing[i])  # Append binary columns
+            else:
+                X_transformed.append(X[:, i].reshape(-1, 1))  # Keep original column
+
+        X_encoded = np.hstack(X_transformed)  # Combine into final array
+        return X_encoded, bin_info
+    
+    def _restore_binary_encoding(self, X: np.ndarray, info):
+        """Restores the binary encoding for encoded features."""
+        X = X.astype(str)
+        restored = np.zeros((X.shape[0], len(info)))
+
+        for i in range(len(info)):
+            if info[i] != -1:       # If the column is binary encoded, continue
+                # Create reverse binary mappings
+                bin_map = {format(val, f'0{info[i]}b'): val for val in range(2**info[i])}
+
+                for j in range(X.shape[0]):     # Look at each row seperately
+                    bin_value = ""
+                    for n in range(info[i]):       # Obtain the binary value from multiple columns
+                        bin_value += X[j, i+n][0]
+                    restored[j, i] = bin_map.get(bin_value)
+                
+                for _ in range(1, info[i]):        # Remove binary rows for future loops
+                    X = np.delete(X, i+1, 1)
+            else:
+                restored[:, i] = X[:, i]
+        
+        try:
+            restored = restored.astype(float)
+            return restored
+        except ValueError:
+            return restored
+
+        
     def _check_consistency(self, X: np.ndarray):
         """Ensures that the input data is consistent with the training data."""
         if X.shape[1] != self.n_features_in_:
@@ -222,6 +298,7 @@ class CMImputer:
                     raise ValueError(f"Feature {i} was categorical during training but numeric in new data.")
                 
                 enc_info = info[i]
+                # TODO: Keep this feature? Model is not trained to recognize unseen values...
                 # If there are new non-binary feature values in the input data, update the encoding info
                 next_index = max(enc_info.values(), default=-1) + 1
                 for val in X[:, i]:
@@ -246,17 +323,9 @@ class CMImputer:
         if self.copy:
             X_transformed = X.copy()
 
-        # Set all instances of 'missing_values' to NaN
-        if self.missing_values is not np.nan:
-            try:
-                # If the data is numerical, set np.nan
-                X_transformed = X_transformed.astype(float)
-                X_transformed[X_transformed == self.missing_values] = np.nan
-            except ValueError:
-                # If the data is not numerical, set string 'nan'
-                X_transformed[X_transformed == self.missing_values] = "nan"
+        X_transformed = self._missing_to_nan(X)
 
-        # TODO: Convert non-floats (e.g. strings) to floats using encoding
+        # Convert non-floats (e.g. strings) to floats using encoding
         if train:
             X_transformed, encoding_mask, encoding_info = self._integer_encoding(X_transformed)
         else:
@@ -276,6 +345,10 @@ class CMImputer:
             elif self.n_features_in_ and X_transformed.shape[1] != self.n_features_in_:     # Only remove features if they were also removed during training
                 X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
 
+        # Apply binary encoding to encoded features
+        X_transformed, bin_info = self._binary_encoding(X_transformed, encoding_mask, encoding_info)
+        self.bin_encoding_info_ = bin_info
+
         # Check which features are binary features (only consisting of 0s and 1s)
         binary_mask = np.array([
             np.isin(np.unique(X_transformed[:, i][~np.isnan(X_transformed[:, i])]), [0, 1]).all()
@@ -292,16 +365,6 @@ class CMImputer:
         # Scale the data
         X_scaled = (X_transformed - self.mean_) / self.std_
         X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
-        
-        # for i in range(X.shape[1]):  
-        #     col_data = X[:, i]
-
-        #     # Detect categorical columns (string or object)
-        #     if np.issubdtype(col_data.dtype, np.object_) or np.issubdtype(col_data.dtype, np.str_):
-        #         raise ValueError("Categorical columns are not supported yet.")
-        #         # unique_values, encoded_values = np.unique(col_data, return_inverse=True)
-        #         # X_transformed[:, i] = encoded_values
-        #         # categorical_info[i] = unique_values  # Store mapping of index → categories
 
         return X_scaled.astype(float), binary_mask, (encoding_mask, encoding_info), categorical_info
 
@@ -413,6 +476,7 @@ class CMImputer:
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
+        X_nan = self._missing_to_nan(X)
         X_preprocessed, _, _, _ = self._preprocess_data(X, train=False)
 
         if not np.any(np.isnan(X_preprocessed)):
@@ -431,11 +495,18 @@ class CMImputer:
         # Round the binary features to the nearest option
         X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
 
+        # Decode the non-numerical features
         encoding_mask, encoding_info = self.encoding_info_
-        X_decoded = self._restore_encoding(X_scaled, encoding_mask, encoding_info)
+
+        # TODO: What happens when binary value is a known value (e.g. 111 = 7, but only 6 known values for the feature)
+        X_decoded = self._restore_binary_encoding(X_scaled, self.bin_encoding_info_)
+        X_decoded = self._restore_encoding(X_decoded, encoding_mask, encoding_info)
 
         # Make sure the original values remain the same
-        mask = ~np.isnan(X_preprocessed)
+        try:
+            mask = ~np.isnan(X_nan)
+        except TypeError:
+            mask = X_nan != "nan"
         X_filled = np.where(mask, X, X_decoded)
         return X_filled
     

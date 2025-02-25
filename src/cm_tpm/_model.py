@@ -10,10 +10,10 @@ import networkx as nx
 
 # TODO:
 #   Add settable mean and variance in rqmc sampler (?)
+#   Helper functions in seperate file?
 #   Data preprocessing 
-#       - scale numerical features
-#       - handle categorical features
-#       - handle binary features
+#       - handle categorical features -> Binary/One-Hot or hybrid 
+#       - look at ordinal maybe? (e.g. low, medium, high)
 #       - batches
 #   Add ways to use custom nets (layers etc)
 #   Allow custom Optimizers?
