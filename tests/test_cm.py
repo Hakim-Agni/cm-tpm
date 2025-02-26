@@ -19,6 +19,7 @@ class TestClass:
             latent_dim=8,
             pc_type="spn",
             missing_strategy="ignore",
+            ordinal_features=None,
             net=None,
             max_depth=3,
             max_iter=100,
@@ -35,25 +36,26 @@ class TestClass:
         assert imputer.latent_dim == 8
         assert imputer.pc_type == "spn"
         assert imputer.missing_strategy == "ignore"
-        assert imputer.net == None
+        assert imputer.ordinal_features is None
+        assert imputer.net is None
         assert imputer.max_depth == 3
         assert imputer.max_iter == 100
         assert imputer.tol == 1e-3
         assert imputer.lr == 0.01
-        assert imputer.smooth == False
+        assert not imputer.smooth
         assert imputer.random_state == 42
         assert imputer.verbose == 2
-        assert imputer.copy == False
-        assert imputer.keep_empty_features == False
+        assert not imputer.copy
+        assert not imputer.keep_empty_features
 
     def test_attributes(self):
         """Test the model attributes."""
         imputer = CMImputer(random_state=42)
-        assert imputer.is_fitted_ == False
-        assert imputer.n_features_in_ == None
-        assert imputer.feature_names_in_ == None
-        assert imputer.components_ == None
-        assert imputer.log_likelihood_ == None
+        assert not imputer.is_fitted_
+        assert imputer.n_features_in_ is None
+        assert imputer.feature_names_in_ is None
+        assert imputer.components_ is None
+        assert imputer.log_likelihood_ is None
         assert imputer.mean_ == 0.0
         assert imputer.std_ == 1.0
         assert imputer.binary_info_ is None
@@ -294,6 +296,7 @@ class TestParams():
             latent_dim=8,
             pc_type="spn",
             missing_strategy="ignore",
+            ordinal_features=None,
             net=None,
             max_depth=3,
             max_iter=100,
@@ -314,6 +317,7 @@ class TestParams():
         assert params["latent_dim"] == 8
         assert params["pc_type"] == "spn"
         assert params["missing_strategy"] == "ignore"
+        assert params["ordinal_features"] is None
         assert params["net"] is None
         assert params["max_depth"] == 3
         assert params["max_iter"] == 100
@@ -332,6 +336,7 @@ class TestParams():
             latent_dim=4,
             pc_type="clt",
             missing_strategy="integration",
+            ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
             max_iter=200,
             tol=1e-4,
@@ -347,6 +352,7 @@ class TestParams():
         assert self.imputer.latent_dim == 4
         assert self.imputer.pc_type == "clt"
         assert self.imputer.missing_strategy == "integration"
+        assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5
         assert self.imputer.max_iter == 200
         assert self.imputer.tol == 1e-4

@@ -55,7 +55,7 @@ def _all_numeric(X: np.ndarray):
                 return False
         return True
 
-def _integer_encoding(X: np.ndarray):
+def _integer_encoding(X: np.ndarray, ordinal_features=None):
         """Converts Non-numeric features into integers."""
         encoding_mask = np.full(X.shape[1], False)
         encoding_info = {}
@@ -73,8 +73,13 @@ def _integer_encoding(X: np.ndarray):
                     if "nan" in unique_values:      # Remove NaN from unique values
                         unique_values = np.delete(unique_values, np.argwhere(unique_values=="nan"))
                         
+                    if ordinal_features and i in ordinal_features:
+                        order = ordinal_features[i]
+                        value_map = {val: j for j, val in enumerate(order)}
+                    else:
+                        value_map = {unique_values[i]: i for i in range(len(unique_values))}    # Create value map for unique values
+                    
                     encoding_mask[i] = True
-                    value_map = {unique_values[i]: i for i in range(len(unique_values))}    # Create value map for unique values
                     encoding_info[i] = value_map
                     X[:, i] = [value_map[val] if val in value_map else np.nan for val in X[:, i]]   # Apply value map to array
 
@@ -97,12 +102,13 @@ def _restore_encoding(X: np.ndarray, mask, info):
         except ValueError:
             return restored
         
-def _binary_encoding(X: np.ndarray, mask, info):
+def _binary_encoding(X: np.ndarray, mask, info, ordinal_features=None):
         """Converts integer encoded features into multiple binary features."""
         replacing = {}
         bin_info = []
         for i in range(X.shape[1]):
-            if mask[i]:     # If the column is integer encoded, continue
+            # If the column is integer encoded and not an ordinal feature, continue
+            if mask[i] and (not ordinal_features or not i in ordinal_features):     
                 n_unique = max(info[i].values()) + 1  # Get number of unique values
                 
                 num_cols = math.ceil(math.log2(n_unique))  # Compute bit length
@@ -116,7 +122,7 @@ def _binary_encoding(X: np.ndarray, mask, info):
                     X_new[j] = np.nan if np.isnan(X[j, i]) else bin_vals[int(X[j, i])]
 
                 replacing[i] = X_new  # Store transformed binary columns
-                bin_info.append([num_cols, n_unique])   # Store binary encoding info
+                bin_info.append([num_cols, n_unique-1])   # Store binary encoding info
             else:
                 bin_info.append(-1)
 
@@ -170,3 +176,26 @@ def _restore_binary_encoding(X: np.ndarray, info, X_prob: np.ndarray):
         return restored
     except ValueError:
         return restored
+
+
+
+X = np.array([
+     ["Low", 0.3, 0.6],
+     ["Medium", 0.4, 0.1],
+     ["High", 0.9, 0.7]
+     ])
+ordinal = {0: {"Low": 0, "Medium": 1, "High": 2}}
+a, b, c = _integer_encoding(X, ordinal)
+print(a)
+print(b)
+print(c)
+
+d, e = _binary_encoding(a, b, c, ordinal)
+print(d)
+print(e)
+
+f = _restore_binary_encoding(d, e, None)
+print(f)
+
+g = _restore_encoding(f, b, c)
+print(g)

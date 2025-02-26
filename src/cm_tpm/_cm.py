@@ -27,8 +27,10 @@ class CMImputer:
         Dimensionality of the latent variable.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
-    missing_strategy: str, optional (default="integration"), allowed: "integration", "ignore"
+    missing_strategy: str, optional (default="integration"), allowed: "integration", "em", "ignore"
         The strategy to use for missing data in the training data. 
+    ordinal_features: dict, optional (default=None)
+        A dictionaty containing information on which features have ordinal data and how the values are mapped.
     net: nn.Sequential, optional (default=None)
         A custom neural network to use in the model.
     max_depth: int, optional (default=5)
@@ -88,6 +90,7 @@ class CMImputer:
             latent_dim: int = 16,
             pc_type: str = "factorized",
             missing_strategy: str = "integration",
+            ordinal_features: dict = None,
             net = None,
             max_depth: int = 5,
             max_iter: int = 100,
@@ -108,6 +111,7 @@ class CMImputer:
         self.latent_dim = latent_dim
         self.pc_type = pc_type
         self.missing_strategy = missing_strategy
+        self.ordinal_features = ordinal_features
         self.net = net
         self.max_depth = max_depth
         self.max_iter = max_iter
@@ -258,6 +262,7 @@ class CMImputer:
             "latent_dim": self.latent_dim,
             "pc_type": self.pc_type,
             "missing_strategy": self.missing_strategy,
+            "ordinal_features": self.ordinal_features,
             "net": self.net,
             "max_depth": self.max_depth,
             "max_iter": self.max_iter,
@@ -346,7 +351,7 @@ class CMImputer:
 
         # Convert non-floats (e.g. strings) to floats using encoding
         if train:
-            X_transformed, encoding_mask, encoding_info = _integer_encoding(X_transformed)
+            X_transformed, encoding_mask, encoding_info = _integer_encoding(X_transformed, ordinal_features=self.ordinal_features)
         else:
             X_transformed, encoding_mask, encoding_info = self._check_consistency(X_transformed)
         self.encoding_info_ = (encoding_mask, encoding_info)
@@ -365,7 +370,7 @@ class CMImputer:
                 X_transformed = X_transformed[:, ~np.all(np.isnan(X_transformed), axis=0)]
 
         # Apply binary encoding to encoded features
-        X_transformed, bin_info = _binary_encoding(X_transformed, encoding_mask, encoding_info)
+        X_transformed, bin_info = _binary_encoding(X_transformed, encoding_mask, encoding_info, ordinal_features=self.ordinal_features)
         self.bin_encoding_info_ = bin_info
 
         # Check which features are binary features (only consisting of 0s and 1s)

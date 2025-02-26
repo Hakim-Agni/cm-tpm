@@ -181,6 +181,31 @@ class TestIntegerEncoding():
         assert np.array_equal(mask, np.array([False, True, False]))
         assert info == {1: {np.str_("Maybe"): 0, np.str_("No"): 1, np.str_("Yes"): 2}}
 
+    def test_ordinal_features(self):
+        """Test encoding data with ordinal features."""
+        X = np.array([[0.2, "Low", 0.8], [0.1, "High", 0.4], [0.6, "Medium", 0.5]])
+        ordinal = {1: {"Low": 0, "Medium": 1, "High": 2}}
+        encoded, mask, info = _integer_encoding(X, ordinal_features=ordinal)
+        assert encoded[0, 1] == 0
+        assert encoded[1, 1] == 2
+        assert encoded[2, 1] == 1
+        assert np.array_equal(mask, np.array([False, True, False]))
+        assert info == ordinal
+
+    def test_mixed(self):
+        """Test encoding data with mixed features."""
+        X = np.array([[0.2, "Low", "Blue"], [0.1, "High", "Red"], [0.6, "Medium", "Yellow"]])
+        ordinal = {1: {"Low": 0, "Medium": 1, "High": 2}}
+        encoded, mask, info = _integer_encoding(X, ordinal_features=ordinal)
+        assert encoded[0, 1] == 0
+        assert encoded[1, 1] == 2
+        assert encoded[2, 1] == 1
+        assert encoded[0, 2] == 0
+        assert encoded[1, 2] == 1
+        assert encoded[2, 2] == 2
+        assert np.array_equal(mask, np.array([False, True, True]))
+        assert info == {1: {"Low": 0, "Medium": 1, "High": 2}, 2: {"Blue": 0, "Red": 1, "Yellow": 2}}
+
 class TestRestoreEncoding():
     def test_restore_none(self):
         """Test restoring unencoded data."""
@@ -200,7 +225,7 @@ class TestRestoreEncoding():
         assert restored[1, 2] == "No"
         assert restored[2, 2] == "Yes"
 
-class testBinaryEncoding():
+class TestBinaryEncoding():
     def test_only_numerical(self):
         """Test the binary encoding on numerical data."""
         X = np.array([[0.2, 2., 0.8], [0.1, 1., 0.4], [0.6, 1.4, 0.5]])
@@ -221,26 +246,47 @@ class testBinaryEncoding():
 
     def test_non_numerical_features(self):
         """Test the binary encoding on non-numerical features"""
-        X = np.array([[0., 2., 0.8], [0., 1., 0.4], [2., 1.4, 0.5]])
+        X = np.array([[0., 2., 0.8], [1., 1., 0.4], [2., 1.4, 0.5]])
         mask = np.array([True, False, False])
         info = {0: {np.str_("Maybe"): 0, np.str_("No"): 1, np.str_("Yes"): 2}}
         X_encoded, bin_info = _binary_encoding(X, mask, info)
-        assert np.array_equal(X_encoded[:2], np.array([[0, 0], [0, 1], [1, 0]]))
-        assert np.array_equal(X_encoded[2:], X[1:])
+        assert np.array_equal(X_encoded[:, :2], np.array([[0., 0.], [0., 1.], [1., 0.]]))
+        assert np.array_equal(X_encoded[:, 2:], X[:, 1:])
         assert bin_info == [[2, 2], -1, -1]
 
     def test_larger_non_numerical_features(self):
         """Test the binary encoding on more non-numerical features"""
-        X = np.array([[0., 2., 0.8], [0., 1., 0.4], [2., 1.4, 0.5], [5., 1.2, 0.5], 
+        X = np.array([[0., 2., 0.8], [1., 1., 0.4], [2., 1.4, 0.5], [5., 1.2, 0.5], 
                       [7., 0.6, 1.3], [4., 0.2, 0.6], [6., 0.9, 0.2], [3., 1.1, 0.4]])
         mask = np.array([True, False, False])
         info = {0: {np.str_("Red"): 0, np.str_("Blue"): 1, np.str_("Yellow"): 2, np.str_("Green"): 3, 
                     np.str_("Orange"): 4, np.str_("Purple"): 5, np.str_("Black"): 6, np.str_("White"): 7}}
         X_encoded, bin_info = _binary_encoding(X, mask, info)
-        assert np.array_equal(X_encoded[:3], np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 1], 
-                                                       [1, 1, 1], [1, 0, 0], [1, 1, 0], [0, 1, 1]]))
-        assert np.array_equal(X_encoded[3:], X[1:])
+        assert np.array_equal(X_encoded[:, :3], np.array([[0., 0., 0.], [0., 0., 1.], [0., 1., 0.], [1., 0., 1.], 
+                                                       [1., 1., 1.], [1., 0., 0.], [1., 1., 0.], [0., 1., 1.]]))
+        assert np.array_equal(X_encoded[:, 3:], X[:, 1:])
         assert bin_info == [[3, 7], -1, -1]
+
+    def test_ordinal_features(self):
+        """Test the binary encoding on ordinal features."""
+        X = np.array([[0.2, 0, 0.8], [0.1, 2, 0.4], [0.6, 1, 0.5]])
+        ordinal = {1: {"Low": 0, "Medium": 1, "High": 2}}
+        mask = np.array([False, True, False])
+        info = ordinal
+        X_encoded, bin_info = _binary_encoding(X, mask, info, ordinal_features=ordinal)
+        assert np.array_equal(X, X_encoded)
+        assert bin_info == [-1, -1, -1]
+
+    def test_mixed(self):
+        """Test the binary encoding on mixed features."""
+        X = np.array([[0.2, 0, 0], [0.1, 2, 1], [0.6, 1, 2]])
+        ordinal = {1: {"Low": 0, "Medium": 1, "High": 2}}
+        mask = np.array([False, True, True])
+        info = {1: {"Low": 0, "Medium": 1, "High": 2}, 2: {"Blue": 0, "Red": 1, "Yellow": 2}}
+        X_encoded, bin_info = _binary_encoding(X, mask, info, ordinal_features=ordinal)
+        assert np.array_equal(X[:, :2], X_encoded[:, :2])
+        assert np.array_equal(X_encoded[:, 2:], np.array([[0., 0.], [0., 1.], [1., 0.]]))
+        assert bin_info == [-1, -1, [2, 2]]
 
 class TestRestoreBinary():
     def test_restore_none(self):
@@ -284,7 +330,7 @@ class TestRestoreBinary():
         X_probs = np.array([[0.2, 0.1, 0.3, 0.83, 0.8], [0.1, 0.84, 0.1, 0.56, 0.4], 
                               [0.6, 0.3, 0.9, 0.8, 0.5]])
         info = [-1, [3, 4], -1]
-        X_decoded = _restore_binary_encoding(X_encoded, info, None)
+        X_decoded = _restore_binary_encoding(X_encoded, info, X_probs)
         assert np.array_equal(X_decoded[:, 0], X_encoded[:, 0])
         assert np.array_equal(X_decoded[:, 2], X_encoded[:, 4])
         assert np.array_equal(X_decoded[:, 1], np.array([1., 4., 3.]))
