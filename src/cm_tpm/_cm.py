@@ -321,7 +321,8 @@ class CMImputer:
                 # If there are new non-binary feature values in the input data, update the encoding info
                 next_index = max(enc_info.values(), default=-1) + 1
                 for val in X[:, i]:
-                    if val not in enc_info and not self.binary_info_[i] and val != "nan":
+                    if val not in enc_info and not self.binary_info_[i] and val != "nan" and next_index.bit_count() != 1:
+                        warnings.warn(f"New categorical value detected in column {i}: '{val}'. The model has not been trained with this value.")
                         enc_info[val] = next_index
                         next_index += 1
 
@@ -388,6 +389,7 @@ class CMImputer:
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
+        X_in = X.copy()
         X_nan = _missing_to_nan(X, self.missing_values)
         X_preprocessed, _, _ = self._preprocess_data(X, train=False)
 
@@ -409,7 +411,7 @@ class CMImputer:
 
         # Decode the non-numerical features
         encoding_mask, encoding_info = self.encoding_info_
-        X_decoded = _restore_binary_encoding(X_scaled, self.bin_encoding_info_)
+        X_decoded = _restore_binary_encoding(X_scaled, self.bin_encoding_info_, X_imputed)
         X_decoded = _restore_encoding(X_decoded, encoding_mask, encoding_info)
 
         # Make sure the original values remain the same
@@ -417,5 +419,5 @@ class CMImputer:
             mask = ~np.isnan(X_nan)
         except TypeError:
             mask = X_nan != "nan"
-        X_filled = np.where(mask, X, X_decoded)
+        X_filled = np.where(mask, X_in, X_decoded)
         return X_filled

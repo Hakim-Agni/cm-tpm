@@ -44,7 +44,7 @@ def _missing_to_nan(X: np.ndarray, missing_values):
             except ValueError:
                 # If the data is not numerical, set string 'nan'
                 X[X == missing_values] = "nan"
-        return X
+        return X.copy()
 
 def _all_numeric(X: np.ndarray):
         """Checks if all values in a 1D array are numerical."""
@@ -78,7 +78,7 @@ def _integer_encoding(X: np.ndarray):
                     encoding_info[i] = value_map
                     X[:, i] = [value_map[val] if val in value_map else np.nan for val in X[:, i]]   # Apply value map to array
 
-        return X.astype(float), encoding_mask, encoding_info
+        return X.astype(float).copy(), encoding_mask, encoding_info
 
 def _restore_encoding(X: np.ndarray, mask, info):
         """Restores encoded features to the original type."""
