@@ -159,6 +159,8 @@ class TestTransform():
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (2, 3)
         assert not np.isnan(X_imputed).any()
+        assert X_imputed[0, 0] >= 1
+        assert X_imputed[0, 0] <= 7
 
     def test_transform_dataframe(self):
         """Test the transform method on a pandas DataFrame."""
@@ -171,6 +173,8 @@ class TestTransform():
         assert X_imputed.columns[0] == "A"
         assert X_imputed.columns[1] == "B"
         assert not X_imputed.isnull().values.any()
+        assert X_imputed.iloc[0, 0] >= 1
+        assert X_imputed.iloc[0, 0] <= 7
 
     def test_transform_list(self):
         """Test the transform method on a list."""
@@ -182,6 +186,8 @@ class TestTransform():
         assert len(X_imputed) == 2
         assert len(X_imputed[0]) == 3
         assert not np.isnan(X_imputed).any()
+        assert X_imputed[0][0] >= 1
+        assert X_imputed[0][0] <= 7
 
     def test_transform_file(self):
         """Test the transform method on a file."""
@@ -227,6 +233,8 @@ class TestTransform():
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (2, 3)
         assert not np.any(X_imputed == -1)
+        assert X_imputed[0, 0] >= 1
+        assert X_imputed[0, 0] <= 7
 
     def test_transform_string(self):
         """Test the transform method with a different missing value than is a string."""
@@ -238,6 +246,8 @@ class TestTransform():
         assert isinstance(X_imputed, np.ndarray)
         assert X_imputed.shape == (2, 3)
         assert not np.any(X_imputed == "")
+        assert float(X_imputed[0, 0]) >= 1
+        assert float(X_imputed[0, 0]) <= 7
 
     def test_transform_seed(self):
         imputer1 = CMImputer(n_components=1, random_state=42)

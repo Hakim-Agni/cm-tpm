@@ -237,9 +237,9 @@ def get_probabilistic_circuit(pc_type, input_dim, smooth=1e-6):
     types = ["factorized", "spn", "clt"]
     if pc_type == "factorized":
         return FactorizedPC(input_dim, smooth)
-    elif pc_type == "spn":
+    elif pc_type == "spn" or pc_type == "SPN":
         return SPN(input_dim, smooth)
-    elif pc_type == "clt":
+    elif pc_type == "clt" or pc_type == "CLT":
         return ChowLiuTreePC(input_dim, smooth)
     else:
         raise ValueError(f"Unknown PC type: '{pc_type}', use one of the following types: {types}")
