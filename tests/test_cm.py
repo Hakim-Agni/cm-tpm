@@ -56,8 +56,8 @@ class TestClass:
         assert imputer.feature_names_in_ is None
         assert imputer.components_ is None
         assert imputer.log_likelihood_ is None
-        assert imputer.mean_ == 0.0
-        assert imputer.std_ == 1.0
+        assert imputer.min_vals_ == 0.0
+        assert imputer.max_vals_ == 1.0
         assert imputer.binary_info_ is None
         assert imputer.encoding_info_ is None
         assert imputer.bin_encoding_info_ is None
@@ -204,7 +204,6 @@ class TestTransform():
             assert isinstance(X_imputed, np.ndarray)
             assert X_imputed.shape == (10, 3)
             assert os.path.exists("tests/data/test_data_save_path_file.parquet")
-
 
     def test_transform_save_path_from_data(self):
         """Test saving the imputed data to a file."""
@@ -508,12 +507,13 @@ class TestPreprocess():
         assert X_preprocessed[1, 2] == 0 
         assert X_preprocessed[2, 2] == 0 
 
-    def test_preprocess_mean_std(self):
-        """Test updating the mean and std while preprocessing."""
+    def test_preprocess_min_max_values(self):
+        """Test updating the min and max values while preprocessing."""
         X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
         X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
-        assert np.array_equal(self.imputer.mean_, np.array([4., 5., 6.]))
-        assert np.array_equal(self.imputer.std_, np.array([math.sqrt(6), math.sqrt(6), math.sqrt(6)]))
+        assert np.array_equal(self.imputer.min_vals_, np.array([1., 2., 3.]))
+        assert np.array_equal(self.imputer.max_vals_, np.array([7., 8., 9.]))
+        assert np.array_equal(X_preprocessed, np.array([[0., 0., 0.], [0.5, 0.5, 0.5], [1., 1., 1.]]))
 
     def test_preprocess_binary_info(self):
         """Test if the binary info is set correctly during preprocessing"""

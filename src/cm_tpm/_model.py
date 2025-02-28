@@ -5,14 +5,14 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.distributions as dist
 import numpy as np
-from scipy.stats import qmc     # For RQMC sampling
+from scipy.stats import qmc
 import networkx as nx
 
 # TODO:
 #   Add settable mean and variance in rqmc sampler (?)
-#   Data preprocessing 
-#       - datetime features?
-#       - batches
+#   Data preprocessing:  datetime features?
+#   Change scaling to min max scaling
+#   Batches
 #   Add ways to use custom nets (layers etc)
 #   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
@@ -354,12 +354,13 @@ def train_cm_tpm(
         if verbose > 0 and em_iters > 1:
             print(f"EM Iteration {em_iter + 1}/{em_iters}")
 
-        z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)    # This line inside or outside of epoch loop?
         imputed_data = impute_missing_values(train_data, model, skip=True)
         x_batch = torch.tensor(imputed_data, dtype=torch.float32)
 
         for epoch in range(epochs):
             start_time_epoch = time.time()
+
+            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
 
             optimizer.zero_grad()
             loss = -model(x_batch, z_samples, w)
@@ -435,7 +436,7 @@ def impute_missing_values(
 
     likelihoods = []
     for i in range(z_samples.shape[0]):
-        model.pcs[i].set_params(model.phi_net(z_samples)[i])        # Not sure if this is needed
+        model.pcs[i].set_params(model.phi_net(z_samples)[i])
         likelihood = model.pcs[i](x_filled)
 
         marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
@@ -457,14 +458,15 @@ def impute_missing_values(
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
+    train_data = np.random.uniform(low=-1, high=1, size=(1000, 10))
     train_data[999, 9] = np.nan
-    model = train_cm_tpm(train_data, pc_type="factorized", random_state=42, missing_strategy="em", verbose=1)
+    model = train_cm_tpm(train_data, pc_type="factorized", random_state=None, missing_strategy="em", verbose=1)
     # model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(x_incomplete, model, random_state=42)
+    x_imputed = impute_missing_values(x_incomplete, model, random_state=None)
     # x_imputed2 = impute_missing_values(x_incomplete, model2, random_state=42)
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)

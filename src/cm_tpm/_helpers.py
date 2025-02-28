@@ -176,26 +176,3 @@ def _restore_binary_encoding(X: np.ndarray, info, X_prob: np.ndarray):
         return restored
     except ValueError:
         return restored
-
-
-
-X = np.array([
-     ["Low", 0.3, 0.6],
-     ["Medium", 0.4, 0.1],
-     ["High", 0.9, 0.7]
-     ])
-ordinal = {0: {"Low": 0, "Medium": 1, "High": 2}}
-a, b, c = _integer_encoding(X, ordinal)
-print(a)
-print(b)
-print(c)
-
-d, e = _binary_encoding(a, b, c, ordinal)
-print(d)
-print(e)
-
-f = _restore_binary_encoding(d, e, None)
-print(f)
-
-g = _restore_encoding(f, b, c)
-print(g)

@@ -129,8 +129,8 @@ class CMImputer:
         self.feature_names_in_ = None
         self.components_ = None
         self.log_likelihood_ = None
-        self.mean_ = 0.0
-        self.std_ = 1.0
+        self.min_vals_ = 0.0
+        self.max_vals_ = 1.0
         self.binary_info_ = None
         self.encoding_info_ = None
         self.bin_encoding_info_ = None
@@ -380,14 +380,15 @@ class CMImputer:
         ])
 
         if train:       # Update the means and stds only during training
-            self.mean_ = np.nanmean(X_transformed, axis=0)
-            self.mean_ = np.where(np.isnan(self.mean_), 0, self.mean_)      # Replace mean NaNs with 0
-            self.std_ = np.nanstd(X_transformed, axis=0)
-            self.std_ = np.where(np.isnan(self.std_), 1, self.std_)         # Replace std NaNs with 1
-            self.std_[self.std_ == 0] = 1e-8        # Replace 0 with a small value to avoid zero division
+            min_vals = np.nanmin(X_transformed, axis=0)
+            self.min_vals_ = np.where(np.isnan(min_vals), 0.0, min_vals)
+            max_vals = np.nanmax(X_transformed, axis=0)
+            self.max_vals_ = np.where(np.isnan(max_vals), 1.0, max_vals)
         
         # Scale the data
-        X_scaled = (X_transformed - self.mean_) / self.std_
+        scale = self.max_vals_ - self.min_vals_
+        scale[scale == 0] = 1e-9
+        X_scaled = (X_transformed - self.min_vals_) / scale
         X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
 
         return X_scaled.astype(float), binary_mask, (encoding_mask, encoding_info)
@@ -409,7 +410,9 @@ class CMImputer:
         )
         
         # Scale the data back to the original
-        X_scaled = (X_imputed * self.std_) + self.mean_
+        scale = self.max_vals_ - self.min_vals_
+        scale[scale == 0] = 1e-9
+        X_scaled = X_imputed * scale + self.min_vals_
 
         # Round the binary features to the nearest option
         X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
