@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import pandas as pd
+import torch.nn as nn
 import warnings
 from ._model import train_cm_tpm, impute_missing_values
 from ._helpers import (
@@ -31,10 +32,20 @@ class CMImputer:
         The strategy to use for missing data in the training data. 
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
-    net: nn.Sequential, optional (default=None)
-        A custom neural network to use in the model.
     max_depth: int, optional (default=5)
-        Maximum depth of the probabilistic circuit.
+        Maximum depth of the probabilistic circuits.
+    custom_net: nn.Sequential, optional (default=None)
+        A custom neural network to use in the model.
+    hidden_layers: int, optional (default=2)
+        The number of hidden layers in the neural network.
+    neuron_per_layer: int or list of ints, optional (default=64)
+        The number of neuron in each layer in the neural network.
+    activation: str, optional (default="ReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU"
+        The activation function used in the neural network.
+    batch_norm: bool, optional (default=False)
+        Whether to use batch normalization in the neural network.
+    dropout_rate: float, optional (default=0.0)
+        The dropout rate used in the neural network.
     max_iter: int, optional (default=100)
         Maximum number of iterations to perform.
     tol: float, optional (default=1e-4)
@@ -91,8 +102,13 @@ class CMImputer:
             pc_type: str = "factorized",
             missing_strategy: str = "integration",
             ordinal_features: dict = None,
-            net = None,
             max_depth: int = 5,
+            custom_net: nn.Sequential = None,
+            hidden_layers: int = 2,
+            neurons_per_layer: int | list = 64,
+            activation: str = "ReLU",
+            batch_norm: bool = False,
+            dropout_rate: float = 0.0,
             max_iter: int = 100,
             tol: float = 1e-4,
             lr: float = 0.001,
@@ -112,7 +128,12 @@ class CMImputer:
         self.pc_type = pc_type
         self.missing_strategy = missing_strategy
         self.ordinal_features = ordinal_features
-        self.net = net
+        self.custom_net = custom_net
+        self.hidden_layers = hidden_layers
+        self.neurons_per_layer = neurons_per_layer
+        self.activation = activation
+        self.batch_norm = batch_norm
+        self.dropout_rate = dropout_rate
         self.max_depth = max_depth
         self.max_iter = max_iter
         self.tol = tol
@@ -165,7 +186,12 @@ class CMImputer:
             latent_dim=self.latent_dim, 
             num_components=self.n_components, 
             missing_strategy=self.missing_strategy,
-            net=self.net,
+            net=self.custom_net,
+            hidden_layers=self.hidden_layers,
+            neurons_per_layer=self.neurons_per_layer,
+            activation=self.activation,
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
             epochs=self.max_iter,
             tol=self.tol, 
             lr=self.lr,
@@ -263,8 +289,13 @@ class CMImputer:
             "pc_type": self.pc_type,
             "missing_strategy": self.missing_strategy,
             "ordinal_features": self.ordinal_features,
-            "net": self.net,
             "max_depth": self.max_depth,
+            "custom_net": self.custom_net,
+            "hidden_layers": self.hidden_layers,
+            "neurons_per_layer": self.neurons_per_layer,
+            "activation": self.activation,
+            "batch_norm": self.batch_norm,
+            "dropout_rate": self.dropout_rate,
             "max_iter": self.max_iter,
             "tol": self.tol,
             "lr": self.lr,

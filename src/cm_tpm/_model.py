@@ -9,9 +9,8 @@ from scipy.stats import qmc
 import networkx as nx
 
 # TODO:
-#   Add settable mean and variance in rqmc sampler (?)
+#   Add settable mean and variance in rqmc sampler?
 #   Data preprocessing:  datetime features?
-#   Change scaling to min max scaling
 #   Batches
 #   Add ways to use custom nets (layers etc)
 #   Allow custom Optimizers?
@@ -24,7 +23,7 @@ import networkx as nx
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="integration", net=None, smooth=1e-6, random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="integration", net=None, custom_layers=[2, 64, "ReLU", False, 0.0], smooth=1e-6, random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -58,7 +57,7 @@ class CM_TPM(nn.Module):
             np.random.seed(random_state)
 
         # Neural network to generate PC parameters
-        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net)
+        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4])
 
         # Create multiple PCs (one per component)
         self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim, smooth) for _ in range(num_components)])
@@ -253,7 +252,7 @@ class PhiNet(nn.Module):
         pc_param_dim: Dimensionality of the PC parameters.
         net (optional): A custom neural network.
     """
-    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None):
+    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0):
         super().__init__()
         out_dim = pc_param_dim if pc_type in ["factorized", "spn"] else pc_param_dim * 2
         if net:
@@ -264,12 +263,44 @@ class PhiNet(nn.Module):
             if net[-1].out_features != out_dim:
                 raise ValueError(f"Invalid input net. The final layer should have {out_dim} output features, but is has {net[-1].out_features} output features.")
             self.net = net
-        else:       # Default neural network
-            self.net = nn.Sequential(
-                nn.Linear(latent_dim, 64),
-                nn.ReLU(),
-                nn.Linear(64, out_dim),
-            )
+        else:
+            # Extend single value neurons_per_layer to a list of size hidden_layers
+            if isinstance(neurons_per_layer, int): 
+                neurons_per_layer = [neurons_per_layer] * hidden_layers
+            # Check if the sizes of hidden_layers and neuron_per_layer match
+            if len(neurons_per_layer) != hidden_layers:
+                raise ValueError(f"The hidden layers and neurons per layer do not match. Hidden layers: {hidden_layers}, neurons per layer: {neurons_per_layer}")
+
+            # Get the chosen activation function
+            activations_list = {
+                "ReLU": nn.ReLU(),
+                "Tanh": nn.Tanh(),
+                "Sigmoid": nn.Sigmoid(),
+                "LeakyReLU": nn.LeakyReLU(),
+            }
+            activation_fn = activations_list.get(activation, nn.ReLU())     # Default is ReLU
+
+            # Create the neural network layer by layer
+            layers = []
+            for i in range(hidden_layers):
+                # Set the input and output dimensions
+                input_dim = latent_dim if i == 0 else neurons_per_layer[i-1]
+                output_dim = neurons_per_layer[i]
+                layers.append(nn.Linear(input_dim, output_dim))
+                # Add batch normalization if enabled
+                if batch_norm:
+                    layers.append(nn.BatchNorm1d(output_dim))
+                # Add the activation function
+                layers.append(activation_fn)
+                # Add a dropout layer if enabled
+                if dropout_rate > 0.0:
+                    layers.append(nn.Dropout(dropout_rate))
+
+            # Create the output layer
+            layers.append(nn.Linear(neurons_per_layer[-1], out_dim))
+
+            # Store the neural network
+            self.net = nn.Sequential(*layers)
 
     def forward(self, z):
         """
@@ -310,6 +341,11 @@ def train_cm_tpm(
         num_components=256,
         missing_strategy="integration",
         net=None, 
+        hidden_layers=2,
+        neurons_per_layer=64,
+        activation="ReLU",
+        batch_norm=False,
+        dropout_rate=0.0,
         epochs=100,
         tol=1e-4, 
         lr=0.001,
@@ -327,6 +363,11 @@ def train_cm_tpm(
         num_components (optional): Number of mixture components.
         missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "em", "ignore").
         net (optional): A custom neural network.
+        hidden_layers (optional): Number of hidden layers in the neural network.
+        neurons_per_layer (optional): Number of neurons per layer in the neural network.
+        activation (optional): The activation function in the neural network.
+        batch_norm (optional): Whether to use batch normalization in the neural network.
+        dropout_rate (optional): Dropout rate in the neural network.
         epochs (optional): The number of training loops.
         tol (optional): Tolerance for the convergence criterion.
         lr (optional): The learning rate of the optimizer.
@@ -337,7 +378,8 @@ def train_cm_tpm(
         model: A trained CM-TPM model
     """
     input_dim = train_data.shape[1]
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, smooth=smooth, random_state=random_state)
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, 
+                   custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate], smooth=smooth, random_state=random_state)
 
     if verbose > 1:
         print(f"Finished building CM-TPM model with {num_components} components.")

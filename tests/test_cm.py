@@ -20,8 +20,13 @@ class TestClass:
             pc_type="spn",
             missing_strategy="ignore",
             ordinal_features=None,
-            net=None,
             max_depth=3,
+            custom_net=None,
+            hidden_layers=4,
+            neurons_per_layer=128,
+            activation="Tanh",
+            batch_norm=True,
+            dropout_rate=0.3,
             max_iter=100,
             tol=1e-3,
             lr=0.01,
@@ -37,8 +42,13 @@ class TestClass:
         assert imputer.pc_type == "spn"
         assert imputer.missing_strategy == "ignore"
         assert imputer.ordinal_features is None
-        assert imputer.net is None
         assert imputer.max_depth == 3
+        assert imputer.custom_net is None
+        assert imputer.hidden_layers == 4
+        assert imputer.neurons_per_layer == 128
+        assert imputer.activation == "Tanh"
+        assert imputer.batch_norm
+        assert imputer.dropout_rate == 0.3
         assert imputer.max_iter == 100
         assert imputer.tol == 1e-3
         assert imputer.lr == 0.01
@@ -142,7 +152,7 @@ class TestTransform():
             assert str(e) == "The model has not been fitted yet. Please call the fit method first."
 
     def test_transform_no_missing(self):
-        """Test transforming data without missing values"""
+        """Test transforming data without missing values."""
         self.imputer.missing_values = -1
         X = np.array([[1, 2, 3], [4, 5, 6]])
         imputer = self.imputer.fit(X)
@@ -261,7 +271,7 @@ class TestTransform():
         assert np.array_equal(X_imputed1, X_imputed2)
 
     def test_transform_binary(self):
-        """Test the transform method with a binary feature"""
+        """Test the transform method with a binary feature."""
         X = np.array([[1, 2, 3], [0, 5, 6], [0, 3, 2]])
         imputer = self.imputer.fit(X)
         X_missing = np.array([[np.nan, 2., 3.], [1, 5., 6.]])
@@ -288,7 +298,7 @@ class TestFitTransform():
         self.imputer = CMImputer(n_components=1)
 
     def test_fit_transform(self):
-        """Test the fit transform function"""
+        """Test the fit transform function."""
         X_missing = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
         X_imputed = self.imputer.fit_transform(X_missing)
         assert X_imputed.shape[0] == 3
@@ -306,8 +316,13 @@ class TestParams():
             pc_type="spn",
             missing_strategy="ignore",
             ordinal_features=None,
-            net=None,
             max_depth=3,
+            custom_net=None,
+            hidden_layers=4,
+            neurons_per_layer=128,
+            activation="Tanh",
+            batch_norm=True,
+            dropout_rate=0.3,
             max_iter=100,
             tol=1e-3,
             lr=0.01,
@@ -327,8 +342,13 @@ class TestParams():
         assert params["pc_type"] == "spn"
         assert params["missing_strategy"] == "ignore"
         assert params["ordinal_features"] is None
-        assert params["net"] is None
         assert params["max_depth"] == 3
+        assert params["custom_net"] is None
+        assert params["hidden_layers"] == 4
+        assert params["neurons_per_layer"] == 128
+        assert params["activation"] == "Tanh"
+        assert params["batch_norm"] == True
+        assert params["dropout_rate"] == 0.3
         assert params["max_iter"] == 100
         assert params["tol"] == 1e-3
         assert params["smooth"] == False
@@ -347,6 +367,11 @@ class TestParams():
             missing_strategy="integration",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
+            hidden_layers=2,
+            neurons_per_layer=256,
+            activation="Sigmoid",
+            batch_norm=False,
+            dropout_rate=0.5,
             max_iter=200,
             tol=1e-4,
             lr=0.001,
@@ -363,6 +388,11 @@ class TestParams():
         assert self.imputer.missing_strategy == "integration"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5
+        assert self.imputer.hidden_layers == 2
+        assert self.imputer.neurons_per_layer == 256
+        assert self.imputer.activation == "Sigmoid"
+        assert self.imputer.batch_norm == False
+        assert self.imputer.dropout_rate == 0.5
         assert self.imputer.max_iter == 200
         assert self.imputer.tol == 1e-4
         assert self.imputer.lr == 0.001
@@ -526,7 +556,7 @@ class TestPreprocess():
         assert np.array_equal(X_preprocessed, np.array([[0., 0., 0.], [0.5, 0.5, 0.5], [1., 1., 1.]]))
 
     def test_preprocess_binary_info(self):
-        """Test if the binary info is set correctly during preprocessing"""
+        """Test if the binary info is set correctly during preprocessing."""
         X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])
         X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
         assert np.array_equal(binary_mask, np.array([True, False, False]))
