@@ -1,4 +1,5 @@
 deeprob_kit==1.1.0
+myst-parser==4.0.1
 networkx==3.4.2
 numpy==2.2.3
 pandas==2.2.3
@@ -8,5 +9,7 @@ pytorch_lightning==2.5.0.post0
 qmcpy==1.5
 scipy==1.15.1
 setuptools==65.5.0
+sphinx==8.1.3
+sphinx-rtd-theme==3.0.2
 torch==2.6.0
 tqdm==4.67.1
