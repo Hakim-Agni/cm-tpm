@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import time
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import torch.distributions as dist
 import numpy as np
@@ -12,7 +13,6 @@ import networkx as nx
 #   Add settable mean and variance in rqmc sampler?
 #   Data preprocessing:  datetime features?
 #   Batches
-#   Add ways to use custom nets (layers etc)
 #   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
 #   Improve Neural Network PhiNet
@@ -143,20 +143,52 @@ class FactorizedPC(BaseProbabilisticCircuit):
         return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1)) + self.smooth  # Gaussian-like PC
 
 class SPN(BaseProbabilisticCircuit):
-    """An SPN PC structure. (Not implemented yet)"""
-    def __init__(self, input_dim, smooth=1e-6):
+    """An SPN PC structure."""
+    def __init__(self, input_dim, smooth=1e-6, num_sums=2, num_prods=2):
         super().__init__(input_dim, smooth=smooth)
+        self.num_sums = num_sums
+        self.num_prods = num_prods
         self.params = None
+
+        self.sum_weights = nn.Parameter(torch.randn(num_sums, num_prods))
     
     def set_params(self, params):
         """Set the parameters for the SPN"""
         self.params = params
 
     def forward(self, x):
-        """Placeholder for SPN computation"""
+        """SPN computation"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
-        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1)) + self.smooth  # Gaussian-like PC
+        if self.params.shape != (self.input_dim * 2,):  # Ensure twice the size of features
+            raise ValueError(f"Expected params of shape ({self.input_dim * 2},), got {self.params.shape}")
+        
+        batch_size = x.shape[0]
+        means, log_vars = torch.chunk(self.params, 2, dim=-1)
+        stds = torch.exp(0.5 * log_vars)
+
+        # Compute Gaussian likelihoods
+        leaf_probs = torch.exp(-0.5 * ((x.unsqueeze(1) - means) / stds) ** 2) / (stds * torch.sqrt(torch.tensor(2 * torch.pi)))
+        
+        # Dynamically compute feature groups and number of product nodes
+        feature_group_sizes, num_products = _dynamic_feature_grouping(self.input_dim, self.num_sums, self.num_prods)
+
+        # Update sum_weights to match new `num_products`
+        self.sum_weights = nn.Parameter(torch.randn(self.num_sums, num_products))
+
+        # Split leaf_probs into dynamically assigned feature groups
+        split_indices = torch.cumsum(torch.tensor([0] + feature_group_sizes), dim=0)
+        grouped_leaf_probs = [leaf_probs[:, :, split_indices[i]:split_indices[i+1]] for i in range(num_products)]
+
+        # Compute product node probabilities
+        product_probs = [torch.prod(group, dim=-1) for group in grouped_leaf_probs]
+        product_probs = torch.stack(product_probs, dim=-1)  # Shape: (batch_size, num_sums, num_products)
+
+        # Sum node weighted aggregation (now correctly aligned)
+        sum_weights = F.softmax(self.sum_weights, dim=-1)  # Ensure sum_weights shape matches product_probs
+        sum_probs = torch.sum(sum_weights * product_probs, dim=-1)  # Weighted sum over product nodes
+
+        return torch.mean(sum_probs, dim=-1)
 
 class ChowLiuTreePC(BaseProbabilisticCircuit):
     """A Chow Liu Tree PC structrue. (Not implemented yet)"""
@@ -251,10 +283,15 @@ class PhiNet(nn.Module):
         latent_dim: Dimensionality of latent variable z.
         pc_param_dim: Dimensionality of the PC parameters.
         net (optional): A custom neural network.
+        hidden_layers (optional): Number of hidden layers in the neural network.
+        neurons_per_layer (optional): Number of neurons per layer in the neural network.
+        activation (optional): The activation function in the neural network.
+        batch_norm (optional): Whether to use batch normalization in the neural network.
+        dropout_rate (optional): Dropout rate in the neural network.
     """
     def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0):
         super().__init__()
-        out_dim = pc_param_dim if pc_type in ["factorized", "spn"] else pc_param_dim * 2
+        out_dim = pc_param_dim if pc_type in ["factorized"] else pc_param_dim * 2
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
@@ -396,8 +433,11 @@ def train_cm_tpm(
         if verbose > 0 and em_iters > 1:
             print(f"EM Iteration {em_iter + 1}/{em_iters}")
 
-        imputed_data = impute_missing_values(train_data, model, skip=True)
-        x_batch = torch.tensor(imputed_data, dtype=torch.float32)
+        if missing_strategy == "em":
+            imputed_data = impute_missing_values(train_data, model, skip=True)
+            x_batch = torch.tensor(imputed_data, dtype=torch.float32)
+        else:
+            x_batch = torch.tensor(train_data, dtype=torch.float32)
 
         for epoch in range(epochs):
             start_time_epoch = time.time()
@@ -497,23 +537,31 @@ def impute_missing_values(
 
     return x_imputed.detach().cpu().numpy()
 
+def _dynamic_feature_grouping(input_dim, num_sums, num_products):
+    """Dynamically assigns feature groups when input_dim is not evenly divisible."""
+    num_groups = num_sums * num_products  # Total product nodes
+    base_group_size = input_dim // num_groups  # Minimum features per product node
+    remainder = input_dim % num_groups  # Features that need to be distributed
+
+    # Create feature sizes for each group
+    feature_group_sizes = [base_group_size + (1 if i < remainder else 0) for i in range(num_groups)]
+    
+    return feature_group_sizes, num_groups
+
 # Example Usage
 if __name__ == '__main__':
     train_data = np.random.rand(1000, 10)
     train_data = np.random.uniform(low=-1, high=1, size=(1000, 10))
     train_data[999, 9] = np.nan
-    model = train_cm_tpm(train_data, pc_type="factorized", random_state=None, missing_strategy="em", verbose=1)
-    # model2 = train_cm_tpm(train_data, pc_type="factorized", random_state=42)
+    model = train_cm_tpm(train_data, pc_type="spn", random_state=None, missing_strategy="integration", epochs=10, verbose=1)
 
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
     x_imputed = impute_missing_values(x_incomplete, model, random_state=None)
-    # x_imputed2 = impute_missing_values(x_incomplete, model2, random_state=42)
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)
     print("Imputed values:", x_imputed)
-    # print("Imputed values:", x_imputed2)
 
     # test_x = torch.randn(5, 10)  # Small test batch
     # test_pc = ChowLiuTreePC(input_dim=10)
