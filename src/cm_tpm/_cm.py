@@ -436,6 +436,8 @@ class CMImputer:
         X_imputed = impute_missing_values(
             X_preprocessed, 
             self.model,
+            epochs=50,
+            lr=0.01,
             random_state=self.random_state,
             verbose = self.verbose,
         )

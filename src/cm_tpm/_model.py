@@ -150,7 +150,7 @@ class SPN(BaseProbabilisticCircuit):
         self.num_prods = num_prods
         self.params = None
 
-        self.sum_weights = nn.Parameter(torch.randn(num_sums, num_prods))
+        self.sum_weights = nn.Parameter(torch.randn(num_sums, num_prods))   # TODO: Make weight initialed by phi
     
     def set_params(self, params):
         """Set the parameters for the SPN"""
@@ -481,6 +481,8 @@ def train_cm_tpm(
 def impute_missing_values(
         x_incomplete, 
         model,
+        epochs=50,
+        lr=0.1,
         random_state=None,
         verbose=0,
         skip=False,
@@ -491,6 +493,8 @@ def impute_missing_values(
     Parameters:
         x_incomplete: The input data with missing values.
         model: A CM-TPM model to use for data imputation.
+        epochs (optional): The number of imputation loops.
+        lr (optional): The learning rate during imputation. 
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
         skip (optional): Skips the model fitted check, used for EM.
@@ -511,23 +515,49 @@ def impute_missing_values(
         print(f"Starting with imputing data...")
     start_time = time.time()
 
+    if random_state is not None:
+        set_random_seed(random_state)
+
+    # Generate new samples and weights
     z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
+    
+    # Store which values are missing
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
     mask = ~torch.isnan(x_incomplete)
-    x_filled = torch.where(mask, x_incomplete, torch.tensor(0.0, dtype=torch.float32))
 
-    likelihoods = []
-    for i in range(z_samples.shape[0]):
-        model.pcs[i].set_params(model.phi_net(z_samples)[i])
-        likelihood = model.pcs[i](x_filled)
+    # Initially impute randomly
+    x_imputed = x_incomplete.clone().detach()
+    x_imputed[~mask] = torch.rand_like(x_imputed[~mask])
+    x_imputed = x_imputed.clone().detach().requires_grad_(True)
 
-        marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
-        likelihoods.append(marginalized_likelihood)
+    # Set up optimizer
+    optimizer = optim.Adam([x_imputed], lr=lr)
 
-    likelihoods = torch.stack(likelihoods, dim=0)
-    imputed_values = torch.mean(likelihoods, dim=0)
+    # Imputation loop
+    for epoch in range(epochs):
+        optimizer.zero_grad()
 
-    x_imputed = torch.where(mask, x_incomplete, imputed_values)
+        likelihoods = []
+        # Compute the likelihoods for each component
+        for i in range(z_samples.shape[0]):
+            model.pcs[i].set_params(model.phi_net(z_samples)[i])
+            likelihood = model.pcs[i](x_imputed)
+            likelihoods.append(likelihood)
+
+        # Store the log mean of the likelihoods
+        likelihoods = torch.stack(likelihoods, dim=0)
+        log_likelihood = torch.mean(torch.log(torch.sum(likelihoods, dim=0) + 1e-9))
+
+        # Optimization step
+        loss = -log_likelihood
+        loss.backward()
+        optimizer.step()
+
+        if verbose > 1:
+                print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
+        elif verbose > 0:
+            if epoch % 10 == 0:
+                print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
 
     if verbose > 0:
         print(f"Finished imputing data.")
@@ -536,6 +566,12 @@ def impute_missing_values(
         print(f"Total imputation time: {time.time() - start_time}")
 
     return x_imputed.detach().cpu().numpy()
+
+def set_random_seed(seed):
+    """Ensure reproducibility by setting random seeds for all libraries."""
+    np.random.seed(seed)  # NumPy's random generator
+    torch.manual_seed(seed)  # PyTorch CPU random generator
+    torch.cuda.manual_seed_all(seed)  # If using GPU
 
 def _dynamic_feature_grouping(input_dim, num_sums, num_products):
     """Dynamically assigns feature groups when input_dim is not evenly divisible."""
@@ -558,7 +594,7 @@ if __name__ == '__main__':
     x_incomplete = train_data[:3].copy()
     x_incomplete[0, 0] = np.nan
     x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(x_incomplete, model, random_state=None)
+    x_imputed = impute_missing_values(x_incomplete, model, random_state=None, verbose=1)
     print("Original Data:", train_data[:3])
     print("Data with missing:", x_incomplete)
     print("Imputed values:", x_imputed)
