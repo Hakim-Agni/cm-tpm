@@ -403,3 +403,50 @@ class TestImpute():
             assert False
         except ValueError as e:
             assert str(e) == "The model has not been fitted yet. Please call the fit method first."
+
+class TestModelResult():
+    def test_cm_factorized_zeros(self):
+        """Test imputing data filled with zeros."""
+        p = 0.05
+        all_zeros = np.zeros((100, 10))
+        all_zeros[0, 0] = np.nan
+        model = train_cm_tpm(all_zeros)
+        imputed = impute_missing_values(all_zeros, model)
+        assert imputed[0, 0] < p
+
+    def test_cm_factorized_constant(self):
+        """Test imputing data filled with a constant."""
+        constant = np.random.rand()
+        p = 0.05
+        all_const = np.full((100, 10), constant)
+        all_const[43, 8] = np.nan
+        all_const[10, 2] = np.nan
+        all_const[84, 0] = np.nan
+        model = train_cm_tpm(all_const)
+        imputed = impute_missing_values(all_const, model)
+        assert imputed[43, 8] < constant + p and imputed[43, 8] > constant - p
+        assert imputed[10, 2] < constant + p and imputed[10, 2] > constant - p
+        assert imputed[84, 0] < constant + p and imputed[84, 0] > constant - p
+
+    # def test_cm_spn_zeros(self):
+    #     """Test imputing data filled with zeros."""
+    #     p = 0.05
+    #     all_zeros = np.zeros((100, 10))
+    #     all_zeros[0, 0] = np.nan
+    #     model = train_cm_tpm(all_zeros, pc_type="spn")
+    #     imputed = impute_missing_values(all_zeros, model)
+    #     assert imputed[0, 0] < p
+
+    # def test_cm_spn_constant(self):
+    #     """Test imputing data filled with a constant."""
+    #     constant = np.random.rand()
+    #     p = 0.05
+    #     all_const = np.full((100, 10), constant)
+    #     all_const[43, 8] = np.nan
+    #     all_const[10, 2] = np.nan
+    #     all_const[84, 0] = np.nan
+    #     model = train_cm_tpm(all_const, pc_type="spn")
+    #     imputed = impute_missing_values(all_const, model)
+    #     assert imputed[43, 8] < constant + p and imputed[43, 8] > constant - p
+    #     assert imputed[10, 2] < constant + p and imputed[10, 2] > constant - p
+    #     assert imputed[84, 0] < constant + p and imputed[84, 0] > constant - p

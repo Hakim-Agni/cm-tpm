@@ -144,13 +144,13 @@ class FactorizedPC(BaseProbabilisticCircuit):
 
 class SPN(BaseProbabilisticCircuit):
     """An SPN PC structure."""
-    def __init__(self, input_dim, smooth=1e-6, num_sums=2, num_prods=2):
+    def __init__(self, input_dim, smooth=1e-6, num_sums=1, num_prods=2):
         super().__init__(input_dim, smooth=smooth)
         self.num_sums = num_sums
         self.num_prods = num_prods
         self.params = None
 
-        self.sum_weights = nn.Parameter(torch.randn(num_sums, num_prods))   # TODO: Make weight initialed by phi
+        self.sum_weights = nn.Parameter(torch.randn(num_sums, num_prods))   # TODO: Make weight initialized by phi
     
     def set_params(self, params):
         """Set the parameters for the SPN"""
@@ -165,7 +165,7 @@ class SPN(BaseProbabilisticCircuit):
         
         batch_size = x.shape[0]
         means, log_vars = torch.chunk(self.params, 2, dim=-1)
-        stds = torch.exp(0.5 * log_vars)
+        stds = torch.exp(0.5 * log_vars) + 1e-6
 
         # Compute Gaussian likelihoods
         leaf_probs = torch.exp(-0.5 * ((x.unsqueeze(1) - means) / stds) ** 2) / (stds * torch.sqrt(torch.tensor(2 * torch.pi)))
@@ -481,8 +481,8 @@ def train_cm_tpm(
 def impute_missing_values(
         x_incomplete, 
         model,
-        epochs=50,
-        lr=0.1,
+        epochs=100,
+        lr=0.01,
         random_state=None,
         verbose=0,
         skip=False,
@@ -527,15 +527,23 @@ def impute_missing_values(
 
     # Initially impute randomly
     x_imputed = x_incomplete.clone().detach()
-    x_imputed[~mask] = torch.rand_like(x_imputed[~mask])
-    x_imputed = x_imputed.clone().detach().requires_grad_(True)
+    #x_imputed[~mask] = torch.rand_like(x_imputed[~mask])
+    x_imputed[~mask] = 0.5
+    x_imputed = x_imputed.clone().detach()
+
+    # Create tensor with only values that need to be changed
+    x_missing = x_imputed[~mask].clone().detach().requires_grad_(True)
 
     # Set up optimizer
-    optimizer = optim.Adam([x_imputed], lr=lr)
+    optimizer = optim.Adam([x_missing], lr=lr)
 
     # Imputation loop
     for epoch in range(epochs):
         optimizer.zero_grad()
+
+        # Insert x_missing into x_imputed
+        x_imputed = x_imputed.clone().detach()
+        x_imputed = x_imputed.masked_scatter(~mask, x_missing)
 
         likelihoods = []
         # Compute the likelihoods for each component
@@ -553,6 +561,10 @@ def impute_missing_values(
         loss.backward()
         optimizer.step()
 
+        # Keep imputed values in (0,1) range
+        with torch.no_grad():
+            x_missing.clamp_(0, 1)
+
         if verbose > 1:
                 print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
         elif verbose > 0:
@@ -565,6 +577,8 @@ def impute_missing_values(
     if verbose > 1:
         print(f"Total imputation time: {time.time() - start_time}")
 
+    # Return completed data with imputed values
+    x_imputed = x_imputed.masked_scatter(~mask, x_missing)
     return x_imputed.detach().cpu().numpy()
 
 def set_random_seed(seed):
@@ -586,18 +600,31 @@ def _dynamic_feature_grouping(input_dim, num_sums, num_products):
 
 # Example Usage
 if __name__ == '__main__':
-    train_data = np.random.rand(1000, 10)
-    train_data = np.random.uniform(low=-1, high=1, size=(1000, 10))
-    train_data[999, 9] = np.nan
-    model = train_cm_tpm(train_data, pc_type="spn", random_state=None, missing_strategy="integration", epochs=10, verbose=1)
+    # train_data = np.random.rand(1000, 10)
+    # train_data = np.random.uniform(low=-1, high=1, size=(1000, 10))
+    # train_data[999, 9] = np.nan
+    # model = train_cm_tpm(train_data, pc_type="spn", random_state=None, missing_strategy="integration", epochs=10, verbose=1)
 
-    x_incomplete = train_data[:3].copy()
-    x_incomplete[0, 0] = np.nan
-    x_incomplete[2, 9] = np.nan
-    x_imputed = impute_missing_values(x_incomplete, model, random_state=None, verbose=1)
-    print("Original Data:", train_data[:3])
-    print("Data with missing:", x_incomplete)
-    print("Imputed values:", x_imputed)
+    # x_incomplete = train_data[:3].copy()
+    # x_incomplete[0, 0] = np.nan
+    # x_incomplete[2, 9] = np.nan
+    # x_imputed = impute_missing_values(x_incomplete, model, random_state=None, verbose=1)
+    # print("Original Data:", train_data[:3])
+    # print("Data with missing:", x_incomplete)
+    # print("Imputed values:", x_imputed)
+
+    
+    all_zeros = np.full((100, 10), 0.8)
+    all_zeros[50, 3] = np.nan
+    #all_zeros[10, 2] = np.nan
+    #all_zeros[92, 0] = np.nan
+    model = train_cm_tpm(all_zeros, pc_type="factorized")
+    imputed = impute_missing_values(all_zeros, model, lr=0.01, epochs=100, verbose=2)
+    print(imputed[50, 3])
+    #print(imputed[10, 2])
+    #print(imputed[92, 0])
+
+
 
     # test_x = torch.randn(5, 10)  # Small test batch
     # test_pc = ChowLiuTreePC(input_dim=10)
