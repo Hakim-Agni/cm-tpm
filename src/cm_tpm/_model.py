@@ -384,7 +384,7 @@ def train_cm_tpm(
         batch_norm=False,
         dropout_rate=0.0,
         epochs=100,
-        tol=1e-4, 
+        tol=1e-5, 
         lr=0.001,
         smooth=1e-6,
         random_state=None,
@@ -422,6 +422,7 @@ def train_cm_tpm(
         print(f"Finished building CM-TPM model with {num_components} components.")
 
     optimizer = optim.AdamW(model.parameters(), lr=lr)
+    # print(dict(model.named_parameters()))
 
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
@@ -450,8 +451,8 @@ def train_cm_tpm(
             if torch.isnan(loss).any():
                 raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
             
-            if abs(loss - prev_loss) < tol:
-                if verbose > 1:
+            if epoch > 10 and abs(loss - prev_loss) < tol:
+                if verbose > 0:
                     print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
                 break
             prev_loss = loss
@@ -545,19 +546,8 @@ def impute_missing_values(
         x_imputed = x_imputed.clone().detach()
         x_imputed = x_imputed.masked_scatter(~mask, x_missing)
 
-        likelihoods = []
-        # Compute the likelihoods for each component
-        for i in range(z_samples.shape[0]):
-            model.pcs[i].set_params(model.phi_net(z_samples)[i])
-            likelihood = model.pcs[i](x_imputed)
-            likelihoods.append(likelihood)
-
-        # Store the log mean of the likelihoods
-        likelihoods = torch.stack(likelihoods, dim=0)
-        log_likelihood = torch.mean(torch.log(torch.sum(likelihoods, dim=0) + 1e-9))
-
-        # Optimization step
-        loss = -log_likelihood
+        # # Optimization step
+        loss = -model(x_imputed, z_samples, w)
         loss.backward()
         optimizer.step()
 
@@ -614,12 +604,12 @@ if __name__ == '__main__':
     # print("Imputed values:", x_imputed)
 
     
-    all_zeros = np.full((100, 10), 0.8)
+    all_zeros = np.full((100, 10), 0.95)
     all_zeros[50, 3] = np.nan
     #all_zeros[10, 2] = np.nan
     #all_zeros[92, 0] = np.nan
-    model = train_cm_tpm(all_zeros, pc_type="factorized")
-    imputed = impute_missing_values(all_zeros, model, lr=0.01, epochs=100, verbose=2)
+    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=1)
+    imputed = impute_missing_values(all_zeros, model, lr=0.01, epochs=100, verbose=1)
     print(imputed[50, 3])
     #print(imputed[10, 2])
     #print(imputed[92, 0])

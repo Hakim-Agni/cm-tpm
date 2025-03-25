@@ -8,3 +8,4 @@ requirements-dev.txt
 tests/data/test_data_imputed.csv
 tests/data/test_data_save_path_data.feather
 tests/data/test_data_save_path_file.parquet
+/evaluation/data
