@@ -533,6 +533,118 @@ def impute_missing_values(
     if random_state is not None:
         set_random_seed(random_state)
 
+    x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
+    x_filled = x_incomplete.clone()
+    full_mask = ~torch.isnan(x_incomplete)
+
+    for i in range(x_incomplete.shape[0]):
+        x_sample = x_incomplete[i]
+        
+        # If there are no missing values, skip this loop
+        if not torch.any(torch.isnan(x_sample)):
+            continue
+
+        x_sample = torch.unsqueeze(x_sample, 0)   # Add another dimension
+
+        # Generate new samples and weights
+        z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
+        
+        # Store which values are missing
+        mask = ~torch.isnan(x_sample)
+
+        if verbose > 0:
+            print(f"Starting imputing {torch.sum(~mask).item()} values in sample {i}...")
+
+        # Initially impute randomly
+        x_imputed = x_sample.clone().detach()
+        #x_imputed[~mask] = torch.rand_like(x_imputed[~mask])
+        x_imputed[~mask] = 0.5
+        x_imputed = x_imputed.clone().detach()
+
+        # Create tensor with only values that need to be changed
+        x_missing = x_imputed[~mask].clone().detach().requires_grad_(True)
+
+        # Set up optimizer
+        optimizer = optim.Adam([x_missing], lr=lr)
+
+        # Imputation loop
+        for epoch in range(epochs):
+            optimizer.zero_grad()
+
+            # Insert x_missing into x_imputed
+            x_imputed = x_imputed.clone().detach()
+            x_imputed = x_imputed.masked_scatter(~mask, x_missing)
+
+            # # Optimization step
+            loss = -model(x_imputed, z_samples, w)
+            loss.backward()
+            optimizer.step()
+
+            # Keep imputed values in (0,1) range
+            with torch.no_grad():
+                x_missing.clamp_(0, 1)
+
+            if verbose > 1:
+                    print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
+            elif verbose > 0:
+                if epoch % 10 == 0:
+                    print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
+
+        if verbose > 0:
+            print(f"Finished imputing {torch.sum(~mask).item()} values in sample {i}.")
+        
+        x_imputed = x_imputed.masked_scatter(~mask, x_missing)
+        x_filled[i] = x_imputed
+
+    if verbose > 0:
+            print(f"Finished imputing data.")
+            print(f"Succesfully imputed {torch.sum(~full_mask).item()} values.")
+    if verbose > 1:
+            print(f"Total imputation time: {time.time() - start_time}")
+
+    # Return completed data with imputed values
+    return x_filled.detach().cpu().numpy()
+
+def impute_missing_values_all(
+        x_incomplete, 
+        model,
+        epochs=100,
+        lr=0.01,
+        random_state=None,
+        verbose=0,
+        skip=False,
+        ):
+    """
+    Imputes missing data using a specified model.
+    
+    Parameters:
+        x_incomplete: The input data with missing values.
+        model: A CM-TPM model to use for data imputation.
+        epochs (optional): The number of imputation loops.
+        lr (optional): The learning rate during imputation. 
+        random_state (optional): A random seed for reproducibility. 
+        verbose (optional): Verbosity level.
+        skip (optional): Skips the model fitted check, used for EM.
+
+    Returns:
+        x_imputed: A copy of x_incomplete with the missing values imputed.
+    """
+    if not np.isnan(x_incomplete).any():
+        return x_incomplete
+    
+    if not model._is_trained and not skip:
+        raise ValueError("The model has not been fitted yet. Please call the fit method first.")
+    
+    if x_incomplete.shape[1] != model.input_dim:
+        raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")
+    
+    if verbose > 0:
+        print(f"Starting with imputing data...")
+    start_time = time.time()
+
+    if random_state is not None:
+        set_random_seed(random_state)
+
     # Generate new samples and weights
     z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
     
@@ -620,13 +732,13 @@ if __name__ == '__main__':
     
     all_zeros = np.full((100, 10), 0.23)
     all_zeros[50, 3] = np.nan
-    #all_zeros[10, 2] = np.nan
-    #all_zeros[92, 0] = np.nan
+    all_zeros[10, 2] = np.nan
+    all_zeros[92, 0] = np.nan
     model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=1, epochs=150)
     imputed = impute_missing_values(all_zeros, model, lr=0.01, epochs=100, verbose=1)
     print(imputed[50, 3])
-    #print(imputed[10, 2])
-    #print(imputed[92, 0])
+    print(imputed[10, 2])
+    print(imputed[92, 0])
 
 
 
