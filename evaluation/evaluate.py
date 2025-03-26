@@ -27,7 +27,7 @@ print("Dataset with missing values saved as 'diabetes_with_missing.csv'")
 
 imputer = CMImputer(
     missing_values=np.nan,
-    n_components=8,
+    n_components=128,
     latent_dim=32,
     pc_type="factorized",
     missing_strategy="integration",
@@ -66,41 +66,41 @@ print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
 print(f"Correlation between true and imputed values: {correlation:.4f}")
 
 
-imputer_spn = CMImputer(
-    missing_values=np.nan,
-    n_components=8,
-    latent_dim=32,
-    pc_type="spn",
-    missing_strategy="integration",
-    ordinal_features=None,
-    max_depth=5,
-    custom_net=None,
-    max_iter=100,
-    tol=0.0001,
-    lr=0.001,
-    smooth=0.000001,
-    random_state=42,
-    verbose=0,
-    copy=True,
-    keep_empty_features=True,
-)
-spn_imputed = imputer_spn.fit_transform(data_missing)
+# imputer_spn = CMImputer(
+#     missing_values=np.nan,
+#     n_components=8,
+#     latent_dim=32,
+#     pc_type="spn",
+#     missing_strategy="integration",
+#     ordinal_features=None,
+#     max_depth=5,
+#     custom_net=None,
+#     max_iter=100,
+#     tol=0.0001,
+#     lr=0.001,
+#     smooth=0.000001,
+#     random_state=42,
+#     verbose=0,
+#     copy=True,
+#     keep_empty_features=True,
+# )
+# spn_imputed = imputer_spn.fit_transform(data_missing)
 
-# Select only the originally missing values for comparison
-spn_values = spn_imputed.values[mask]
+# # Select only the originally missing values for comparison
+# spn_values = spn_imputed.values[mask]
 
-# Compute Error Metrics
-mae = mean_absolute_error(true_values, spn_values)
-rmse = np.sqrt(mean_squared_error(true_values, spn_values))
-mape = np.mean(np.abs((true_values - spn_values) / true_values)) * 100
-correlation = np.corrcoef(true_values.flatten(), spn_values.flatten())[0, 1]
+# # Compute Error Metrics
+# mae = mean_absolute_error(true_values, spn_values)
+# rmse = np.sqrt(mean_squared_error(true_values, spn_values))
+# mape = np.mean(np.abs((true_values - spn_values) / true_values)) * 100
+# correlation = np.corrcoef(true_values.flatten(), spn_values.flatten())[0, 1]
 
-print("___________________________________________________")
-print("CM Imputer (SPN):")
-print(f"Mean Absolute Error (MAE): {mae:.4f}")
-print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
-print(f"Correlation between true and imputed values: {correlation:.4f}")
+# print("___________________________________________________")
+# print("CM Imputer (SPN):")
+# print(f"Mean Absolute Error (MAE): {mae:.4f}")
+# print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
+# print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
+# print(f"Correlation between true and imputed values: {correlation:.4f}")
 
 
 knn_imputer = KNNImputer()

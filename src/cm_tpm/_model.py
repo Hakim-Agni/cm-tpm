@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import time
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -90,20 +91,23 @@ class CM_TPM(nn.Module):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
             likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i)), shape: (batch_size)
 
-            if self.missing_strategy == "integration":
-                marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
-            elif self.missing_strategy == "ignore":
-                marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.tensor(1e-6).expand_as(mask))
-            else:
-                marginalized_likelihood = likelihood
+            # TODO: Fill in missing values inbetween loops?
+            # if self.missing_strategy == "integration":
+            #     marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
+            # elif self.missing_strategy == "ignore":
+            #     marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.tensor(1e-6).expand_as(mask))
+            # else:
+            #     marginalized_likelihood = likelihood
+
+            marginalized_likelihood = likelihood
 
             if torch.isnan(marginalized_likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {marginalized_likelihood}")
 
-            likelihoods.append(marginalized_likelihood * w[i])   # Add weighted likelihood to the list
+            likelihoods.append(marginalized_likelihood + torch.log(w[i]))   # Add weighted likelihood to the list
 
         likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
-        mixture_likelihood = torch.sum(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
+        mixture_likelihood = torch.logsumexp(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
         return mixture_likelihood.mean()  # Average over batch
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
@@ -137,10 +141,21 @@ class FactorizedPC(BaseProbabilisticCircuit):
         """Compute the likelihood using a factorized Gaussian model"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
-        if self.params.shape[0] != x.shape[1]:
-            raise ValueError(f"The size of x and the size of params do not match. Expected shape for params: ({x.shape[1]}), but got shape: ({self.params.shape[0]}).")
+        if self.params.shape != (self.input_dim * 2,):  # Ensure twice the size of features
+            raise ValueError(f"Expected params of shape ({self.input_dim * 2},), got {self.params.shape}")
         
-        return torch.exp(-torch.sum((x - self.params) ** 2, dim=-1)) + self.smooth  # Gaussian-like PC
+        # Extract the means and log variances from the parameters
+        means, log_vars = torch.chunk(self.params, 2, dim=-1)
+        stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
+
+        # Compute Gaussian likelihood per feature
+        #log_prob = -0.5 * (((x - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
+        log_prob = -0.5 * (((x - means) / stds) ** 2)
+        # Sum across all features to get the total log-likelihood
+        log_likelihood = torch.sum(log_prob, dim=-1)
+
+        return log_likelihood
+        
 
 class SPN(BaseProbabilisticCircuit):
     """An SPN PC structure."""
@@ -223,7 +238,7 @@ class ChowLiuTreePC(BaseProbabilisticCircuit):
 
         for i in range(n_features):
             for j in range(i + 1, n_features):
-                corr = np.corrcoef(data[:, i], data[:, j])[0, 1]
+                corr = np.corrcoef(data[:, i], data[:, j])[0, 1]    # Bug: Returns null if elements are identical
                 mutual_info_matrix[i, j] = mutual_info_matrix[j, i] = np.abs(corr)
 
         G = nx.Graph()
@@ -291,7 +306,7 @@ class PhiNet(nn.Module):
     """
     def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0):
         super().__init__()
-        out_dim = pc_param_dim if pc_type in ["factorized"] else pc_param_dim * 2
+        out_dim = pc_param_dim * 2
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
@@ -422,7 +437,6 @@ def train_cm_tpm(
         print(f"Finished building CM-TPM model with {num_components} components.")
 
     optimizer = optim.AdamW(model.parameters(), lr=lr)
-    # print(dict(model.named_parameters()))
 
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
@@ -604,11 +618,11 @@ if __name__ == '__main__':
     # print("Imputed values:", x_imputed)
 
     
-    all_zeros = np.full((100, 10), 0.95)
+    all_zeros = np.full((100, 10), 0.23)
     all_zeros[50, 3] = np.nan
     #all_zeros[10, 2] = np.nan
     #all_zeros[92, 0] = np.nan
-    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=1)
+    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=1, epochs=150)
     imputed = impute_missing_values(all_zeros, model, lr=0.01, epochs=100, verbose=1)
     print(imputed[50, 3])
     #print(imputed[10, 2])
