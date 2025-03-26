@@ -113,7 +113,7 @@ class TestFactorizedPC():
     def test_forward(self):
         """Test the forward method of the PC."""
         x = torch.tensor(np.random.rand(50, 20), dtype=torch.float32)
-        params = torch.tensor(np.random.rand(20))
+        params = torch.tensor(np.random.rand(40))
         self.pc.set_params(params)
         likelihoods = self.pc(x)
         assert isinstance(likelihoods, torch.Tensor)
@@ -130,14 +130,14 @@ class TestFactorizedPC():
 
     def test_forward_wrong_param_dimensions(self):
         """Test the forward method when the data and parameter dimensions do not match"""
-        x = torch.tensor(np.random.rand(50, 25), dtype=torch.float32)
+        x = torch.tensor(np.random.rand(50, 20), dtype=torch.float32)
         params = torch.tensor(np.random.rand(20))
         self.pc.set_params(params)
         try:
             likelihoods = self.pc(x)
             assert False
         except ValueError as e:
-            assert str(e) == "The size of x and the size of params do not match. Expected shape for params: (25), but got shape: (20)."
+            assert str(e) == "Expected params of shape (40,), got torch.Size([20])"
 
 class TestSPN():
     @pytest.fixture(autouse=True)
@@ -198,7 +198,7 @@ class TestNeuralNet():
         assert isinstance(self.neural_net.net[1], nn.ReLU)
         assert self.neural_net.net[2].in_features == 64 and self.neural_net.net[2].out_features == 64
         assert isinstance(self.neural_net.net[3], nn.ReLU)
-        assert self.neural_net.net[4].in_features == 64 and self.neural_net.net[4].out_features == 10
+        assert self.neural_net.net[4].in_features == 64 and self.neural_net.net[4].out_features == 20
 
     def test_custom_net(self):
         """Test setting a custom neural network."""
@@ -207,7 +207,7 @@ class TestNeuralNet():
             nn.ReLU(),
             nn.Linear(64, 256),
             nn.ReLU(),
-            nn.Linear(256, 10),
+            nn.Linear(256, 20),
         )
         neural_net = PhiNet(latent_dim=20, pc_param_dim=10, net=net)
         assert isinstance(neural_net.net, nn.Sequential)
@@ -216,7 +216,7 @@ class TestNeuralNet():
         assert isinstance(neural_net.net[1], nn.ReLU)
         assert neural_net.net[2].in_features == 64 and neural_net.net[2].out_features == 256
         assert isinstance(neural_net.net[3], nn.ReLU)
-        assert neural_net.net[4].in_features == 256 and neural_net.net[4].out_features == 10
+        assert neural_net.net[4].in_features == 256 and neural_net.net[4].out_features == 20
 
     def test_invalid_custom_net_in_features(self):
         """Test setting a custom neural network with invalid input features."""
@@ -225,7 +225,7 @@ class TestNeuralNet():
             nn.ReLU(),
             nn.Linear(64, 256),
             nn.ReLU(),
-            nn.Linear(256, 10),
+            nn.Linear(256, 20),
         )
         try:
             neural_net = PhiNet(latent_dim=20, pc_param_dim=10, net=net)
@@ -246,14 +246,14 @@ class TestNeuralNet():
             neural_net = PhiNet(latent_dim=20, pc_param_dim=10, net=net)
             assert False
         except ValueError as e:
-            assert str(e) == "Invalid input net. The final layer should have 10 output features, but is has 30 output features."
+            assert str(e) == "Invalid input net. The final layer should have 20 output features, but is has 30 output features."
 
     def test_forward(self):
         """Test the forward function on the neural network."""
         z = torch.tensor(np.random.rand(100, 20), dtype=torch.float32)
         out = self.neural_net(z)
         assert isinstance(out, torch.Tensor)
-        assert out.shape == torch.Size([100, 10])
+        assert out.shape == torch.Size([100, 20])
 
     def test_forward_wrong_dimensions(self):
         """Test putting a tensor with the wrong dimensions into the network."""
@@ -281,7 +281,7 @@ class TestNeuralNet():
         assert isinstance(neural_net.net[9], nn.BatchNorm1d)
         assert isinstance(neural_net.net[10], nn.Tanh)
         assert isinstance(neural_net.net[11], nn.Dropout)
-        assert neural_net.net[12].in_features == 128 and neural_net.net[12].out_features == 10
+        assert neural_net.net[12].in_features == 128 and neural_net.net[12].out_features == 20
 
     def test_custom_params_complex(self):
         """Test setting more complex custom parameters for a neural network."""
@@ -300,7 +300,7 @@ class TestNeuralNet():
         assert isinstance(neural_net.net[9], nn.BatchNorm1d)
         assert isinstance(neural_net.net[10], nn.Sigmoid)
         assert isinstance(neural_net.net[11], nn.Dropout)
-        assert neural_net.net[12].in_features == 256 and neural_net.net[12].out_features == 10
+        assert neural_net.net[12].in_features == 256 and neural_net.net[12].out_features == 20
 
     def test_custom_params_invalid(self):
         """Test setting invalid custom parameters for a neural network."""
