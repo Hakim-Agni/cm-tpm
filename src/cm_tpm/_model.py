@@ -84,7 +84,8 @@ class CM_TPM(nn.Module):
 
         phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
         mask = ~torch.isnan(x)
-        x = torch.where(mask, x, torch.nanmean(x, dim=0, keepdim=True))
+        x = torch.where(mask, x, torch.nanmean(x, dim=0, keepdim=True))     # TODO: This might be causing issues (maybe move after likelihood computations)
+        #x = torch.where(mask, x, 0.0)
 
         likelihoods = []
         for i in range(self.num_components):
@@ -149,10 +150,18 @@ class FactorizedPC(BaseProbabilisticCircuit):
         stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
         # Compute Gaussian likelihood per feature
-        #log_prob = -0.5 * (((x - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
-        log_prob = -0.5 * (((x - means) / stds) ** 2)
-        # Sum across all features to get the total log-likelihood
-        log_likelihood = torch.sum(log_prob, dim=-1)
+        # #log_prob = -0.5 * (((x - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
+        # log_prob = -0.5 * (((x - means) / stds) ** 2)
+        # # Sum across all features to get the total log-likelihood
+        # log_likelihood = torch.sum(log_prob, dim=-1)
+
+        epsilon = 0.1
+        prob_low = 0.5 * (1 + torch.erf((x - epsilon - means) / (stds * math.sqrt(2))))
+        prob_high = 0.5 * (1 + torch.erf((x + epsilon - means) / (stds * math.sqrt(2))))
+        prob = (prob_high - prob_low).clamp(min=1e-9)
+        log_prob = torch.log(prob)
+        log_prob[torch.isnan(log_prob)] = 0.0
+        log_likelihood = torch.sum(log_prob)
 
         return log_likelihood
         
@@ -493,7 +502,7 @@ def train_cm_tpm(
     model._is_trained = True
     return model
 
-def impute_missing_values(
+def impute_missing_values_sample(
         x_incomplete, 
         model,
         epochs=100,
@@ -605,7 +614,7 @@ def impute_missing_values(
     # Return completed data with imputed values
     return x_filled.detach().cpu().numpy()
 
-def impute_missing_values_all(
+def impute_missing_values(
         x_incomplete, 
         model,
         epochs=100,
@@ -697,6 +706,92 @@ def impute_missing_values_all(
     x_imputed = x_imputed.masked_scatter(~mask, x_missing)
     return x_imputed.detach().cpu().numpy()
 
+def impute_missing_values_exact(
+        x_incomplete, 
+        model,
+        epochs=100,
+        lr=0.01,
+        random_state=None,
+        verbose=0,
+        skip=False,
+        ):
+    """
+    Imputes missing data using a specified model.
+    
+    Parameters:
+        x_incomplete: The input data with missing values.
+        model: A CM-TPM model to use for data imputation.
+        epochs (optional): The number of imputation loops.
+        lr (optional): The learning rate during imputation. 
+        random_state (optional): A random seed for reproducibility. 
+        verbose (optional): Verbosity level.
+        skip (optional): Skips the model fitted check, used for EM.
+
+    Returns:
+        x_imputed: A copy of x_incomplete with the missing values imputed.
+    """
+    if not np.isnan(x_incomplete).any():
+        return x_incomplete
+    
+    if not model._is_trained and not skip:
+        raise ValueError("The model has not been fitted yet. Please call the fit method first.")
+    
+    if x_incomplete.shape[1] != model.input_dim:
+        raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")
+    
+    if verbose > 0:
+        print(f"Starting with imputing data...")
+    start_time = time.time()
+
+    if random_state is not None:
+        set_random_seed(random_state)
+
+    # Generate new samples and weights
+    z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
+    
+    # Store which values are missing
+    x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
+    mask = ~torch.isnan(x_incomplete)
+
+    # Initially impute randomly
+    x_imputed = x_incomplete.clone().detach()
+
+    phi_z = model.phi_net(z_samples)
+    means, log_vars = torch.chunk(phi_z, 2, dim=-1)
+    stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
+    #print(means, stds)
+    #print(means.shape, stds.shape)
+
+    epsilon = 0.1
+
+    for k in range(x_incomplete.shape[0]):
+        if not torch.any(torch.isnan(x_incomplete[k])):
+            continue
+
+        likelihoods = torch.zeros(means.shape[0])
+        for i in range(means.shape[0]):
+            likelihood = 0
+            for j in range(x_incomplete.shape[1]):
+                x = x_incomplete[k, j]
+                if not torch.isnan(x):
+                    mean, std = means[i, j], stds[i, j]
+                    log_prob_low = 0.5 * (1 + torch.erf((x - epsilon - mean) / (std * math.sqrt(2))))
+                    log_prob_high = 0.5 * (1 + torch.erf((x + epsilon - mean) / (std * math.sqrt(2))))
+                    log_prob = torch.log(log_prob_high - log_prob_low)
+                    likelihood += log_prob
+            likelihoods[i] = likelihood
+        
+        i_max = torch.argmax(likelihoods)
+        #print(f"Sample {k}, most likely component: {i_max}.")
+        #print(means[i_max])
+        #print(means)
+
+        for j in range(x_incomplete.shape[1]):
+            if torch.isnan(x_incomplete[k, j]):
+                x_imputed[k, j] = means[i_max, j]
+        
+    return x_imputed.detach().cpu().numpy()
+
 def set_random_seed(seed):
     """Ensure reproducibility by setting random seeds for all libraries."""
     np.random.seed(seed)  # NumPy's random generator
@@ -734,12 +829,17 @@ if __name__ == '__main__':
     all_zeros[50, 3] = np.nan
     all_zeros[10, 2] = np.nan
     all_zeros[92, 0] = np.nan
-    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=1, epochs=150)
-    imputed = impute_missing_values(all_zeros, model, lr=0.01, epochs=100, verbose=1)
+    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=2, epochs=150, lr=0.001, num_components=1024)
+    imputed = impute_missing_values_exact(all_zeros, model, lr=0.01, epochs=100, verbose=1)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
 
+    # all_zeros = np.full((6, 6), 0.23)
+    # all_zeros[0, 0] = np.nan
+    # model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=2, epochs=150, lr=0.001, num_components=1024)
+    # imputed = impute_missing_values_exact(all_zeros, model, lr=0.01, epochs=100, verbose=1)
+    # print(imputed[0, 0])
 
 
     # test_x = torch.randn(5, 10)  # Small test batch

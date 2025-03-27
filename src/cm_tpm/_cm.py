@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import torch.nn as nn
 import warnings
-from ._model import train_cm_tpm, impute_missing_values
+from ._model import train_cm_tpm, impute_missing_values, impute_missing_values_exact
 from ._helpers import (
     _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, 
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
@@ -433,10 +433,10 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        X_imputed = impute_missing_values(
+        X_imputed = impute_missing_values_exact(
             X_preprocessed, 
             self.model,
-            epochs=50,
+            epochs=100,
             lr=0.01,
             random_state=self.random_state,
             verbose = self.verbose,

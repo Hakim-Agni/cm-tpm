@@ -27,7 +27,7 @@ print("Dataset with missing values saved as 'diabetes_with_missing.csv'")
 
 imputer = CMImputer(
     missing_values=np.nan,
-    n_components=128,
+    n_components=1024,
     latent_dim=32,
     pc_type="factorized",
     missing_strategy="integration",
@@ -38,11 +38,12 @@ imputer = CMImputer(
     tol=0.0001,
     lr=0.001,
     smooth=0.000001,
-    random_state=42,
     verbose=0,
     copy=True,
     keep_empty_features=True,
 )
+#imputer.fit(data)
+#data_imputed = imputer.transform(data_missing)
 data_imputed = imputer.fit_transform(data_missing)
 
 # Save the imputed dataset
