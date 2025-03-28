@@ -364,7 +364,7 @@ class TestParams():
             n_components=10,
             latent_dim=4,
             pc_type="clt",
-            missing_strategy="integration",
+            missing_strategy="zero",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
             hidden_layers=2,
@@ -385,7 +385,7 @@ class TestParams():
         assert self.imputer.n_components == 10
         assert self.imputer.latent_dim == 4
         assert self.imputer.pc_type == "clt"
-        assert self.imputer.missing_strategy == "integration"
+        assert self.imputer.missing_strategy == "zero"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5
         assert self.imputer.hidden_layers == 2

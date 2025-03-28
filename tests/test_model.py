@@ -410,8 +410,8 @@ class TestModelResult():
         p = 0.05
         all_zeros = np.zeros((100, 10))
         all_zeros[0, 0] = np.nan
-        model = train_cm_tpm(all_zeros)
-        imputed = impute_missing_values(all_zeros, model)
+        model = train_cm_tpm(all_zeros, random_state=42)
+        imputed = impute_missing_values(all_zeros, model, random_state=42)
         assert imputed[0, 0] < p
 
     def test_cm_factorized_constant(self):
@@ -422,8 +422,8 @@ class TestModelResult():
         all_const[43, 8] = np.nan
         all_const[10, 2] = np.nan
         all_const[84, 0] = np.nan
-        model = train_cm_tpm(all_const)
-        imputed = impute_missing_values(all_const, model)
+        model = train_cm_tpm(all_const, random_state=42)
+        imputed = impute_missing_values(all_const, model, random_state=42)
         assert imputed[43, 8] < constant + p and imputed[43, 8] > constant - p
         assert imputed[10, 2] < constant + p and imputed[10, 2] > constant - p
         assert imputed[84, 0] < constant + p and imputed[84, 0] > constant - p

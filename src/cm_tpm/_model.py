@@ -84,6 +84,7 @@ class CM_TPM(nn.Module):
 
         phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
         mask = ~torch.isnan(x)
+        ignore = None
 
         if self.missing_strategy == "mean":
             # Fill missing values with the mean of the feature
@@ -91,7 +92,8 @@ class CM_TPM(nn.Module):
         elif self.missing_strategy == "ignore":
             # Compute likelihood without filling in missing values
             # TODO: Fix errors
-            x = x
+            ignore = mask
+            x = torch.where(mask, x, 0.0)
         elif self.missing_strategy == "zero":
             # Fill missing values with zero
             x = torch.where(mask, x, 0.0)
@@ -99,7 +101,7 @@ class CM_TPM(nn.Module):
         likelihoods = []
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
-            likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i)), shape: (batch_size)
+            likelihood = self.pcs[i](x, ignore)  # Compute p(x | phi(z_i)), shape: (batch_size)
 
             if torch.isnan(likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
@@ -139,7 +141,7 @@ class FactorizedPC(BaseProbabilisticCircuit):
         """Set the parameters for the factorized PC"""
         self.params = params
 
-    def forward(self, x):
+    def forward(self, x, ignore_mask=None):
         """Compute the likelihood using a factorized Gaussian model"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
@@ -156,14 +158,21 @@ class FactorizedPC(BaseProbabilisticCircuit):
         # # Sum across all features to get the total log-likelihood
         # log_likelihood = torch.sum(log_prob, dim=-1)
 
-        epsilon = 0.1
-        prob_low = 0.5 * (1 + torch.erf((x - epsilon - means) / (stds * math.sqrt(2))))
-        prob_high = 0.5 * (1 + torch.erf((x + epsilon - means) / (stds * math.sqrt(2))))
-        prob = (prob_high - prob_low).clamp(min=1e-9)
+        epsilon = 0.1       # Small epsilon to compute approximate probability
+        prob_low = 0.5 * (1 + torch.erf((x - epsilon - means) / (stds * math.sqrt(2))))     # Lower probability
+        prob_high = 0.5 * (1 + torch.erf((x + epsilon - means) / (stds * math.sqrt(2))))    # Upper probability
+        prob = (prob_high - prob_low).clamp(min=1e-9)       # Set minimum to avoid 0
         log_prob = torch.log(prob)
-        log_prob[torch.isnan(log_prob)] = 0.0
-        log_likelihood = torch.sum(log_prob, dim=-1)
 
+        # Set all NaN values to 0
+        if torch.any(torch.isnan(log_prob)):
+            log_prob[torch.isnan(log_prob)] = 0.0
+        # If we ignore missing values, set those to 0
+        if ignore_mask is not None:
+            log_prob = torch.where(ignore_mask, log_prob, 0.0)
+
+        # Sum the probabilities to obtain a likelihood for each sample
+        log_likelihood = torch.sum(log_prob, dim=-1)
         return log_likelihood
         
 
@@ -181,7 +190,7 @@ class SPN(BaseProbabilisticCircuit):
         """Set the parameters for the SPN"""
         self.params = params
 
-    def forward(self, x):
+    def forward(self, x, ignore_mask=None):
         """SPN computation"""
         if self.params is None:
             raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
@@ -242,7 +251,7 @@ class ChowLiuTreePC(BaseProbabilisticCircuit):
 
         self.params = torch.stack((means, stds), dim=1)
 
-    def fit_tree(self, data):
+    def fit_tree(self, data, ignore_mask=None):
         n_features = data.shape[1]
         mutual_info_matrix = np.zeros((n_features, n_features))
 
@@ -830,7 +839,13 @@ if __name__ == '__main__':
     all_zeros[50, 3] = np.nan
     all_zeros[10, 2] = np.nan
     all_zeros[92, 0] = np.nan
-    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=2, epochs=150, lr=0.001, num_components=256, missing_strategy="ignore")
+    model = train_cm_tpm(all_zeros, 
+                         pc_type="factorized", 
+                         verbose=2, 
+                         epochs=150, 
+                         lr=0.001, 
+                         num_components=256, 
+                         missing_strategy="zero")
     imputed = impute_missing_values_exact(all_zeros, model, lr=0.01, epochs=100, verbose=1)
     print(imputed[50, 3])
     print(imputed[10, 2])
