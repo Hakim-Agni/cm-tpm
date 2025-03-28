@@ -5,7 +5,7 @@ import torch.nn as nn
 import warnings
 from ._model import train_cm_tpm, impute_missing_values, impute_missing_values_exact
 from ._helpers import (
-    _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, 
+    _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
 )
 
@@ -153,6 +153,7 @@ class CMImputer:
         self.min_vals_ = 0.0
         self.max_vals_ = 1.0
         self.binary_info_ = None
+        self.integer_info_ = None
         self.encoding_info_ = None
         self.bin_encoding_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
@@ -179,7 +180,7 @@ class CMImputer:
         self.feature_names_in_ = feature_names
 
         # Fit the model using X
-        X_preprocessed, self.binary_info_, self.encoding_info_ = self._preprocess_data(X, train=True)
+        X_preprocessed, self.binary_info_, self.integer_info_, self.encoding_info_ = self._preprocess_data(X, train=True)
         self.model = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
@@ -380,6 +381,9 @@ class CMImputer:
         # Change all instances of 'missing_value' to NaN
         X_transformed = _missing_to_nan(X, self.missing_values)
 
+        # Check which features are integer features (only consisting of whole numbers)
+        integer_mask = np.all(np.vectorize(is_valid_integer)(X_transformed), axis=0)
+
         # Convert non-floats (e.g. strings) to floats using encoding
         if train:
             X_transformed, encoding_mask, encoding_info = _integer_encoding(X_transformed, ordinal_features=self.ordinal_features)
@@ -422,13 +426,13 @@ class CMImputer:
         X_scaled = (X_transformed - self.min_vals_) / scale
         X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
 
-        return X_scaled.astype(float), binary_mask, (encoding_mask, encoding_info)
+        return X_scaled.astype(float), binary_mask, integer_mask, (encoding_mask, encoding_info)
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
         X_in = X.copy()
         X_nan = _missing_to_nan(X, self.missing_values)
-        X_preprocessed, _, _ = self._preprocess_data(X, train=False)
+        X_preprocessed, _, _, _ = self._preprocess_data(X, train=False)
 
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
@@ -450,10 +454,15 @@ class CMImputer:
         # Round the binary features to the nearest option
         X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
 
-        # Decode the non-numerical features
+        # Decode the binary features
         encoding_mask, encoding_info = self.encoding_info_
         X_decoded = _restore_binary_encoding(X_scaled, self.bin_encoding_info_, X_imputed)
-        X_decoded = _restore_encoding(X_decoded, encoding_mask, encoding_info)
+
+        # Round the integer features to the nearest integer
+        X_decoded[:, self.integer_info_] = np.round(X_decoded[:, self.integer_info_])
+
+        # Decode the non-numerical features
+        X_decoded = _restore_encoding(X_decoded, encoding_mask, encoding_info)        
 
         # Make sure the original values remain the same
         try:

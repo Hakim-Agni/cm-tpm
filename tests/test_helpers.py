@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from cm_tpm._helpers import (
-    _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, 
+    _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
 )
 
@@ -123,7 +123,7 @@ class TestRestoreFormat():
 
 class TestAllNumeric():
     def test_all_numeric(self):
-        """Test on numerical data,"""
+        """Test on numerical data."""
         X = np.array([0.5, 0.8, 0.2])
         assert _all_numeric(X)
     
@@ -151,6 +151,37 @@ class TestAllNumeric():
         """Test the function with non-numerical data and a nan value."""
         X = np.array(["Yes", 0.8, np.nan])
         assert not _all_numeric(X)
+
+class TestIsValidInteger():
+    def test_integer(self):
+        """Test on an integer."""
+        X = 1
+        assert is_valid_integer(X)
+
+    def test_string_integer(self):
+        """Test on a string integer."""
+        X = "1"
+        assert is_valid_integer(X)
+
+    def test_float_integer(self):
+        """Test on a float integer."""
+        X = 1.0
+        assert is_valid_integer(X)
+
+    def test_string_float_integer(self):
+        """Test on a string float integer."""
+        X = "1.0"
+        assert is_valid_integer(X)
+
+    def test_float(self):
+        """Test on a float."""
+        X = 1.5
+        assert not is_valid_integer(X)
+
+    def test_nan(self):
+        """Test on a NaN value."""
+        X = np.nan
+        assert is_valid_integer(X)
 
 class TestIntegerEncoding():
     def test_only_numerical(self):

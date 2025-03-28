@@ -492,13 +492,13 @@ class TestPreprocess():
     def test_preprocess_ints(self):
         """Test preprocessing an array with integers."""
         X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert isinstance(X_preprocessed, np.ndarray)
 
     def test_preprocess_nan(self):
         """Test preprocessing an array with a missing value."""
         X = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert X.shape == X_preprocessed.shape
         assert np.isnan(X_preprocessed[0, 2])
 
@@ -506,14 +506,14 @@ class TestPreprocess():
         """Test preprocessing an array with a different missing value than NaN."""
         self.imputer.missing_values = -1
         X = np.array([[1., 2., -1], [4., 5., 6.], [7., 8., 9.]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert X.shape == X_preprocessed.shape
         assert np.isnan(X_preprocessed[0, 2])
 
     def test_preprocess_remove_nan_features(self):
         """Test preprocessing removes NaN features."""
         X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert X_preprocessed.shape[0] == 3
         assert X_preprocessed.shape[1] == 2
         assert not np.isnan(X_preprocessed).any()
@@ -522,7 +522,7 @@ class TestPreprocess():
         """Test preprocessing removes other missing features."""
         self.imputer.missing_values = -10
         X = np.array([[1., 2., -10], [4., 5., -10], [7., 8., -10]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert X_preprocessed.shape[0] == 3
         assert X_preprocessed.shape[1] == 2
         assert not np.isnan(X_preprocessed).any()
@@ -532,7 +532,7 @@ class TestPreprocess():
         """Test preprocessing fills NaN features."""
         self.imputer.keep_empty_features = True
         X = np.array([[1., 2., np.nan], [4., 5., np.nan], [7., 8., np.nan]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert X_preprocessed[0, 2] == 0
         assert X_preprocessed[1, 2] == 0 
         assert X_preprocessed[2, 2] == 0 
@@ -542,7 +542,7 @@ class TestPreprocess():
         self.imputer.missing_values = -1
         self.imputer.keep_empty_features = True
         X = np.array([[1., 2., -1], [4., 5., -1], [7., 8., -1]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert X_preprocessed[0, 2] == 0
         assert X_preprocessed[1, 2] == 0 
         assert X_preprocessed[2, 2] == 0 
@@ -550,7 +550,7 @@ class TestPreprocess():
     def test_preprocess_min_max_values(self):
         """Test updating the min and max values while preprocessing."""
         X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
-        X_preprocessed, _, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, _, _, _ = self.imputer._preprocess_data(X, train=True)
         assert np.array_equal(self.imputer.min_vals_, np.array([1., 2., 3.]))
         assert np.array_equal(self.imputer.max_vals_, np.array([7., 8., 9.]))
         assert np.array_equal(X_preprocessed, np.array([[0., 0., 0.], [0.5, 0.5, 0.5], [1., 1., 1.]]))
@@ -558,7 +558,7 @@ class TestPreprocess():
     def test_preprocess_binary_info(self):
         """Test if the binary info is set correctly during preprocessing."""
         X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])
-        X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, binary_mask, _, _ = self.imputer._preprocess_data(X, train=True)
         assert np.array_equal(binary_mask, np.array([True, False, False]))
         assert X_preprocessed[0, 0] == 0
         assert X_preprocessed[1, 0] == 1
@@ -567,17 +567,24 @@ class TestPreprocess():
     def test_preprocess_binary_string(self):
         """Test if binary values are converted to 0/1."""
         X = np.array([["Yes", 2., 3.], ["No", 5., 6.], ["Yes", 8., 9.]])
-        X_preprocessed, binary_mask, _ = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, binary_mask, _, _ = self.imputer._preprocess_data(X, train=True)
         assert np.array_equal(binary_mask, np.array([True, False, False]))
         assert X_preprocessed[0, 0] == 1
         assert X_preprocessed[1, 0] == 0
         assert X_preprocessed[2, 0] == 1
 
+    def test_preprocess_integer_info(self):
+        """Test if the binary info is set correctly during preprocessing."""
+        X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])
+        X_preprocessed, _, integer_info, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(integer_info, np.array([True, True, True]))
+
     def test_preprocess_non_numerical(self):
         """Test if non numerical feature values are converted to integers."""
         X = np.array([["Yes", "Medium", 3.], ["No", "High", 6.], ["Maybe", "Low", 9.]])
-        X_preprocessed, binary_mask, (encoding_mask, _) = self.imputer._preprocess_data(X, train=True)
+        X_preprocessed, binary_mask, integer_mask, (encoding_mask, _) = self.imputer._preprocess_data(X, train=True)
         #assert np.array_equal(binary_mask, np.array([False, False, False]))
+        assert np.array_equal(integer_mask, np.array([False, False, True]))
         assert np.array_equal(encoding_mask, np.array([True, True, False]))
 
 # TODO: Add tests for _impute, feature names and evaluate

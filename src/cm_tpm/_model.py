@@ -11,8 +11,9 @@ from scipy.stats import qmc
 import networkx as nx
 
 # TODO:
-#   Add settable mean and variance in rqmc sampler?
-#   Data preprocessing:  remember feature type (int remains int etc.)
+#   Data preprocessing:  
+#           Support multiple types of missing values in one dataset (e.g. nan and "")
+#           Detect binary variable that are floats
 #   Batches
 #   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
