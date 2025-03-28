@@ -12,7 +12,7 @@ import networkx as nx
 
 # TODO:
 #   Add settable mean and variance in rqmc sampler?
-#   Data preprocessing:  datetime features?
+#   Data preprocessing:  remember feature type (int remains int etc.)
 #   Batches
 #   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
@@ -24,7 +24,7 @@ import networkx as nx
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="integration", net=None, custom_layers=[2, 64, "ReLU", False, 0.0], smooth=1e-6, random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="mean", net=None, custom_layers=[2, 64, "ReLU", False, 0.0], smooth=1e-6, random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -33,7 +33,7 @@ class CM_TPM(nn.Module):
             input_dim: Dimensionality of input data.
             latent_dim: Dimensionality of latent variable z.
             num_components: Number of mixture components (integration points).
-            missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "em", "ignore").
+            missing_strategy (optional): Strategy for dealing with missing values in training data ("mean", "zero", "em", "ignore").
             net (optional): A custom neural network for PC structure generation.
             smooth (optional): A smooting parameter to avoid division by zero.
             random_state (optional): Random seed for reproducibility.
@@ -50,8 +50,8 @@ class CM_TPM(nn.Module):
         self.missing_strategy = missing_strategy
         self.random_state = random_state
 
-        if missing_strategy not in ["integration", "em", "ignore"]:
-            raise ValueError(f"Unknown missing values strategy: '{missing_strategy}', use one of the following: 'integration', 'ignore'.")
+        if missing_strategy not in ["mean", "zero", "em", "ignore"]:
+            raise ValueError(f"Unknown missing values strategy: '{missing_strategy}', use one of the following: 'mean', 'zero', 'em', 'ignore'.")
 
         if random_state is not None:
             torch.manual_seed(random_state)
@@ -84,32 +84,33 @@ class CM_TPM(nn.Module):
 
         phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
         mask = ~torch.isnan(x)
-        x = torch.where(mask, x, torch.nanmean(x, dim=0, keepdim=True))     # TODO: This might be causing issues (maybe move after likelihood computations)
-        #x = torch.where(mask, x, 0.0)
+
+        if self.missing_strategy == "mean":
+            # Fill missing values with the mean of the feature
+            x = torch.where(mask, x, torch.nanmean(x, dim=0, keepdim=True))
+        elif self.missing_strategy == "ignore":
+            # Compute likelihood without filling in missing values
+            # TODO: Fix errors
+            x = x
+        elif self.missing_strategy == "zero":
+            # Fill missing values with zero
+            x = torch.where(mask, x, 0.0)
 
         likelihoods = []
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
             likelihood = self.pcs[i](x)  # Compute p(x | phi(z_i)), shape: (batch_size)
 
-            # TODO: Fill in missing values inbetween loops?
-            # if self.missing_strategy == "integration":
-            #     marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.mean(likelihood).expand_as(mask))
-            # elif self.missing_strategy == "ignore":
-            #     marginalized_likelihood = torch.where(mask, likelihood.unsqueeze(-1).expand_as(mask), torch.tensor(1e-6).expand_as(mask))
-            # else:
-            #     marginalized_likelihood = likelihood
+            if torch.isnan(likelihood).any():
+                raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
 
-            marginalized_likelihood = likelihood
+            likelihoods.append(likelihood + torch.log(w[i]))   # Add weighted likelihood to the list
 
-            if torch.isnan(marginalized_likelihood).any():
-                raise ValueError(f"NaN detected in likelihood at component {i}: {marginalized_likelihood}")
-
-            likelihoods.append(marginalized_likelihood + torch.log(w[i]))   # Add weighted likelihood to the list
+        # TODO: Other idea: take minimum likelihood per component? Since different components approximate different samples?
 
         likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
         mixture_likelihood = torch.logsumexp(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
-        return mixture_likelihood.mean()  # Average over batch
+        return torch.mean(mixture_likelihood)  # Average over batch
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
     """Base Probabilistic Circuit, other PC structures inherit from this class"""
@@ -161,7 +162,7 @@ class FactorizedPC(BaseProbabilisticCircuit):
         prob = (prob_high - prob_low).clamp(min=1e-9)
         log_prob = torch.log(prob)
         log_prob[torch.isnan(log_prob)] = 0.0
-        log_likelihood = torch.sum(log_prob)
+        log_likelihood = torch.sum(log_prob, dim=-1)
 
         return log_likelihood
         
@@ -400,7 +401,7 @@ def train_cm_tpm(
         pc_type="factorized", 
         latent_dim=16, 
         num_components=256,
-        missing_strategy="integration",
+        missing_strategy="mean",
         net=None, 
         hidden_layers=2,
         neurons_per_layer=64,
@@ -422,7 +423,7 @@ def train_cm_tpm(
         pc_type (optional): The type of PC to use (factorized, spn, clt).
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
-        missing_strategy (optional): Strategy for dealing with missing values in training data ("integration", "em", "ignore").
+        missing_strategy (optional): Strategy for dealing with missing values in training data ("mean", "zero", "em", "ignore").
         net (optional): A custom neural network.
         hidden_layers (optional): Number of hidden layers in the neural network.
         neurons_per_layer (optional): Number of neurons per layer in the neural network.
@@ -814,7 +815,7 @@ if __name__ == '__main__':
     # train_data = np.random.rand(1000, 10)
     # train_data = np.random.uniform(low=-1, high=1, size=(1000, 10))
     # train_data[999, 9] = np.nan
-    # model = train_cm_tpm(train_data, pc_type="spn", random_state=None, missing_strategy="integration", epochs=10, verbose=1)
+    # model = train_cm_tpm(train_data, pc_type="spn", random_state=None, missing_strategy="mean", epochs=10, verbose=1)
 
     # x_incomplete = train_data[:3].copy()
     # x_incomplete[0, 0] = np.nan
@@ -829,7 +830,7 @@ if __name__ == '__main__':
     all_zeros[50, 3] = np.nan
     all_zeros[10, 2] = np.nan
     all_zeros[92, 0] = np.nan
-    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=2, epochs=150, lr=0.001, num_components=1024)
+    model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=2, epochs=150, lr=0.001, num_components=256, missing_strategy="ignore")
     imputed = impute_missing_values_exact(all_zeros, model, lr=0.01, epochs=100, verbose=1)
     print(imputed[50, 3])
     print(imputed[10, 2])

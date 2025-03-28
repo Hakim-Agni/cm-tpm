@@ -28,7 +28,7 @@ class CMImputer:
         Dimensionality of the latent variable.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
-    missing_strategy: str, optional (default="integration"), allowed: "integration", "em", "ignore"
+    missing_strategy: str, optional (default="mean"), allowed: "mean", "zero", "em", "ignore"
         The strategy to use for missing data in the training data. 
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
@@ -100,7 +100,7 @@ class CMImputer:
             n_components: int = 8,
             latent_dim: int = 16,
             pc_type: str = "factorized",
-            missing_strategy: str = "integration",
+            missing_strategy: str = "mean",
             ordinal_features: dict = None,
             max_depth: int = 5,
             custom_net: nn.Sequential = None,
