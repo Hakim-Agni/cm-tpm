@@ -40,10 +40,18 @@ def _missing_to_nan(X: np.ndarray, missing_values):
         try:
             # If the data is numerical, set np.nan
             X = X.astype(float)
-            X[X == missing_values] = np.nan
+            if isinstance(missing_values, list):
+                for missing_value in missing_values:
+                    X[X == missing_value] = np.nan 
+            else:
+                X[X == missing_values] = np.nan
         except ValueError:
             # If the data is not numerical, set string 'nan'
-            X[X == missing_values] = "nan"
+            if isinstance(missing_values, list):
+                for missing_value in missing_values:
+                    X[X == str(missing_value)] = "nan"
+            else:
+                X[X == str(missing_values)] = "nan"
     return X.copy()
 
 def _all_numeric(X: np.ndarray):

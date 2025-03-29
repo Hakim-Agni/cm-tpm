@@ -93,7 +93,7 @@ class TestRestoreFormat():
         self.X_imputed = np.array([[1, 2, 3], [4, 5, 6]])
 
     def test_restore_dataframe(self):
-        """Test restoring data to DataFrame format"""
+        """Test restoring data to DataFrame format."""
         columns = ["A", "B", "C"]
         restored = _restore_format(self.X_imputed, original_format="DataFrame", columns=columns)
         assert isinstance(restored, pd.DataFrame)
@@ -103,23 +103,82 @@ class TestRestoreFormat():
         assert restored.columns[2] == columns[2]
 
     def test_restore_list(self):
-        """Test restoring data to list format"""
+        """Test restoring data to list format."""
         restored = _restore_format(self.X_imputed, original_format="list")
         assert isinstance(restored, list)
         assert len(restored) == 2
         assert len(restored[0]) == 3
 
     def test_restore_numpy(self):
-        """Test restoring data to NumPy array"""
+        """Test restoring data to NumPy array."""
         restored = _restore_format(self.X_imputed, original_format="ndarray")
         assert isinstance(restored, np.ndarray)
         assert restored.shape == (2, 3)
 
     def test_restore_default(self):
-        """Test that data is restored to NumPy array by default"""
+        """Test that data is restored to NumPy array by default."""
         restored = _restore_format(self.X_imputed)
         assert isinstance(restored, np.ndarray)
         assert restored.shape == (2, 3)
+
+class TestMissingToNaN():
+    def test_nan(self):
+        """Test an instance where the missing value is NaN."""
+        X = np.array([[np.nan, 0, 1, 2, 3]])
+        missing_value = np.nan
+        X_nan = _missing_to_nan(X, missing_value)
+        assert X_nan.shape == (1, 5)
+        assert np.array_equal(X[:, 1:], X_nan[:, 1:])
+        assert np.isnan(X_nan[0, 0])
+
+    def test_int(self):
+        """Test an instance where the missing value is an integer."""
+        X = np.array([[-1, 0, 1, 2, 3]])
+        missing_value = -1
+        X_nan = _missing_to_nan(X, missing_value)
+        assert X_nan.shape == (1, 5)
+        assert np.array_equal(X[:, 1:], X_nan[:, 1:])
+        assert np.isnan(X_nan[0, 0])
+
+    def test_float(self):
+        """Test an instance where the missing value is a float."""
+        X = np.array([[0.5, 0, 1, 2, 3]])
+        missing_value = 0.5
+        X_nan = _missing_to_nan(X, missing_value)
+        assert X_nan.shape == (1, 5)
+        assert np.array_equal(X[:, 1:], X_nan[:, 1:])
+        assert np.isnan(X_nan[0, 0])
+
+    def test_string(self):
+        """Test an instance where the missing value is a string."""
+        X = np.array([["", 0, 1, 2, 3]])
+        missing_value = ""
+        X_nan = _missing_to_nan(X, missing_value)
+        assert X_nan.shape == (1, 5)
+        assert np.array_equal(X[:, 1:], X_nan[:, 1:])
+        assert X_nan[0, 0] == "nan" 
+
+    def test_list(self):
+        """Test an instance where there are multiple missing values."""
+        X = np.array([[-1, 0.5, 1, 2, 3]])
+        missing_value = [-1, 0.5]
+        X_nan = _missing_to_nan(X, missing_value)
+        assert X_nan.shape == (1, 5)
+        assert np.array_equal(X[:, 2:], X_nan[:, 2:])
+        assert np.isnan(X_nan[0, 0])
+        assert np.isnan(X_nan[0, 1])
+
+    def test_list_all(self):
+        """Test an instance where there are all types of missing values."""
+        X = np.array([[-1, 0.5, "", np.nan, 3]])
+        missing_value = [-1, 0.5, "", np.nan]
+        X_nan = _missing_to_nan(X, missing_value)
+        assert X_nan.shape == (1, 5)
+        assert np.array_equal(X[:, 4:], X_nan[:, 4:])
+        assert X_nan[0, 0] == "nan" 
+        assert X_nan[0, 1] == "nan"
+        assert X_nan[0, 2] == "nan"
+        assert X_nan[0, 3] == "nan"
 
 class TestAllNumeric():
     def test_all_numeric(self):

@@ -20,8 +20,8 @@ class CMImputer:
 
     Parameters
     ----------
-    missing_values: float, optional (default=np.nan)
-        The placeholder for missing values in the input data, all instances of missing_values will be imputed.
+    missing_values: float, string, int, list, optional (default=np.nan)
+        The placeholder(s) for missing values in the input data, all instances of missing_values will be imputed.
     n_components: int, optional (default=8)
         Number of components to use in the mixture model.
     latent_dim: int, optional (default=16)
@@ -81,6 +81,8 @@ class CMImputer:
         The standard deviation for each feature observed during training.
     binary_info_: list
         The information about binary features observed during training.
+    integer_info_: list
+        The information about integer features observed during training.
     categorical_info_: list
         The information about categorical features observed during training.
     random_state_: RandomState instance
@@ -96,7 +98,7 @@ class CMImputer:
     """
     def __init__(
             self,
-            missing_values: int | float | str | None = np.nan,
+            missing_values: int | float | str | list | None = np.nan,
             n_components: int = 8,
             latent_dim: int = 16,
             pc_type: str = "factorized",

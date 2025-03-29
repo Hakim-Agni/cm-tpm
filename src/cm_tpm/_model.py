@@ -12,7 +12,6 @@ import networkx as nx
 
 # TODO:
 #   Data preprocessing:  
-#           Support multiple types of missing values in one dataset (e.g. nan and "")
 #           Detect binary variable that are floats
 #   Batches
 #   Allow custom Optimizers?
