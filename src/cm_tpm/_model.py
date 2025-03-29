@@ -11,8 +11,6 @@ from scipy.stats import qmc
 import networkx as nx
 
 # TODO:
-#   Data preprocessing:  
-#           Detect binary variable that are floats
 #   Batches
 #   Allow custom Optimizers?
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)

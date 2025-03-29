@@ -589,6 +589,15 @@ class TestPreprocess():
         assert X_preprocessed[1, 0] == 0
         assert X_preprocessed[2, 0] == 1
 
+    def test_preprocess_binary_float(self):
+        """Test if binary floats are converted to 0/1."""
+        X = np.array([[0.5, 2., 3.], [-0.5, 5., 6.], [0.5, 8., 9.]])
+        X_preprocessed, binary_mask, _, _ = self.imputer._preprocess_data(X, train=True)
+        assert np.array_equal(binary_mask, np.array([True, False, False]))
+        assert X_preprocessed[0, 0] == 1
+        assert X_preprocessed[1, 0] == 0
+        assert X_preprocessed[2, 0] == 1
+
     def test_preprocess_integer_info(self):
         """Test if the binary info is set correctly during preprocessing."""
         X = np.array([[0, 2., 3.], [1, 5., 6.], [0, 8., 9.]])

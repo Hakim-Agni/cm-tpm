@@ -410,11 +410,11 @@ class CMImputer:
         X_transformed, bin_info = _binary_encoding(X_transformed, encoding_mask, encoding_info, ordinal_features=self.ordinal_features)
         self.bin_encoding_info_ = bin_info
 
-        # Check which features are binary features (only consisting of 0s and 1s)
-        binary_mask = np.array([
-            np.isin(np.unique(X_transformed[:, i][~np.isnan(X_transformed[:, i])]), [0, 1]).all()
-            for i in range(X_transformed.shape[1])
-        ])
+        # # Check which features are binary features (only consisting of 0s and 1s)
+        # binary_mask = np.array([
+        #     np.isin(np.unique(X_transformed[:, i][~np.isnan(X_transformed[:, i])]), [0, 1]).all()
+        #     for i in range(X_transformed.shape[1])
+        # ])
 
         if train:       # Update the means and stds only during training
             min_vals = np.nanmin(X_transformed, axis=0)
@@ -426,7 +426,13 @@ class CMImputer:
         scale = self.max_vals_ - self.min_vals_
         scale[scale == 0] = 1e-9
         X_scaled = (X_transformed - self.min_vals_) / scale
-        X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
+        #X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
+
+        # Check which features are binary features (only consisting of 0s and 1s)
+        binary_mask = np.array([
+            np.isin(np.unique(X_scaled[:, i][~np.isnan(X_scaled[:, i])]), [0, 1]).all()
+            for i in range(X_scaled.shape[1])
+        ])
 
         return X_scaled.astype(float), binary_mask, integer_mask, (encoding_mask, encoding_info)
     
@@ -447,6 +453,9 @@ class CMImputer:
             random_state=self.random_state,
             verbose = self.verbose,
         )
+
+        # Round the binary features to the nearest option
+        X_imputed[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
         
         # Scale the data back to the original
         scale = self.max_vals_ - self.min_vals_
@@ -454,7 +463,7 @@ class CMImputer:
         X_scaled = X_imputed * scale + self.min_vals_
 
         # Round the binary features to the nearest option
-        X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
+        #X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
 
         # Decode the binary features
         encoding_mask, encoding_info = self.encoding_info_
