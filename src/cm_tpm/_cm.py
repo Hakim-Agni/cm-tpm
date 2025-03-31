@@ -53,9 +53,9 @@ class CMImputer:
     tol: float, optional (default=1e-4)
         Tolerance for the convergence criterion.
     lr:  float, optional (default=0.001)
-        The learning rate for the optimizer
-    smooth: float, optional (default=1e-6)
-        Smoothing parameter to avoid division by zero.
+        The learning rate for the optimizer.
+    weight_decay: float, optional (default=1e-5)
+        The weight decay (L2 penalty) for the optimizer.
     random_state: int, RandomState instance or None, optional (default=None)
         Random seed for reproducibility.
     verbose: int, optional (default=0)
@@ -117,7 +117,7 @@ class CMImputer:
             batch_size: int | None = 32,
             tol: float = 1e-4,
             lr: float = 0.001,
-            smooth: float = 1e-6, 
+            weight_decay: float = 1e-5, 
             random_state: int = None,
             verbose: int = 0,
             copy: bool = True,
@@ -144,7 +144,7 @@ class CMImputer:
         self.batch_size = batch_size
         self.tol = tol
         self.lr = lr
-        self.smooth = smooth
+        self.weight_decay = weight_decay
         self.random_state = random_state
         self.verbose = verbose
         self.copy = copy
@@ -203,7 +203,7 @@ class CMImputer:
             batch_size=self.batch_size,
             tol=self.tol, 
             lr=self.lr,
-            smooth=self.smooth,
+            weight_decay=self.weight_decay,
             random_state=self.random_state,
             verbose=self.verbose,
             )
@@ -308,7 +308,7 @@ class CMImputer:
             "batch_size": self.batch_size,
             "tol": self.tol,
             "lr": self.lr,
-            "smooth": self.smooth,
+            "weight_decay": self.weight_decay,
             "random_state": self.random_state,
             "verbose": self.verbose,
             "copy": self.copy,

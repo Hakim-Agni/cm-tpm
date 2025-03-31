@@ -23,7 +23,7 @@ import networkx as nx
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="mean", net=None, custom_layers=[2, 64, "ReLU", False, 0.0], smooth=1e-6, random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="mean", net=None, custom_layers=[2, 64, "ReLU", False, 0.0], random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -34,7 +34,6 @@ class CM_TPM(nn.Module):
             num_components: Number of mixture components (integration points).
             missing_strategy (optional): Strategy for dealing with missing values in training data ("mean", "zero", "em", "ignore").
             net (optional): A custom neural network for PC structure generation.
-            smooth (optional): A smooting parameter to avoid division by zero.
             random_state (optional): Random seed for reproducibility.
 
         Attributes:
@@ -60,7 +59,7 @@ class CM_TPM(nn.Module):
         self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4])
 
         # Create multiple PCs (one per component)
-        self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim, smooth) for _ in range(num_components)])
+        self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
 
         self._is_trained = False
     
@@ -115,10 +114,9 @@ class CM_TPM(nn.Module):
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
     """Base Probabilistic Circuit, other PC structures inherit from this class"""
-    def __init__(self, input_dim, smooth=1e-6):
+    def __init__(self, input_dim):
         super().__init__()
         self.input_dim = input_dim
-        self.smooth = smooth
 
     @abstractmethod
     def set_params(self, params):
@@ -132,8 +130,8 @@ class BaseProbabilisticCircuit(nn.Module, ABC):
 
 class FactorizedPC(BaseProbabilisticCircuit):
     """A factorized PC structure."""
-    def __init__(self, input_dim, smooth=1e-6):
-        super().__init__(input_dim, smooth=smooth)
+    def __init__(self, input_dim):
+        super().__init__(input_dim)
         self.params = None
     
     def set_params(self, params):
@@ -177,8 +175,8 @@ class FactorizedPC(BaseProbabilisticCircuit):
 
 class SPN(BaseProbabilisticCircuit):
     """An SPN PC structure."""
-    def __init__(self, input_dim, smooth=1e-6, num_sums=1, num_prods=2):
-        super().__init__(input_dim, smooth=smooth)
+    def __init__(self, input_dim, num_sums=1, num_prods=2):
+        super().__init__(input_dim)
         self.num_sums = num_sums
         self.num_prods = num_prods
         self.params = None
@@ -225,8 +223,8 @@ class SPN(BaseProbabilisticCircuit):
 
 class ChowLiuTreePC(BaseProbabilisticCircuit):
     """A Chow Liu Tree PC structrue. (Not implemented yet)"""
-    def __init__(self, input_dim, smooth=1e-6):
-        super().__init__(input_dim, smooth=smooth)
+    def __init__(self, input_dim):
+        super().__init__(input_dim)
         self.params = None
         self.tree_structure = None
     
@@ -296,15 +294,15 @@ class ChowLiuTreePC(BaseProbabilisticCircuit):
 
         return log_likelihood
 
-def get_probabilistic_circuit(pc_type, input_dim, smooth=1e-6):
+def get_probabilistic_circuit(pc_type, input_dim):
     """Factory function for the different PC types."""
     types = ["factorized", "spn", "clt"]
     if pc_type == "factorized":
-        return FactorizedPC(input_dim, smooth)
+        return FactorizedPC(input_dim)
     elif pc_type == "spn" or pc_type == "SPN":
-        return SPN(input_dim, smooth)
+        return SPN(input_dim)
     elif pc_type == "clt" or pc_type == "CLT":
-        return ChowLiuTreePC(input_dim, smooth)
+        return ChowLiuTreePC(input_dim)
     else:
         raise ValueError(f"Unknown PC type: '{pc_type}', use one of the following types: {types}")
 
@@ -420,7 +418,7 @@ def train_cm_tpm(
         batch_size=32,
         tol=1e-5, 
         lr=0.001,
-        smooth=1e-6,
+        weight_decay=1e-5,
         random_state=None,
         verbose=0,
         ):
@@ -443,7 +441,7 @@ def train_cm_tpm(
         batch_size (optional): The batch size for training or None if not using batches.
         tol (optional): Tolerance for the convergence criterion.
         lr (optional): The learning rate of the optimizer.
-        smooth (optional): A smoothing parameter to avoid division by zero.
+        weight_decay (optional): Weight decay for the optimizer.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
 
@@ -454,13 +452,13 @@ def train_cm_tpm(
 
     # Define the model
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, 
-                   custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate], smooth=smooth, random_state=random_state)
+                   custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate], random_state=random_state)
 
     if verbose > 1:
         print(f"Finished building CM-TPM model with {num_components} components.")
 
     # Set the optimizer
-    optimizer = optim.AdamW(model.parameters(), lr=lr)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
@@ -873,7 +871,7 @@ if __name__ == '__main__':
                          lr=0.001, 
                          num_components=256, 
                          missing_strategy="mean",
-                         batch_size=32,
+                         batch_size=50,
                          )
     imputed = impute_missing_values_exact(all_zeros, model, verbose=1)
     print(imputed[50, 3])

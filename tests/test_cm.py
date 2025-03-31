@@ -31,7 +31,7 @@ class TestClass:
             batch_size=16,
             tol=1e-3,
             lr=0.01,
-            smooth=False,
+            weight_decay=1e-3,
             random_state=42,
             verbose=2,
             copy=False,
@@ -54,7 +54,7 @@ class TestClass:
         assert imputer.batch_size == 16
         assert imputer.tol == 1e-3
         assert imputer.lr == 0.01
-        assert not imputer.smooth
+        assert imputer.weight_decay == 1e-3
         assert imputer.random_state == 42
         assert imputer.verbose == 2
         assert not imputer.copy
@@ -346,7 +346,7 @@ class TestParams():
             batch_size=16,
             tol=1e-3,
             lr=0.01,
-            smooth=False,
+            weight_decay=1e-3,
             random_state=42,
             verbose=2,
             copy=False,
@@ -373,7 +373,7 @@ class TestParams():
         assert params["batch_size"] == 16
         assert params["tol"] == 1e-3
         assert params["lr"] == 0.01
-        assert params["smooth"] == False
+        assert params["weight_decay"] == 1e-3
         assert params["random_state"] == 42
         assert params["verbose"] == 2
         assert params["copy"] == False
@@ -398,7 +398,7 @@ class TestParams():
             batch_size=64,
             tol=1e-4,
             lr=0.001,
-            smooth=True,
+            weight_decay=1e-6,
             random_state=43,
             verbose=1,
             copy=True,
@@ -420,7 +420,7 @@ class TestParams():
         assert self.imputer.batch_size == 64
         assert self.imputer.tol == 1e-4
         assert self.imputer.lr == 0.001
-        assert self.imputer.smooth == True
+        assert self.imputer.weight_decay == 1e-6
         assert self.imputer.random_state == 43
         assert self.imputer.verbose == 1
         assert self.imputer.copy == True
