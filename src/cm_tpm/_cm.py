@@ -48,6 +48,8 @@ class CMImputer:
         The dropout rate used in the neural network.
     max_iter: int, optional (default=100)
         Maximum number of iterations to perform.
+    batches: int or None, optional (default=32)
+        The number of batches to use for training. If None, the entire dataset is used.
     tol: float, optional (default=1e-4)
         Tolerance for the convergence criterion.
     lr:  float, optional (default=0.001)
@@ -112,6 +114,7 @@ class CMImputer:
             batch_norm: bool = False,
             dropout_rate: float = 0.0,
             max_iter: int = 100,
+            batch_size: int | None = 32,
             tol: float = 1e-4,
             lr: float = 0.001,
             smooth: float = 1e-6, 
@@ -138,6 +141,7 @@ class CMImputer:
         self.dropout_rate = dropout_rate
         self.max_depth = max_depth
         self.max_iter = max_iter
+        self.batch_size = batch_size
         self.tol = tol
         self.lr = lr
         self.smooth = smooth
@@ -196,6 +200,7 @@ class CMImputer:
             batch_norm=self.batch_norm,
             dropout_rate=self.dropout_rate,
             epochs=self.max_iter,
+            batch_size=self.batch_size,
             tol=self.tol, 
             lr=self.lr,
             smooth=self.smooth,
@@ -300,6 +305,7 @@ class CMImputer:
             "batch_norm": self.batch_norm,
             "dropout_rate": self.dropout_rate,
             "max_iter": self.max_iter,
+            "batch_size": self.batch_size,
             "tol": self.tol,
             "lr": self.lr,
             "smooth": self.smooth,
@@ -448,8 +454,6 @@ class CMImputer:
         X_imputed = impute_missing_values_exact(
             X_preprocessed, 
             self.model,
-            epochs=100,
-            lr=0.01,
             random_state=self.random_state,
             verbose = self.verbose,
         )

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import time
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.datasets import load_diabetes
 from sklearn.impute import KNNImputer, SimpleImputer
@@ -43,9 +44,11 @@ imputer = CMImputer(
     copy=True,
     keep_empty_features=True,
 )
+start_time = time.time()
 #imputer.fit(data)
 #data_imputed = imputer.transform(data_missing)
 data_imputed = imputer.fit_transform(data_missing)
+end_time = time.time()
 
 # Save the imputed dataset
 data_imputed.to_csv("evaluation/data/diabetes_imputed_cm.csv", index=False)
@@ -62,6 +65,7 @@ mape = np.mean(np.abs((true_values - imputed_values) / true_values)) * 100
 correlation = np.corrcoef(true_values.flatten(), imputed_values.flatten())[0, 1]
 
 print("CM Imputer (factorized):")
+print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
 print(f"Mean Absolute Error (MAE): {mae:.4f}")
 print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
 print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
@@ -106,7 +110,9 @@ print(f"Correlation between true and imputed values: {correlation:.4f}")
 
 
 knn_imputer = KNNImputer()
+start_time = time.time()
 knn_imputed = pd.DataFrame(knn_imputer.fit_transform(data_missing))
+end_time = time.time()
 
 knn_values = knn_imputed.values[mask]
 
@@ -118,13 +124,16 @@ correlation = np.corrcoef(true_values.flatten(), knn_values.flatten())[0, 1]
 
 print("___________________________________________________")
 print("KNN Imputer:")
+print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
 print(f"Mean Absolute Error (MAE): {mae:.4f}")
 print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
 print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
 print(f"Correlation between true and imputed values: {correlation:.4f}")
 
 mean_imputer = SimpleImputer()
+start_time = time.time()
 mean_imputed = pd.DataFrame(mean_imputer.fit_transform(data_missing))
+end_time = time.time()
 
 mean_values = mean_imputed.values[mask]
 
@@ -136,6 +145,7 @@ correlation = np.corrcoef(true_values.flatten(), mean_values.flatten())[0, 1]
 
 print("___________________________________________________")
 print("Simple Imputer:")
+print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
 print(f"Mean Absolute Error (MAE): {mae:.4f}")
 print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
 print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")

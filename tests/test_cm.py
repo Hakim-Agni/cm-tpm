@@ -28,6 +28,7 @@ class TestClass:
             batch_norm=True,
             dropout_rate=0.3,
             max_iter=100,
+            batch_size=16,
             tol=1e-3,
             lr=0.01,
             smooth=False,
@@ -50,6 +51,7 @@ class TestClass:
         assert imputer.batch_norm
         assert imputer.dropout_rate == 0.3
         assert imputer.max_iter == 100
+        assert imputer.batch_size == 16
         assert imputer.tol == 1e-3
         assert imputer.lr == 0.01
         assert not imputer.smooth
@@ -69,6 +71,7 @@ class TestClass:
         assert imputer.min_vals_ == 0.0
         assert imputer.max_vals_ == 1.0
         assert imputer.binary_info_ is None
+        assert imputer.integer_info_ is None
         assert imputer.encoding_info_ is None
         assert imputer.bin_encoding_info_ is None
         assert np.array_equal(
@@ -340,6 +343,7 @@ class TestParams():
             batch_norm=True,
             dropout_rate=0.3,
             max_iter=100,
+            batch_size=16,
             tol=1e-3,
             lr=0.01,
             smooth=False,
@@ -366,7 +370,9 @@ class TestParams():
         assert params["batch_norm"] == True
         assert params["dropout_rate"] == 0.3
         assert params["max_iter"] == 100
+        assert params["batch_size"] == 16
         assert params["tol"] == 1e-3
+        assert params["lr"] == 0.01
         assert params["smooth"] == False
         assert params["random_state"] == 42
         assert params["verbose"] == 2
@@ -389,6 +395,7 @@ class TestParams():
             batch_norm=False,
             dropout_rate=0.5,
             max_iter=200,
+            batch_size=64,
             tol=1e-4,
             lr=0.001,
             smooth=True,
@@ -410,6 +417,7 @@ class TestParams():
         assert self.imputer.batch_norm == False
         assert self.imputer.dropout_rate == 0.5
         assert self.imputer.max_iter == 200
+        assert self.imputer.batch_size == 64
         assert self.imputer.tol == 1e-4
         assert self.imputer.lr == 0.001
         assert self.imputer.smooth == True

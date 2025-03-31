@@ -322,7 +322,7 @@ class TestTrainCM_TPM():
     def test_train_dafault(self):
         """Test training data with a default model."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data)
+        model = train_cm_tpm(train_data=train_data, epochs=10)
         assert isinstance(model, CM_TPM)
 
     def test_train_parameters(self):
@@ -338,21 +338,33 @@ class TestTrainCM_TPM():
         """Test training data with missing values."""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
-        model = train_cm_tpm(train_data=train_data)
+        model = train_cm_tpm(train_data=train_data, epochs=10)
         assert isinstance(model, CM_TPM)
 
     def test_train_missing_values_ignore_strategy(self):
         """Test training data with missing values using the ignore strategy."""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
-        model = train_cm_tpm(train_data=train_data, missing_strategy="ignore")
+        model = train_cm_tpm(train_data=train_data, missing_strategy="ignore", epochs=10)
         assert isinstance(model, CM_TPM)
 
     def test_train_missing_values_em_strategy(self):
         """Test training data with missing values using the EM strategy."""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
-        model = train_cm_tpm(train_data=train_data, missing_strategy="em")
+        model = train_cm_tpm(train_data=train_data, missing_strategy="em", epochs=10)
+        assert isinstance(model, CM_TPM)
+
+    def test_train_batches(self):
+        """Test training data with batches."""
+        train_data = np.random.rand(100, 10)
+        model = train_cm_tpm(train_data=train_data, batch_size=32, epochs=10)
+        assert isinstance(model, CM_TPM)
+
+    def test_train_no_batches(self):
+        """Test training data without batches."""
+        train_data = np.random.rand(100, 10)
+        model = train_cm_tpm(train_data=train_data, batch_size=None, epochs=10)
         assert isinstance(model, CM_TPM)
 
 class TestImpute():
@@ -360,7 +372,7 @@ class TestImpute():
     def setup_method(self):
         """Setup method for the test class."""
         self.train_data = np.random.rand(100, 10)
-        self.model = train_cm_tpm(train_data=self.train_data)
+        self.model = train_cm_tpm(train_data=self.train_data, epochs=10)
 
     def test_impute_data(self):
         """Test imputing data with missing values."""

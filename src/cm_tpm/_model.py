@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.distributions as dist
+from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from scipy.stats import qmc
 import networkx as nx
@@ -416,6 +417,7 @@ def train_cm_tpm(
         batch_norm=False,
         dropout_rate=0.0,
         epochs=100,
+        batch_size=32,
         tol=1e-5, 
         lr=0.001,
         smooth=1e-6,
@@ -438,8 +440,10 @@ def train_cm_tpm(
         batch_norm (optional): Whether to use batch normalization in the neural network.
         dropout_rate (optional): Dropout rate in the neural network.
         epochs (optional): The number of training loops.
+        batch_size (optional): The batch size for training or None if not using batches.
         tol (optional): Tolerance for the convergence criterion.
         lr (optional): The learning rate of the optimizer.
+        smooth (optional): A smoothing parameter to avoid division by zero.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
 
@@ -447,67 +451,89 @@ def train_cm_tpm(
         model: A trained CM-TPM model
     """
     input_dim = train_data.shape[1]
+
+    # Define the model
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, 
                    custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate], smooth=smooth, random_state=random_state)
 
     if verbose > 1:
         print(f"Finished building CM-TPM model with {num_components} components.")
 
+    # Set the optimizer
     optimizer = optim.AdamW(model.parameters(), lr=lr)
 
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
-    prev_loss = -float('inf')
-    start_time = time.time()
+    prev_loss = -float('inf')       # Initial loss
+    start_time = time.time()        # Keep track of training time
 
     em_iters = 5 if missing_strategy == "em" and np.isnan(train_data).any() else 1
-    for em_iter in range(em_iters):
+    for em_iter in range(em_iters):     # Em iterations
         if verbose > 0 and em_iters > 1:
             print(f"EM Iteration {em_iter + 1}/{em_iters}")
 
+        # If missing_strategy is "em", we need to impute the missing values before training the model
         if missing_strategy == "em":
             imputed_data = impute_missing_values(train_data, model, skip=True)
-            x_batch = torch.tensor(imputed_data, dtype=torch.float32)
+            x_tensor = torch.tensor(imputed_data, dtype=torch.float32)
         else:
-            x_batch = torch.tensor(train_data, dtype=torch.float32)
+            x_tensor = torch.tensor(train_data, dtype=torch.float32)
+        
+        # Create DataLoader
+        if batch_size is not None:
+            train_loader = DataLoader(TensorDataset(x_tensor), batch_size=batch_size, shuffle=True)
+        else:   # No batches
+            train_loader = [torch.unsqueeze(x_tensor, 0)]   # Add batch dimension
 
         for epoch in range(epochs):
             start_time_epoch = time.time()
 
-            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
+            total_loss = 0.0       # Keep track of the total loss for the epoch
 
-            optimizer.zero_grad()
-            loss = -model(x_batch, z_samples, w)
+            for batch in train_loader:  # Iterate over batches
+                x_batch = batch[0]      # Extract batch data
 
-            if torch.isnan(loss).any():
-                raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+                # Generate new z samples and weights
+                z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
+
+                optimizer.zero_grad()       # Reset gradients
+
+                loss = -model(x_batch, z_samples, w)    # Compute loss
+
+                if torch.isnan(loss).any():
+                    raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+
+                loss.backward()     # Backpropagation
+
+                for name, param in model.named_parameters():
+                    if param.grad is not None and torch.isnan(param.grad).any():
+                        raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
             
-            if epoch > 10 and abs(loss - prev_loss) < tol:
-                if verbose > 0:
-                    print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
-                break
-            prev_loss = loss
+                optimizer.step()        # Update model parameters
 
-            loss.backward()
+                total_loss += loss.item()       # Accumulate loss
 
-            for name, param in model.named_parameters():
-                if param.grad is not None and torch.isnan(param.grad).any():
-                    raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
-        
-            optimizer.step()
+            average_loss = total_loss / len(train_loader)       # Average loss over batches
 
+            # Check early stopping criteria
+            if epoch > 10 and abs(average_loss - prev_loss) < tol:
+                    if verbose > 0:
+                        print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
+                    break
+            prev_loss = average_loss
+            
             if verbose > 1:
-                print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}, Training time: {time.time() - start_time_epoch}")
+                print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
             elif verbose > 0:
                 if epoch % 10 == 0:
-                    print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
+                    print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
 
     if verbose > 0:
         print(f"Training complete.")
-        print(f"Final Log-Likelihood: {-loss.item()}")
+        print(f"Final Log-Likelihood: {-average_loss}")
     if verbose > 1:
         print(f"Total training time: {time.time() - start_time}")
-    model._is_trained = True
+    model._is_trained = True        # Mark model as trained
     return model
 
 def impute_missing_values_sample(
@@ -717,8 +743,6 @@ def impute_missing_values(
 def impute_missing_values_exact(
         x_incomplete, 
         model,
-        epochs=100,
-        lr=0.01,
         random_state=None,
         verbose=0,
         skip=False,
@@ -764,36 +788,41 @@ def impute_missing_values_exact(
     # Initially impute randomly
     x_imputed = x_incomplete.clone().detach()
 
+    # Sample means and variances from the neural network
     phi_z = model.phi_net(z_samples)
     means, log_vars = torch.chunk(phi_z, 2, dim=-1)
     stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
-    #print(means, stds)
-    #print(means.shape, stds.shape)
 
-    epsilon = 0.1
+    epsilon = 0.1       # Small epsilon to compute approximate probability
 
-    for k in range(x_incomplete.shape[0]):
+    for k in range(x_incomplete.shape[0]):      # Iterate over each sample
+        # If there are no missing values, skip this sample
         if not torch.any(torch.isnan(x_incomplete[k])):
             continue
-
-        likelihoods = torch.zeros(means.shape[0])
-        for i in range(means.shape[0]):
+        
+        # Create tensor that tracks the likelihood for each component
+        likelihoods = torch.zeros(means.shape[0])  
+        for i in range(means.shape[0]):     # Iterate over each component
             likelihood = 0
-            for j in range(x_incomplete.shape[1]):
+            for j in range(x_incomplete.shape[1]):      # Iterate over each feature
                 x = x_incomplete[k, j]
+                # Likelihood computation only for non-missing values
                 if not torch.isnan(x):
                     mean, std = means[i, j], stds[i, j]
                     log_prob_low = 0.5 * (1 + torch.erf((x - epsilon - mean) / (std * math.sqrt(2))))
                     log_prob_high = 0.5 * (1 + torch.erf((x + epsilon - mean) / (std * math.sqrt(2))))
-                    log_prob = torch.log(log_prob_high - log_prob_low)
-                    likelihood += log_prob
+                    log_prob = torch.log((log_prob_high - log_prob_low).clamp(min=1e-9))
+                    likelihood += log_prob      # Take the sum of the log likelihoods
+            # Store the likelihood for this component
             likelihoods[i] = likelihood
         
+        # Get the component with the maximum likelihood for this sample
         i_max = torch.argmax(likelihoods)
-        #print(f"Sample {k}, most likely component: {i_max}.")
-        #print(means[i_max])
-        #print(means)
 
+        if verbose > 1:
+            print(f"Sample {k}, most likely component: {i_max}, component means: {means[i_max]}.")
+
+        # Impute the missing values with the means of the most likely component
         for j in range(x_incomplete.shape[1]):
             if torch.isnan(x_incomplete[k, j]):
                 x_imputed[k, j] = means[i_max, j]
@@ -840,11 +869,13 @@ if __name__ == '__main__':
     model = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
                          verbose=2, 
-                         epochs=150, 
+                         epochs=100, 
                          lr=0.001, 
                          num_components=256, 
-                         missing_strategy="zero")
-    imputed = impute_missing_values_exact(all_zeros, model, lr=0.01, epochs=100, verbose=1)
+                         missing_strategy="mean",
+                         batch_size=32,
+                         )
+    imputed = impute_missing_values_exact(all_zeros, model, verbose=1)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
