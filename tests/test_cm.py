@@ -18,7 +18,6 @@ class TestClass:
             n_components=5,
             latent_dim=8,
             pc_type="spn",
-            missing_strategy="ignore",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -41,7 +40,6 @@ class TestClass:
         assert imputer.n_components == 5
         assert imputer.latent_dim == 8
         assert imputer.pc_type == "spn"
-        assert imputer.missing_strategy == "ignore"
         assert imputer.ordinal_features is None
         assert imputer.max_depth == 3
         assert imputer.custom_net is None
@@ -333,7 +331,6 @@ class TestParams():
             n_components=5,
             latent_dim=8,
             pc_type="spn",
-            missing_strategy="ignore",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -360,7 +357,6 @@ class TestParams():
         assert params["n_components"] == 5
         assert params["latent_dim"] == 8
         assert params["pc_type"] == "spn"
-        assert params["missing_strategy"] == "ignore"
         assert params["ordinal_features"] is None
         assert params["max_depth"] == 3
         assert params["custom_net"] is None
@@ -386,7 +382,6 @@ class TestParams():
             n_components=10,
             latent_dim=4,
             pc_type="clt",
-            missing_strategy="zero",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
             hidden_layers=2,
@@ -408,7 +403,6 @@ class TestParams():
         assert self.imputer.n_components == 10
         assert self.imputer.latent_dim == 4
         assert self.imputer.pc_type == "clt"
-        assert self.imputer.missing_strategy == "zero"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5
         assert self.imputer.hidden_layers == 2

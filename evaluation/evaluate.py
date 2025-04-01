@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import time
+from torch import nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.datasets import load_diabetes
 from sklearn.impute import KNNImputer, SimpleImputer
@@ -26,19 +27,31 @@ data_missing, mask = introduce_missingness(data, missing_rate=0.1)
 data_missing.to_csv("evaluation/data/diabetes_with_missing.csv", index=False)
 print("Dataset with missing values saved as 'diabetes_with_missing.csv'")
 
+neural_network = nn.Sequential(
+            nn.Linear(32, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(64, 22),
+        )
+
 imputer = CMImputer(
     missing_values=np.nan,
     n_components=1024,
     latent_dim=32,
     pc_type="factorized",
-    missing_strategy="mean",
     ordinal_features=None,
     max_depth=5,
     custom_net=None,
     max_iter=100,
+    batch_size=None,
     tol=0.0001,
     lr=0.001,
-    smooth=0.000001,
+    weight_decay=0.01,
     random_state=0,
     verbose=0,
     copy=True,

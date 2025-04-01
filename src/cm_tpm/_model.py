@@ -23,7 +23,7 @@ import networkx as nx
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, missing_strategy="mean", net=None, custom_layers=[2, 64, "ReLU", False, 0.0], random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, custom_layers=[2, 64, "ReLU", False, 0.0], random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -32,7 +32,6 @@ class CM_TPM(nn.Module):
             input_dim: Dimensionality of input data.
             latent_dim: Dimensionality of latent variable z.
             num_components: Number of mixture components (integration points).
-            missing_strategy (optional): Strategy for dealing with missing values in training data ("mean", "zero", "em", "ignore").
             net (optional): A custom neural network for PC structure generation.
             random_state (optional): Random seed for reproducibility.
 
@@ -45,11 +44,7 @@ class CM_TPM(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.num_components = num_components
-        self.missing_strategy = missing_strategy
         self.random_state = random_state
-
-        if missing_strategy not in ["mean", "zero", "em", "ignore"]:
-            raise ValueError(f"Unknown missing values strategy: '{missing_strategy}', use one of the following: 'mean', 'zero', 'em', 'ignore'.")
 
         if random_state is not None:
             torch.manual_seed(random_state)
@@ -82,31 +77,20 @@ class CM_TPM(nn.Module):
 
         phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
         mask = ~torch.isnan(x)
-        ignore = None
 
-        if self.missing_strategy == "mean":
-            # Fill missing values with the mean of the feature
-            x = torch.where(mask, x, torch.nanmean(x, dim=0, keepdim=True))
-        elif self.missing_strategy == "ignore":
-            # Compute likelihood without filling in missing values
-            # TODO: Fix errors
-            ignore = mask
-            x = torch.where(mask, x, 0.0)
-        elif self.missing_strategy == "zero":
-            # Fill missing values with zero
-            x = torch.where(mask, x, 0.0)
+        # Compute likelihood without filling in missing values
+        # TODO: Fix bug!
+        x = torch.where(mask, x, 0.5)       # This line does not do anything, but the code breaks if I remove it
 
         likelihoods = []
         for i in range(self.num_components):
             self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
-            likelihood = self.pcs[i](x, ignore)  # Compute p(x | phi(z_i)), shape: (batch_size)
+            likelihood = self.pcs[i](x, mask)  # Compute p(x | phi(z_i)), shape: (batch_size)
 
             if torch.isnan(likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
 
             likelihoods.append(likelihood + torch.log(w[i]))   # Add weighted likelihood to the list
-
-        # TODO: Other idea: take minimum likelihood per component? Since different components approximate different samples?
 
         likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
         mixture_likelihood = torch.logsumexp(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
@@ -150,16 +134,13 @@ class FactorizedPC(BaseProbabilisticCircuit):
         stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
         # Compute Gaussian likelihood per feature
-        # #log_prob = -0.5 * (((x - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
-        # log_prob = -0.5 * (((x - means) / stds) ** 2)
-        # # Sum across all features to get the total log-likelihood
-        # log_likelihood = torch.sum(log_prob, dim=-1)
+        log_prob = -0.5 * (((x - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
 
-        epsilon = 0.1       # Small epsilon to compute approximate probability
-        prob_low = 0.5 * (1 + torch.erf((x - epsilon - means) / (stds * math.sqrt(2))))     # Lower probability
-        prob_high = 0.5 * (1 + torch.erf((x + epsilon - means) / (stds * math.sqrt(2))))    # Upper probability
-        prob = (prob_high - prob_low).clamp(min=1e-9)       # Set minimum to avoid 0
-        log_prob = torch.log(prob)
+        # epsilon = 0.1       # Small epsilon to compute approximate probability
+        # prob_low = 0.5 * (1 + torch.erf((x - epsilon - means) / (stds * math.sqrt(2))))     # Lower probability
+        # prob_high = 0.5 * (1 + torch.erf((x + epsilon - means) / (stds * math.sqrt(2))))    # Upper probability
+        # prob = (prob_high - prob_low).clamp(min=1e-9)       # Set minimum to avoid 0
+        # log_prob = torch.log(prob)
 
         # Set all NaN values to 0
         if torch.any(torch.isnan(log_prob)):
@@ -407,7 +388,6 @@ def train_cm_tpm(
         pc_type="factorized", 
         latent_dim=16, 
         num_components=256,
-        missing_strategy="mean",
         net=None, 
         hidden_layers=2,
         neurons_per_layer=64,
@@ -430,7 +410,6 @@ def train_cm_tpm(
         pc_type (optional): The type of PC to use (factorized, spn, clt).
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
-        missing_strategy (optional): Strategy for dealing with missing values in training data ("mean", "zero", "em", "ignore").
         net (optional): A custom neural network.
         hidden_layers (optional): Number of hidden layers in the neural network.
         neurons_per_layer (optional): Number of neurons per layer in the neural network.
@@ -451,7 +430,7 @@ def train_cm_tpm(
     input_dim = train_data.shape[1]
 
     # Define the model
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, missing_strategy=missing_strategy, net=net, 
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, 
                    custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate], random_state=random_state)
 
     if verbose > 1:
@@ -464,67 +443,58 @@ def train_cm_tpm(
         print(f"Starting training with {epochs} epochs...")
     prev_loss = -float('inf')       # Initial loss
     start_time = time.time()        # Keep track of training time
-
-    em_iters = 5 if missing_strategy == "em" and np.isnan(train_data).any() else 1
-    for em_iter in range(em_iters):     # Em iterations
-        if verbose > 0 and em_iters > 1:
-            print(f"EM Iteration {em_iter + 1}/{em_iters}")
-
-        # If missing_strategy is "em", we need to impute the missing values before training the model
-        if missing_strategy == "em":
-            imputed_data = impute_missing_values(train_data, model, skip=True)
-            x_tensor = torch.tensor(imputed_data, dtype=torch.float32)
-        else:
-            x_tensor = torch.tensor(train_data, dtype=torch.float32)
         
-        # Create DataLoader
-        if batch_size is not None:
-            train_loader = DataLoader(TensorDataset(x_tensor), batch_size=batch_size, shuffle=True)
-        else:   # No batches
-            train_loader = [torch.unsqueeze(x_tensor, 0)]   # Add batch dimension
+    # Create DataLoader
+    x_tensor = torch.tensor(train_data, dtype=torch.float32)
+    if batch_size is not None:
+        train_loader = DataLoader(TensorDataset(x_tensor), batch_size=batch_size, shuffle=True)
+    else:   # No batches
+        train_loader = [torch.unsqueeze(x_tensor, 0)]   # Add batch dimension
 
-        for epoch in range(epochs):
-            start_time_epoch = time.time()
+    for epoch in range(epochs):
+        start_time_epoch = time.time()
 
-            total_loss = 0.0       # Keep track of the total loss for the epoch
+        total_loss = 0.0       # Keep track of the total loss for the epoch
 
-            for batch in train_loader:  # Iterate over batches
-                x_batch = batch[0]      # Extract batch data
+        for batch in train_loader:  # Iterate over batches
+            x_batch = batch[0]      # Extract batch data
 
-                # Generate new z samples and weights
-                z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
+            # Generate new z samples and weights
+            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
 
-                optimizer.zero_grad()       # Reset gradients
+            optimizer.zero_grad()       # Reset gradients
 
-                loss = -model(x_batch, z_samples, w)    # Compute loss
+            loss = -model(x_batch, z_samples, w)    # Compute loss
+            # print(loss)
+            # print(x_batch[50, 3], x_batch[10, 2], x_batch[92, 0])
 
-                if torch.isnan(loss).any():
-                    raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
+            if torch.isnan(loss).any():
+                raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
 
-                loss.backward()     # Backpropagation
+            loss.backward()     # Backpropagation
 
-                for name, param in model.named_parameters():
-                    if param.grad is not None and torch.isnan(param.grad).any():
-                        raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
+            for name, param in model.named_parameters():
+                if param.grad is not None and torch.isnan(param.grad).any():
+                    raise ValueError(f"NaN detected in gradient of {name} at epoch {epoch}")
             
-                optimizer.step()        # Update model parameters
+            optimizer.step()        # Update model parameters
 
-                total_loss += loss.item()       # Accumulate loss
+            total_loss += loss.item()       # Accumulate loss
 
-            average_loss = total_loss / len(train_loader)       # Average loss over batches
+        average_loss = total_loss / len(train_loader)       # Average loss over batches
 
-            # Check early stopping criteria
-            if epoch > 10 and abs(average_loss - prev_loss) < tol:
-                    if verbose > 0:
-                        print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
-                    break
-            prev_loss = average_loss
+        # Check early stopping criteria
+        if epoch > 10 and abs(average_loss - prev_loss) < tol:
+                if verbose > 0:
+                    print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
+                break
+        prev_loss = average_loss
             
-            if verbose > 1:
-                print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
-            elif verbose > 0:
-                if epoch % 10 == 0:
-                    print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
+        if verbose > 1:
+            print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
+        elif verbose > 0:
+            if epoch % 10 == 0:
+                print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
 
     if verbose > 0:
         print(f"Training complete.")
@@ -533,118 +503,6 @@ def train_cm_tpm(
         print(f"Total training time: {time.time() - start_time}")
     model._is_trained = True        # Mark model as trained
     return model
-
-def impute_missing_values_sample(
-        x_incomplete, 
-        model,
-        epochs=100,
-        lr=0.01,
-        random_state=None,
-        verbose=0,
-        skip=False,
-        ):
-    """
-    Imputes missing data using a specified model.
-    
-    Parameters:
-        x_incomplete: The input data with missing values.
-        model: A CM-TPM model to use for data imputation.
-        epochs (optional): The number of imputation loops.
-        lr (optional): The learning rate during imputation. 
-        random_state (optional): A random seed for reproducibility. 
-        verbose (optional): Verbosity level.
-        skip (optional): Skips the model fitted check, used for EM.
-
-    Returns:
-        x_imputed: A copy of x_incomplete with the missing values imputed.
-    """
-    if not np.isnan(x_incomplete).any():
-        return x_incomplete
-    
-    if not model._is_trained and not skip:
-        raise ValueError("The model has not been fitted yet. Please call the fit method first.")
-    
-    if x_incomplete.shape[1] != model.input_dim:
-        raise ValueError(f"The missing data does not have the same number of features as the training data. Expected features: {model.input_dim}, but got features: {x_incomplete.shape[1]}.")
-    
-    if verbose > 0:
-        print(f"Starting with imputing data...")
-    start_time = time.time()
-
-    if random_state is not None:
-        set_random_seed(random_state)
-
-    x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
-    x_filled = x_incomplete.clone()
-    full_mask = ~torch.isnan(x_incomplete)
-
-    for i in range(x_incomplete.shape[0]):
-        x_sample = x_incomplete[i]
-        
-        # If there are no missing values, skip this loop
-        if not torch.any(torch.isnan(x_sample)):
-            continue
-
-        x_sample = torch.unsqueeze(x_sample, 0)   # Add another dimension
-
-        # Generate new samples and weights
-        z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
-        
-        # Store which values are missing
-        mask = ~torch.isnan(x_sample)
-
-        if verbose > 0:
-            print(f"Starting imputing {torch.sum(~mask).item()} values in sample {i}...")
-
-        # Initially impute randomly
-        x_imputed = x_sample.clone().detach()
-        #x_imputed[~mask] = torch.rand_like(x_imputed[~mask])
-        x_imputed[~mask] = 0.5
-        x_imputed = x_imputed.clone().detach()
-
-        # Create tensor with only values that need to be changed
-        x_missing = x_imputed[~mask].clone().detach().requires_grad_(True)
-
-        # Set up optimizer
-        optimizer = optim.Adam([x_missing], lr=lr)
-
-        # Imputation loop
-        for epoch in range(epochs):
-            optimizer.zero_grad()
-
-            # Insert x_missing into x_imputed
-            x_imputed = x_imputed.clone().detach()
-            x_imputed = x_imputed.masked_scatter(~mask, x_missing)
-
-            # # Optimization step
-            loss = -model(x_imputed, z_samples, w)
-            loss.backward()
-            optimizer.step()
-
-            # Keep imputed values in (0,1) range
-            with torch.no_grad():
-                x_missing.clamp_(0, 1)
-
-            if verbose > 1:
-                    print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
-            elif verbose > 0:
-                if epoch % 10 == 0:
-                    print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
-
-        if verbose > 0:
-            print(f"Finished imputing {torch.sum(~mask).item()} values in sample {i}.")
-        
-        x_imputed = x_imputed.masked_scatter(~mask, x_missing)
-        x_filled[i] = x_imputed
-
-    if verbose > 0:
-            print(f"Finished imputing data.")
-            print(f"Succesfully imputed {torch.sum(~full_mask).item()} values.")
-    if verbose > 1:
-            print(f"Total imputation time: {time.time() - start_time}")
-
-    # Return completed data with imputed values
-    return x_filled.detach().cpu().numpy()
 
 def impute_missing_values(
         x_incomplete, 
@@ -689,38 +547,41 @@ def impute_missing_values(
     # Generate new samples and weights
     z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
     
-    # Store which values are missing
+    # Create a tensor with the data to impute
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
-    mask = ~torch.isnan(x_incomplete)
-
-    # Initially impute randomly
     x_imputed = x_incomplete.clone().detach()
-    #x_imputed[~mask] = torch.rand_like(x_imputed[~mask])
-    x_imputed[~mask] = 0.5
-    x_imputed = x_imputed.clone().detach()
+
+    # Get a copy of X with only rows with missing values
+    nan_rows_mask = torch.any(torch.isnan(x_incomplete), dim=1)  # True if a row has NaN
+    nan_rows_indices = torch.where(nan_rows_mask)[0]  # Get row indices
+    x_missing_rows = x_incomplete[nan_rows_mask]  # Extract rows with NaN
+
+    # Initially impute with a standard value of 0.5
+    mask = ~torch.isnan(x_missing_rows)
+    x_missing_rows[~mask] = 0.5
 
     # Create tensor with only values that need to be changed
-    x_missing = x_imputed[~mask].clone().detach().requires_grad_(True)
+    x_missing_vals = x_missing_rows[~mask].clone().detach().requires_grad_(True)
 
     # Set up optimizer
-    optimizer = optim.Adam([x_missing], lr=lr)
+    optimizer = optim.Adam([x_missing_vals], lr=lr)
 
     # Imputation loop
     for epoch in range(epochs):
         optimizer.zero_grad()
 
-        # Insert x_missing into x_imputed
-        x_imputed = x_imputed.clone().detach()
-        x_imputed = x_imputed.masked_scatter(~mask, x_missing)
+        # Insert the missing values into the correct places
+        x_missing_rows = x_missing_rows.clone().detach()
+        x_missing_rows = x_missing_rows.masked_scatter(~mask, x_missing_vals)
 
         # # Optimization step
-        loss = -model(x_imputed, z_samples, w)
+        loss = -model(x_missing_rows, z_samples, w)
         loss.backward()
         optimizer.step()
 
         # Keep imputed values in (0,1) range
         with torch.no_grad():
-            x_missing.clamp_(0, 1)
+            x_missing_vals.clamp_(0, 1)
 
         if verbose > 1:
                 print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
@@ -735,7 +596,8 @@ def impute_missing_values(
         print(f"Total imputation time: {time.time() - start_time}")
 
     # Return completed data with imputed values
-    x_imputed = x_imputed.masked_scatter(~mask, x_missing)
+    x_missing_rows = x_missing_rows.masked_scatter(~mask, x_missing_vals)
+    x_imputed[nan_rows_indices] = x_missing_rows
     return x_imputed.detach().cpu().numpy()
 
 def impute_missing_values_exact(
@@ -807,9 +669,10 @@ def impute_missing_values_exact(
                 # Likelihood computation only for non-missing values
                 if not torch.isnan(x):
                     mean, std = means[i, j], stds[i, j]
-                    log_prob_low = 0.5 * (1 + torch.erf((x - epsilon - mean) / (std * math.sqrt(2))))
-                    log_prob_high = 0.5 * (1 + torch.erf((x + epsilon - mean) / (std * math.sqrt(2))))
-                    log_prob = torch.log((log_prob_high - log_prob_low).clamp(min=1e-9))
+                    # log_prob_low = 0.5 * (1 + torch.erf((x - epsilon - mean) / (std * math.sqrt(2))))
+                    # log_prob_high = 0.5 * (1 + torch.erf((x + epsilon - mean) / (std * math.sqrt(2))))
+                    # log_prob = torch.log((log_prob_high - log_prob_low).clamp(min=1e-9))
+                    log_prob = -0.5 * (((x - mean) / std) ** 2 + 2 * torch.log(std) + math.log(2 * math.pi))
                     likelihood += log_prob      # Take the sum of the log likelihoods
             # Store the likelihood for this component
             likelihoods[i] = likelihood
@@ -859,8 +722,8 @@ if __name__ == '__main__':
     # print("Data with missing:", x_incomplete)
     # print("Imputed values:", x_imputed)
 
-    
-    all_zeros = np.full((100, 10), 0.23)
+    start_time = time.time()
+    all_zeros = np.full((100, 10), 0.89)
     all_zeros[50, 3] = np.nan
     all_zeros[10, 2] = np.nan
     all_zeros[92, 0] = np.nan
@@ -869,14 +732,15 @@ if __name__ == '__main__':
                          verbose=2, 
                          epochs=100, 
                          lr=0.001, 
-                         num_components=256, 
-                         missing_strategy="mean",
-                         batch_size=50,
+                         num_components=256,
+                         batch_size=None,
                          )
-    imputed = impute_missing_values_exact(all_zeros, model, verbose=1)
+    #imputed = impute_missing_values_exact(all_zeros, model, verbose=1)
+    imputed = impute_missing_values(all_zeros, model, verbose=1)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
+    print("Imputation time:", time.time() - start_time)
 
     # all_zeros = np.full((6, 6), 0.23)
     # all_zeros[0, 0] = np.nan

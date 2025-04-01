@@ -28,8 +28,6 @@ class CMImputer:
         Dimensionality of the latent variable.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
-    missing_strategy: str, optional (default="mean"), allowed: "mean", "zero", "em", "ignore"
-        The strategy to use for missing data in the training data. 
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
     max_depth: int, optional (default=5)
@@ -104,7 +102,6 @@ class CMImputer:
             n_components: int = 8,
             latent_dim: int = 16,
             pc_type: str = "factorized",
-            missing_strategy: str = "mean",
             ordinal_features: dict = None,
             max_depth: int = 5,
             custom_net: nn.Sequential = None,
@@ -131,7 +128,6 @@ class CMImputer:
         self.n_components = n_components
         self.latent_dim = latent_dim
         self.pc_type = pc_type
-        self.missing_strategy = missing_strategy
         self.ordinal_features = ordinal_features
         self.custom_net = custom_net
         self.hidden_layers = hidden_layers
@@ -192,7 +188,6 @@ class CMImputer:
             pc_type=self.pc_type,
             latent_dim=self.latent_dim, 
             num_components=self.n_components, 
-            missing_strategy=self.missing_strategy,
             net=self.custom_net,
             hidden_layers=self.hidden_layers,
             neurons_per_layer=self.neurons_per_layer,
@@ -295,7 +290,6 @@ class CMImputer:
             "n_components": self.n_components,
             "latent_dim": self.latent_dim,
             "pc_type": self.pc_type,
-            "missing_strategy": self.missing_strategy,
             "ordinal_features": self.ordinal_features,
             "max_depth": self.max_depth,
             "custom_net": self.custom_net,
@@ -451,7 +445,14 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        X_imputed = impute_missing_values_exact(
+        # X_imputed = impute_missing_values_exact(
+        #     X_preprocessed, 
+        #     self.model,
+        #     random_state=self.random_state,
+        #     verbose = self.verbose,
+        # )
+
+        X_imputed = impute_missing_values(
             X_preprocessed, 
             self.model,
             random_state=self.random_state,
