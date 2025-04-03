@@ -26,6 +26,8 @@ class CMImputer:
         Number of components to use in the mixture model.
     latent_dim: int, optional (default=16)
         Dimensionality of the latent variable.
+    k: int, optional (default=None)
+        The number of components to use for efficient learning. If None, all components are used.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
     ordinal_features: dict, optional (default=None)
@@ -101,6 +103,7 @@ class CMImputer:
             missing_values: int | float | str | list | None = np.nan,
             n_components: int = 8,
             latent_dim: int = 16,
+            k: int | None = None,
             pc_type: str = "factorized",
             ordinal_features: dict = None,
             max_depth: int = 5,
@@ -127,6 +130,7 @@ class CMImputer:
         self.missing_values = missing_values
         self.n_components = n_components
         self.latent_dim = latent_dim
+        self.k = k
         self.pc_type = pc_type
         self.ordinal_features = ordinal_features
         self.custom_net = custom_net
@@ -188,6 +192,7 @@ class CMImputer:
             pc_type=self.pc_type,
             latent_dim=self.latent_dim, 
             num_components=self.n_components, 
+            k=self.k,
             net=self.custom_net,
             hidden_layers=self.hidden_layers,
             neurons_per_layer=self.neurons_per_layer,
@@ -289,6 +294,7 @@ class CMImputer:
             "missing_values": self.missing_values,
             "n_components": self.n_components,
             "latent_dim": self.latent_dim,
+            "k": self.k,
             "pc_type": self.pc_type,
             "ordinal_features": self.ordinal_features,
             "max_depth": self.max_depth,

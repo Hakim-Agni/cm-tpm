@@ -12,14 +12,13 @@ from scipy.stats import qmc
 import networkx as nx
 
 # TODO:
-#   Batches
 #   Allow custom Optimizers?
-#   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
 #   Improve Neural Network PhiNet
+#   Choose optimal standard hyperparameters
 #   Optimize latent selection (top-K selection)
 #   Implement latent optimization for fine-tuning integration points
+#   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
 #   Do some testing with accuracy/log likelihood etc.
-#   Choose optimal standard hyperparameters
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
@@ -58,7 +57,7 @@ class CM_TPM(nn.Module):
 
         self._is_trained = False
     
-    def forward(self, x, z_samples, w):
+    def forward(self, x, z_samples, w, k=None):
         """
         Compute the mixture likelihood.
 
@@ -75,7 +74,7 @@ class CM_TPM(nn.Module):
         if z_samples.shape[0] != self.num_components or z_samples.shape[1] != self.latent_dim:
             raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({self.num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
-        phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, input_dim)
+        phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
         mask = ~torch.isnan(x)
 
         # Compute likelihood without filling in missing values
@@ -93,7 +92,13 @@ class CM_TPM(nn.Module):
             likelihoods.append(likelihood + torch.log(w[i]))   # Add weighted likelihood to the list
 
         likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
-        mixture_likelihood = torch.logsumexp(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
+
+        if k is not None and k < self.num_components:        
+            top_k_values, _ = torch.topk(likelihoods, k, dim=0)  # Get top K values and indices
+            mixture_likelihood = torch.logsumexp(top_k_values, dim=0)  # Take the sum of the weighted likelihoods, shape: (batch_size)
+        else:
+            mixture_likelihood = torch.logsumexp(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
+        
         return torch.mean(mixture_likelihood)  # Average over batch
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
@@ -388,6 +393,7 @@ def train_cm_tpm(
         pc_type="factorized", 
         latent_dim=16, 
         num_components=256,
+        k=None,
         net=None, 
         hidden_layers=2,
         neurons_per_layer=64,
@@ -464,9 +470,7 @@ def train_cm_tpm(
 
             optimizer.zero_grad()       # Reset gradients
 
-            loss = -model(x_batch, z_samples, w)    # Compute loss
-            # print(loss)
-            # print(x_batch[50, 3], x_batch[10, 2], x_batch[92, 0])
+            loss = -model(x_batch, z_samples, w, k=k)    # Compute loss
 
             if torch.isnan(loss).any():
                 raise ValueError(f"NaN detected in loss at epoch {epoch}: {loss}")
@@ -729,10 +733,11 @@ if __name__ == '__main__':
     all_zeros[92, 0] = np.nan
     model = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
-                         verbose=2, 
+                         verbose=0, 
                          epochs=100, 
                          lr=0.001, 
                          num_components=256,
+                         k=None,
                          batch_size=None,
                          )
     #imputed = impute_missing_values_exact(all_zeros, model, verbose=1)

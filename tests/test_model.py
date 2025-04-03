@@ -312,7 +312,7 @@ class TestTrainCM_TPM():
     def test_train_parameters(self):
         """Test training data with a model with different parameters."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data, pc_type="spn", latent_dim=6, num_components=64, epochs=5, lr=0.01)
+        model = train_cm_tpm(train_data=train_data, pc_type="factorized", latent_dim=6, num_components=64, k=5, epochs=5, lr=0.01)
         assert isinstance(model, CM_TPM)
         assert model.input_dim == 10
         assert model.latent_dim == 6
