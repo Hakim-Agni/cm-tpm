@@ -60,6 +60,7 @@ imputer = CMImputer(
     n_components=1024,
     latent_dim=32,
     k=None,
+    lo=True,
     pc_type="factorized",
     ordinal_features=None,
     max_depth=5,

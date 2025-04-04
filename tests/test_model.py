@@ -337,6 +337,12 @@ class TestTrainCM_TPM():
         model = train_cm_tpm(train_data=train_data, batch_size=None, epochs=5)
         assert isinstance(model, CM_TPM)
 
+    def test_train_lo(self):
+        """Test training with latent optimization."""
+        train_data = np.random.rand(100, 10)
+        model = train_cm_tpm(train_data=train_data, lo=True, epochs=5)
+        assert isinstance(model, CM_TPM)
+
 class TestImpute():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -350,7 +356,22 @@ class TestImpute():
         data_incomplete[4, 6] = np.nan
         data_incomplete[25, 1] = np.nan
         data_incomplete[0, 7] = np.nan
-        data_imputed = impute_missing_values(data_incomplete, self.model)
+        data_imputed = impute_missing_values(data_incomplete, self.model, epochs=5)
+        assert isinstance(data_imputed, np.ndarray)
+        assert data_imputed.shape == data_incomplete.shape
+        assert data_imputed[4, 6] != np.nan
+        assert data_imputed[25, 1] != np.nan
+        assert data_imputed[0, 7] != np.nan
+        assert not np.isnan(data_imputed).any()
+
+    def test_impute_lo(self):
+        """Test imputing data with latent optimization."""
+        data_incomplete = np.random.rand(30, 10)
+        data_incomplete[4, 6] = np.nan
+        data_incomplete[25, 1] = np.nan
+        data_incomplete[0, 7] = np.nan
+        model = train_cm_tpm(train_data=self.train_data, lo=True, epochs=5)
+        data_imputed = impute_missing_values(data_incomplete, model, epochs=5)
         assert isinstance(data_imputed, np.ndarray)
         assert data_imputed.shape == data_incomplete.shape
         assert data_imputed[4, 6] != np.nan

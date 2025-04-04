@@ -18,6 +18,7 @@ class TestClass:
             n_components=5,
             latent_dim=8,
             k=10,
+            lo=True,
             pc_type="spn",
             ordinal_features=None,
             max_depth=3,
@@ -41,6 +42,7 @@ class TestClass:
         assert imputer.n_components == 5
         assert imputer.latent_dim == 8
         assert imputer.k == 10
+        assert imputer.lo
         assert imputer.pc_type == "spn"
         assert imputer.ordinal_features is None
         assert imputer.max_depth == 3
@@ -333,6 +335,7 @@ class TestParams():
             n_components=5,
             latent_dim=8,
             k=10,
+            lo=True,
             pc_type="spn",
             ordinal_features=None,
             max_depth=3,
@@ -360,6 +363,7 @@ class TestParams():
         assert params["n_components"] == 5
         assert params["latent_dim"] == 8
         assert params["k"] == 10
+        assert params["lo"] == True
         assert params["pc_type"] == "spn"
         assert params["ordinal_features"] is None
         assert params["max_depth"] == 3
@@ -386,6 +390,7 @@ class TestParams():
             n_components=10,
             latent_dim=4,
             k=None,
+            lo=False,
             pc_type="clt",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
@@ -408,6 +413,7 @@ class TestParams():
         assert self.imputer.n_components == 10
         assert self.imputer.latent_dim == 4
         assert self.imputer.k is None
+        assert self.imputer.lo == False
         assert self.imputer.pc_type == "clt"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5

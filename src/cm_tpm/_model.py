@@ -12,11 +12,11 @@ from scipy.stats import qmc
 import networkx as nx
 
 # TODO:
+#   Check: Optimize latent selection (top-K selection)
+#   Check: Implement latent optimization for fine-tuning integration points
 #   Allow custom Optimizers?
 #   Improve Neural Network PhiNet
 #   Choose optimal standard hyperparameters
-#   Optimize latent selection (top-K selection)
-#   Implement latent optimization for fine-tuning integration points
 #   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
 #   Do some testing with accuracy/log likelihood etc.
 #   Add GPU acceleration
@@ -44,6 +44,7 @@ class CM_TPM(nn.Module):
         self.latent_dim = latent_dim
         self.num_components = num_components
         self.random_state = random_state
+        self.z = None
 
         if random_state is not None:
             torch.manual_seed(random_state)
@@ -74,7 +75,11 @@ class CM_TPM(nn.Module):
         if z_samples.shape[0] != self.num_components or z_samples.shape[1] != self.latent_dim:
             raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({self.num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
-        phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
+        if self.z is None:
+            phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
+        else:
+            phi_z = self.phi_net(self.z)
+        
         mask = ~torch.isnan(x)
 
         # Compute likelihood without filling in missing values
@@ -394,6 +399,7 @@ def train_cm_tpm(
         latent_dim=16, 
         num_components=256,
         k=None,
+        lo=False,
         net=None, 
         hidden_layers=2,
         neurons_per_layer=64,
@@ -502,11 +508,99 @@ def train_cm_tpm(
 
     if verbose > 0:
         print(f"Training complete.")
-        print(f"Final Log-Likelihood: {-average_loss}")
+        print(f"Final Training Log-Likelihood: {-average_loss}")
     if verbose > 1:
         print(f"Total training time: {time.time() - start_time}")
     model._is_trained = True        # Mark model as trained
+
+    if lo:
+        model.z = latent_optimization(model, train_loader, num_components, latent_dim, epochs=math.ceil(epochs/2), tol=tol, lr=lr, weight_decay=weight_decay, random_state=random_state, verbose=verbose)  # Optimize z_samples
+
     return model
+
+def latent_optimization(
+        model,
+        train_loader, 
+        num_components=256,
+        latent_dim=16,
+        epochs=100, 
+        tol=1e-5,
+        lr=0.01, 
+        weight_decay=1e-5,
+        random_state=None, 
+        verbose=0):
+    """
+    Optimizes the integration points z after training.
+
+    Parameters:
+        model: A trained CM-TPM model.
+        train_loader: A DataLoader for the training data.
+        num_components (optional): The number of mixture components.
+        latent_dim (optional): The dimensionality of the latent variable.
+        epochs (optional): The number of optimization loops.
+        tol (optional): Tolerance for the convergence criterion.
+        lr (optional): The learning rate during optimization. 
+        weight_decay (optional): Weight decay for the optimizer.
+        random_state (optional): A random seed for reproducibility. 
+        verbose (optional): Verbosity level.
+
+    Returns:
+        Optimized z_samples.
+    """
+    # Generate new z samples and weights
+    z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
+
+    # Make z_samples a parameter to optimize
+    z_optimized = torch.nn.Parameter(z_samples.clone().detach(), requires_grad=True)  
+    optimizer = optim.Adam([z_optimized], lr=lr, weight_decay=weight_decay)
+
+    if verbose > 0:
+        print(f"Starting latent optimization with {epochs} epochs...")
+    prev_loss = -float('inf')       # Initial loss
+    start_time = time.time()        # Keep track of training time
+
+    for epoch in range(epochs):
+        start_time_epoch = time.time()
+
+        total_loss = 0.0       # Keep track of the total loss for the epoch
+
+        for batch in train_loader:  # Iterate over batches
+            x_batch = batch[0]      # Extract batch data
+
+            optimizer.zero_grad()
+
+            # Compute the loss with optimized z
+            loss = -model(x_batch, z_optimized, w)
+
+            loss.backward()  # Backpropagation
+
+            optimizer.step()  # Update z_samples
+
+            total_loss += loss.item()       # Accumulate loss
+
+        average_loss = total_loss / len(train_loader)       # Average loss over batches
+
+        # Check early stopping criteria
+        if epoch > 10 and abs(average_loss - prev_loss) < tol:
+                if verbose > 0:
+                    print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
+                break
+        prev_loss = average_loss
+
+        if verbose > 1:
+            print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
+        elif verbose > 0:
+            if epoch % 10 == 0:
+                print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
+
+    if verbose > 0:
+        print(f"Latent optimization complete.")
+        print(f"Final Latent Optimization Log-Likelihood: {-average_loss}")
+    if verbose > 1:
+        print(f"Total optimization time: {time.time() - start_time}")
+    
+    return z_optimized.detach()  # Return optimized z_samples
+
 
 def impute_missing_values(
         x_incomplete, 
@@ -596,6 +690,7 @@ def impute_missing_values(
     if verbose > 0:
         print(f"Finished imputing data.")
         print(f"Succesfully imputed {torch.sum(~mask).item()} values.")
+        print(f"Final Imputed Data Log-Likelihood: {-loss.item()}")
     if verbose > 1:
         print(f"Total imputation time: {time.time() - start_time}")
 
@@ -733,11 +828,12 @@ if __name__ == '__main__':
     all_zeros[92, 0] = np.nan
     model = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
-                         verbose=0, 
+                         verbose=1, 
                          epochs=100, 
                          lr=0.001, 
                          num_components=256,
-                         k=None,
+                         k=5,
+                         lo=True,
                          batch_size=None,
                          )
     #imputed = impute_missing_values_exact(all_zeros, model, verbose=1)

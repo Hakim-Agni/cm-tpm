@@ -28,6 +28,8 @@ class CMImputer:
         Dimensionality of the latent variable.
     k: int, optional (default=None)
         The number of components to use for efficient learning. If None, all components are used.
+    lo: bool, optional (default=False)
+        Whether to use latent optimization after training.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
     ordinal_features: dict, optional (default=None)
@@ -104,6 +106,7 @@ class CMImputer:
             n_components: int = 8,
             latent_dim: int = 16,
             k: int | None = None,
+            lo: bool = False,
             pc_type: str = "factorized",
             ordinal_features: dict = None,
             max_depth: int = 5,
@@ -131,6 +134,7 @@ class CMImputer:
         self.n_components = n_components
         self.latent_dim = latent_dim
         self.k = k
+        self.lo = lo
         self.pc_type = pc_type
         self.ordinal_features = ordinal_features
         self.custom_net = custom_net
@@ -193,6 +197,7 @@ class CMImputer:
             latent_dim=self.latent_dim, 
             num_components=self.n_components, 
             k=self.k,
+            lo = self.lo,
             net=self.custom_net,
             hidden_layers=self.hidden_layers,
             neurons_per_layer=self.neurons_per_layer,
@@ -295,6 +300,7 @@ class CMImputer:
             "n_components": self.n_components,
             "latent_dim": self.latent_dim,
             "k": self.k,
+            "lo": self.lo,
             "pc_type": self.pc_type,
             "ordinal_features": self.ordinal_features,
             "max_depth": self.max_depth,
