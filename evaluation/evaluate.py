@@ -1,66 +1,68 @@
+import os
 import numpy as np
 import pandas as pd
 import time
 from torch import nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.datasets import load_diabetes
+from sklearn.datasets import load_diabetes, load_breast_cancer, load_digits, load_iris, load_linnerud, load_wine
 from sklearn.impute import KNNImputer, SimpleImputer
 from cm_tpm import CMImputer
 
-def introduce_missingness(data, missing_rate=0.1, random_state=42):
-    rng = np.random.RandomState(random_state)  # Ensures reproducibility
-    mask = rng.rand(*data.shape) < missing_rate  # Create mask for missing values
-    data_missing = data.mask(mask)  # Apply mask
-    return data_missing, mask
 
-# Load dataset as a pandas DataFrame
-data = load_diabetes(as_frame=True).frame
-data.to_csv("evaluation/data/diabetes_complete.csv", index=False)
+# Dataset Settings
+diabetes = True                 # Medium sized, numerical and integer
+breast_cancer = True            # Large sized, numerical and binary
+digits = True                   # Very large sized, integer
+iris = True                     # Small sized, numerical and binary
+linnerud = True                 # Small sized, integer
+wine = True                     # Medium sized, numerical and binary
+datasets = {
+    "diabetes": diabetes,
+    "breast_cancer": breast_cancer,
+    "digits": digits,
+    "iris": iris,
+    "linnerud": linnerud,
+    "wine": wine,
+    }
 
-# Introduce 10% missing values
-data_missing, mask = introduce_missingness(data, missing_rate=0.1)
+# Imputer Settings
+cm_imputer = True
+knn_imputer = True
+simple_imputer = True
+imputers = {
+    "cm_imputer": cm_imputer,
+    "knn_imputer": knn_imputer,
+    "simple_imputer": simple_imputer,
+    }
 
-# Display missing value summary
-# print(data_missing.isnull().sum())
-
-# Save to CSV for testing
-data_missing.to_csv("evaluation/data/diabetes_with_missing.csv", index=False)
-print("Dataset with missing values saved as 'diabetes_with_missing.csv'")
-
+# CMImputer Settings
 neural_network = nn.Sequential(
-            nn.Linear(32, 64),
-            nn.BatchNorm1d(64),
-            nn.LeakyReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(64, 128),
-            nn.BatchNorm1d(128),
-            nn.LeakyReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(128, 256),
-            nn.BatchNorm1d(256),
-            nn.LeakyReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(256, 512),
-            nn.BatchNorm1d(512),
-            nn.LeakyReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(512, 1024),
-            nn.BatchNorm1d(1024),
-            nn.LeakyReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(1024, 2048),
+            nn.Linear(32, 2048),
             nn.BatchNorm1d(2048),
             nn.LeakyReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(2048, 22),
+            nn.Linear(2048, 1024),
+            nn.BatchNorm1d(1024),
+            nn.LeakyReLU(),
+            nn.Linear(1024, 512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(),
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.LeakyReLU(),
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.LeakyReLU(),
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.LeakyReLU(),
+            nn.Linear(64, 22),
         )
-
-imputer = CMImputer(
+cm_imputer = CMImputer(
     missing_values=np.nan,
     n_components=1024,
     latent_dim=32,
     k=None,
-    lo=True,
+    lo=False,
     pc_type="factorized",
     ordinal_features=None,
     max_depth=5,
@@ -75,109 +77,100 @@ imputer = CMImputer(
     copy=True,
     keep_empty_features=True,
 )
-start_time = time.time()
-#imputer.fit(data)
-#data_imputed = imputer.transform(data_missing)
-data_imputed = imputer.fit_transform(data_missing)
-end_time = time.time()
-
-# Save the imputed dataset
-data_imputed.to_csv("evaluation/data/diabetes_imputed_cm.csv", index=False)
-print("Imputed dataset saved as 'diabetes_imputed_cm.csv'")
-
-# Select only the originally missing values for comparison
-imputed_values = data_imputed.values[mask]
-true_values = data.values[mask]
-
-# Compute Error Metrics
-mae = mean_absolute_error(true_values, imputed_values)
-rmse = np.sqrt(mean_squared_error(true_values, imputed_values))
-mape = np.mean(np.abs((true_values - imputed_values) / true_values)) * 100
-correlation = np.corrcoef(true_values.flatten(), imputed_values.flatten())[0, 1]
-
-print("CM Imputer (factorized):")
-print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
-print(f"Mean Absolute Error (MAE): {mae:.4f}")
-print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
-print(f"Correlation between true and imputed values: {correlation:.4f}")
 
 
-# imputer_spn = CMImputer(
-#     missing_values=np.nan,
-#     n_components=8,
-#     latent_dim=32,
-#     pc_type="spn",
-#     missing_strategy="integration",
-#     ordinal_features=None,
-#     max_depth=5,
-#     custom_net=None,
-#     max_iter=100,
-#     tol=0.0001,
-#     lr=0.001,
-#     smooth=0.000001,
-#     random_state=42,
-#     verbose=0,
-#     copy=True,
-#     keep_empty_features=True,
-# )
-# spn_imputed = imputer_spn.fit_transform(data_missing)
+# Function to introduce missingness in the dataset
+def introduce_missingness(data, missing_rate=0.1, random_state=42):
+    rng = np.random.RandomState(random_state)  # Ensures reproducibility
+    mask = rng.rand(*data.shape) < missing_rate  # Create mask for missing values
+    data_missing = data.mask(mask)  # Apply mask
+    return data_missing, mask
 
-# # Select only the originally missing values for comparison
-# spn_values = spn_imputed.values[mask]
+for dataset_name, use_dataset in datasets.items():
+    if not use_dataset:
+        continue
 
-# # Compute Error Metrics
-# mae = mean_absolute_error(true_values, spn_values)
-# rmse = np.sqrt(mean_squared_error(true_values, spn_values))
-# mape = np.mean(np.abs((true_values - spn_values) / true_values)) * 100
-# correlation = np.corrcoef(true_values.flatten(), spn_values.flatten())[0, 1]
+    if dataset_name == "diabetes":
+        # Load dataset as a pandas DataFrame
+        data = load_diabetes(as_frame=True).frame
+        os.makedirs("evaluation/data/diabetes", exist_ok=True)  # Create directory if it doesn't exist
+        path = "evaluation/data/diabetes/diabetes_"
+    elif dataset_name == "breast_cancer":
+        data = load_breast_cancer(as_frame=True).frame
+        os.makedirs("evaluation/data/breast_cancer", exist_ok=True)  # Create directory if it doesn't exist
+        path = "evaluation/data/breast_cancer/breast_cancer_"
+    elif dataset_name == "digits":
+        data = load_digits(as_frame=True).frame
+        os.makedirs("evaluation/data/digits", exist_ok=True)
+        path = "evaluation/data/digits/digits_"
+    elif dataset_name == "iris":
+        data = load_iris(as_frame=True).frame
+        os.makedirs("evaluation/data/iris", exist_ok=True)
+        path = "evaluation/data/iris/iris_"
+    elif dataset_name == "linnerud":
+        data = load_linnerud(as_frame=True).frame
+        os.makedirs("evaluation/data/linnerud", exist_ok=True)
+        path = "evaluation/data/linnerud/linnerud_"
+    elif dataset_name == "wine":
+        data = load_wine(as_frame=True).frame
+        os.makedirs("evaluation/data/wine", exist_ok=True)
+        path = "evaluation/data/wine/wine_"
 
-# print("___________________________________________________")
-# print("CM Imputer (SPN):")
-# print(f"Mean Absolute Error (MAE): {mae:.4f}")
-# print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
-# print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
-# print(f"Correlation between true and imputed values: {correlation:.4f}")
+    data.to_csv(path + "complete.csv", index=False)
 
+    # Introduce 10% missing values
+    data_missing, mask = introduce_missingness(data, missing_rate=0.1)
 
-knn_imputer = KNNImputer()
-start_time = time.time()
-knn_imputed = pd.DataFrame(knn_imputer.fit_transform(data_missing))
-end_time = time.time()
+    # Display missing value summary
+    # print(data_missing.isnull().sum())
 
-knn_values = knn_imputed.values[mask]
+    # Save to CSV for testing
+    data_missing.to_csv(path + "with_missing.csv", index=False)
+    print(f"Dataset with missing values saved as '{dataset_name}_with_missing.csv'")
 
-# Compute Error Metrics
-mae = mean_absolute_error(true_values, knn_values)
-rmse = np.sqrt(mean_squared_error(true_values, knn_values))
-mape = np.mean(np.abs((true_values - knn_values) / true_values)) * 100
-correlation = np.corrcoef(true_values.flatten(), knn_values.flatten())[0, 1]
+    # Impute missing values using chosen imputers
+    for imputer_name, use_imputer in imputers.items():
+        if not use_imputer:
+            continue
 
-print("___________________________________________________")
-print("KNN Imputer:")
-print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
-print(f"Mean Absolute Error (MAE): {mae:.4f}")
-print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
-print(f"Correlation between true and imputed values: {correlation:.4f}")
+        if imputer_name == "cm_imputer":
+            # CM Imputer
+            imputer = cm_imputer
+            name = "CM Imputer"
+        elif imputer_name == "knn_imputer":
+            # KNN Imputer
+            imputer = KNNImputer()
+            name = "KNN Imputer"
+        elif imputer_name == "simple_imputer":
+            # Simple Imputer (Mean)
+            imputer = SimpleImputer()
+            name = "Simple Imputer"
 
-mean_imputer = SimpleImputer()
-start_time = time.time()
-mean_imputed = pd.DataFrame(mean_imputer.fit_transform(data_missing))
-end_time = time.time()
+        start_time = time.time()
+        data_imputed = imputer.fit_transform(data_missing)
+        if imputer_name != "cm_imputer":
+            data_imputed = pd.DataFrame(data_imputed)
+        end_time = time.time()
 
-mean_values = mean_imputed.values[mask]
+        # Save the imputed dataset (only for CM Imputer)
+        if imputer_name == "cm_imputer":
+            data_imputed.to_csv(path + "imputed_cm.csv", index=False)
+            print(f"Imputed dataset saved as '{dataset_name}_imputed_cm.csv'")
 
-# Compute Error Metrics
-mae = mean_absolute_error(true_values, mean_values)
-rmse = np.sqrt(mean_squared_error(true_values, mean_values))
-mape = np.mean(np.abs((true_values - mean_values) / true_values)) * 100
-correlation = np.corrcoef(true_values.flatten(), mean_values.flatten())[0, 1]
+        # Select only the originally missing values for comparison
+        imputed_values = data_imputed.values[mask]
+        true_values = data.values[mask]
 
-print("___________________________________________________")
-print("Simple Imputer:")
-print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
-print(f"Mean Absolute Error (MAE): {mae:.4f}")
-print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
-print(f"Correlation between true and imputed values: {correlation:.4f}")
+        # Compute Error Metrics
+        mae = mean_absolute_error(true_values, imputed_values)
+        rmse = np.sqrt(mean_squared_error(true_values, imputed_values))
+        correlation = np.corrcoef(true_values.flatten(), imputed_values.flatten())[0, 1]
+
+        # Print evaluation results
+        print("___________________________________________________")
+        print(f"{name} evaluation on {dataset_name} dataset:")
+        print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
+        print(f"Mean Absolute Error (MAE): {mae:.4f}")
+        print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
+        print(f"Correlation between true and imputed values: {correlation:.4f}")
+    print("___________________________________________________")
