@@ -493,9 +493,10 @@ class CMImputer:
         X_decoded = _restore_encoding(X_decoded, encoding_mask, encoding_info)        
 
         # Make sure the original values remain the same
-        try:
-            mask = ~np.isnan(X_nan)
-        except TypeError:
-            mask = X_nan != "nan"
-        X_filled = np.where(mask, X_in, X_decoded)
-        return X_filled
+        # try:
+        #     mask = ~np.isnan(X_nan)
+        # except TypeError:
+        #     mask = X_nan != "nan"
+        # X_filled = np.where(mask, X_in, X_decoded)
+        # return X_filled
+        return X_decoded

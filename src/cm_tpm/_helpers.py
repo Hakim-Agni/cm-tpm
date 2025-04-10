@@ -81,6 +81,7 @@ def _integer_encoding(X: np.ndarray, ordinal_features=None):
         X = X.astype(float)
         return X, encoding_mask, encoding_info
     except ValueError:
+        X = X.astype(str)  # Convert to string for processing
         # Look at each column seperately
         for i in range(X.shape[1]):
             if not _all_numeric(X[:, i]):
@@ -127,7 +128,7 @@ def _binary_encoding(X: np.ndarray, mask, info, ordinal_features=None):
         if mask[i] and (not ordinal_features or not i in ordinal_features):     
             n_unique = max(info[i].values()) + 1  # Get number of unique values
                 
-            num_cols = math.ceil(math.log2(n_unique))  # Compute bit length
+            num_cols = max(1, math.ceil(math.log2(n_unique)))  # Compute bit length
             X_new = np.zeros((X.shape[0], num_cols))  # Initialize binary column array
                 
             # Create binary mappings
@@ -158,6 +159,7 @@ def _restore_binary_encoding(X: np.ndarray, info, X_prob: np.ndarray):
     X = X.astype(str)
     restored = np.zeros((X.shape[0], len(info)))
 
+    index = 0       # Encoding index
     for i in range(len(info)):
         if info[i] != -1:       # If the column is binary encoded, continue
             # Create reverse binary mappings
@@ -166,26 +168,26 @@ def _restore_binary_encoding(X: np.ndarray, info, X_prob: np.ndarray):
             for j in range(X.shape[0]):     # Look at each row seperately
                 bin_value = ""
                 for n in range(info[i][0]):       # Obtain the binary value from multiple columns
-                    bin_value += X[j, i+n][0]
+                    bin_value += X[j, index+n][0]
                 int_value = bin_map.get(bin_value)
-            
+
                 while int_value > info[i][1]:   # Check if the value exceeds the maximum value for this feature
-                    one_indices = np.where(X_prob[j] >= 0.5)[0]     # Get the indices of values that are rounded to 1
-                    min_pos = one_indices[np.argmin(X_prob[j][one_indices])]    # Get the position of the lowest probability that is rounded to 1
-                    X[j, min_pos] = "0.0"       # Set the lowest probability to 0 to reduce the integer value
-                    X_prob[j, min_pos] = 0.0    # Update for future loops
+                    one_indices = np.where(X_prob[j, index:index+info[i][0]] >= 0.5)[0]     # Get the indices of values that are rounded to 1
+                    min_pos = one_indices[np.argmin(X_prob[j, index:index+info[i][0]][one_indices])]    # Get the position of the lowest probability that is rounded to 1
+                    X[j, index + min_pos] = "0.0"       # Set the lowest probability to 0 to reduce the integer value
+                    X_prob[j, index + min_pos] = 0.0    # Update for future loops
 
                     bin_value = ""      # Same steps for obtaining integer value
                     for n in range(info[i][0]):     
-                        bin_value += X[j, i+n][0]
+                        bin_value += X[j, index+n][0]
                     int_value = bin_map.get(bin_value)
 
                 restored[j, i] = int_value
                 
-            for _ in range(1, info[i][0]):        # Remove binary rows for future loops
-                X = np.delete(X, i+1, 1)
+            index += info[i][0]  # Update index for next binary column
         else:
-            restored[:, i] = X[:, i]
+            restored[:, i] = X[:, index] # Keep original column
+            index += 1
         
     try:
         restored = restored.astype(float)
