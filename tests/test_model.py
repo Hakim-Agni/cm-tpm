@@ -23,13 +23,11 @@ class TestCM_TPM():
 
     def test_parameters(self):
         """Test the class parameters."""
-        assert isinstance(self.model.pcs, nn.ModuleList)
-        assert len(self.model.pcs) == 64
-        assert isinstance(self.model.pcs[0], FactorizedPC)
+        assert self.model.pc_type == "factorized"
         assert self.model.input_dim == 20
-        assert self.model.pcs[0].input_dim == 20
         assert self.model.latent_dim == 10
         assert self.model.num_components == 64
+        assert self.model._is_trained is False
         assert isinstance(self.model.phi_net, PhiNet)
 
     def test_invalid_pc_type(self):
@@ -41,6 +39,10 @@ class TestCM_TPM():
                 latent_dim=10,
                 num_components=64
             )
+            x = torch.tensor(np.random.rand(100, 20), dtype=torch.float32)
+            z_samples = torch.tensor(np.random.rand(64, 10), dtype=torch.float32)
+            w = torch.tensor(np.random.rand(64))
+            likelihood = model(x, z_samples, w)
             assert False
         except ValueError as e:
             assert str(e).startswith("Unknown PC type: 'some pc'")

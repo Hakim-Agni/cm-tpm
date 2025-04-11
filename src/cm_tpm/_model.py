@@ -40,6 +40,7 @@ class CM_TPM(nn.Module):
             is_trained: Whether the CM-TPM has been trained.
         """
         super().__init__()
+        self.pc_type = pc_type
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.num_components = num_components
@@ -53,27 +54,37 @@ class CM_TPM(nn.Module):
         # Neural network to generate PC parameters
         self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4])
 
-        # Create multiple PCs (one per component)
-        self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
+        # # Create multiple PCs (one per component)
+        # self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
 
         self._is_trained = False
     
-    def forward(self, x, z_samples, w, k=None):
+    def forward(self, x, z_samples, w, k=None, n_components=None):
         """
         Compute the mixture likelihood.
 
         Parameters:
             x: Input batch of shape (batch_size, input_dim).
             z_samples: Integration points of shape (num_components, latent_dim).
-            w: Weights of each integration points
-
+            w: Weights of each integration points.
+            k (optional): Number of top components to consider for the mixture likelihood.
+            n_components (optional): Number of mixture components. If none, use the same as during training.
         Returns:
             mixture_likelihood: The likelihood of the x given z_samples.
         """
+        # Set the corrrect amount of components
+        if n_components is not None:
+            num_components = n_components
+        else:
+            num_components = self.num_components
+        
+        # Create multiple PCs (one per component)
+        pcs = nn.ModuleList([get_probabilistic_circuit(self.pc_type, self.input_dim) for _ in range(num_components)])
+
         if x.shape[1] != self.input_dim:
             raise ValueError(f"Invalid input tensor x. Expected shape: ({x.shape[0]}, {self.input_dim}), but got shape: ({x.shape[0]}, {x.shape[1]}).")
-        if z_samples.shape[0] != self.num_components or z_samples.shape[1] != self.latent_dim:
-            raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({self.num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
+        if z_samples.shape[0] != num_components or z_samples.shape[1] != self.latent_dim:
+            raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
         if self.z is None:
             phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
@@ -87,9 +98,9 @@ class CM_TPM(nn.Module):
         x = torch.where(mask, x, 0.5)       # This line does not do anything, but the code breaks if I remove it
 
         likelihoods = []
-        for i in range(self.num_components):
-            self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
-            likelihood = self.pcs[i](x, mask)  # Compute p(x | phi(z_i)), shape: (batch_size)
+        for i in range(num_components):
+            pcs[i].set_params(phi_z[i])  # Assign PC parameters
+            likelihood = pcs[i](x, mask)  # Compute p(x | phi(z_i)), shape: (batch_size)
 
             if torch.isnan(likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
@@ -98,7 +109,7 @@ class CM_TPM(nn.Module):
 
         likelihoods = torch.stack(likelihoods, dim=0)   # Shape: (num_components, batch_size)
 
-        if k is not None and k < self.num_components:        
+        if k is not None and k < num_components:        
             top_k_values, _ = torch.topk(likelihoods, k, dim=0)  # Get top K values and indices
             mixture_likelihood = torch.logsumexp(top_k_values, dim=0)  # Take the sum of the weighted likelihoods, shape: (batch_size)
         else:
@@ -398,6 +409,7 @@ def train_cm_tpm(
         pc_type="factorized", 
         latent_dim=16, 
         num_components=256,
+        num_components_impute=None,
         k=None,
         lo=False,
         net=None, 
@@ -422,6 +434,7 @@ def train_cm_tpm(
         pc_type (optional): The type of PC to use (factorized, spn, clt).
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
+        num_components_impute (optional): Number of mixture components for imputation.
         net (optional): A custom neural network.
         hidden_layers (optional): Number of hidden layers in the neural network.
         neurons_per_layer (optional): Number of neurons per layer in the neural network.
@@ -514,14 +527,14 @@ def train_cm_tpm(
     model._is_trained = True        # Mark model as trained
 
     if lo:
-        model.z = latent_optimization(model, train_loader, num_components, latent_dim, epochs=math.ceil(epochs/2), tol=tol, lr=lr, weight_decay=weight_decay, random_state=random_state, verbose=verbose)  # Optimize z_samples
+        model.z = latent_optimization(model, train_loader, num_components_impute, latent_dim, epochs=math.ceil(epochs/2), tol=tol, lr=lr, weight_decay=weight_decay, random_state=random_state, verbose=verbose)  # Optimize z_samples
 
     return model
 
 def latent_optimization(
         model,
         train_loader, 
-        num_components=256,
+        num_components=None,
         latent_dim=16,
         epochs=100, 
         tol=1e-5,
@@ -547,8 +560,14 @@ def latent_optimization(
     Returns:
         Optimized z_samples.
     """
+    # Set the corrrect amount of components
+    if num_components is not None:
+        n_components = num_components
+    else:
+        n_components = model.num_components
+
     # Generate new z samples and weights
-    z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
+    z_samples, w = generate_rqmc_samples(n_components, latent_dim, random_state=random_state)
 
     # Make z_samples a parameter to optimize
     z_optimized = torch.nn.Parameter(z_samples.clone().detach(), requires_grad=True)  
@@ -570,7 +589,7 @@ def latent_optimization(
             optimizer.zero_grad()
 
             # Compute the loss with optimized z
-            loss = -model(x_batch, z_optimized, w)
+            loss = -model(x_batch, z_optimized, w, n_components=n_components)    # Compute loss
 
             loss.backward()  # Backpropagation
 
@@ -605,6 +624,7 @@ def latent_optimization(
 def impute_missing_values(
         x_incomplete, 
         model,
+        num_components=None,
         epochs=100,
         lr=0.01,
         random_state=None,
@@ -642,8 +662,14 @@ def impute_missing_values(
     if random_state is not None:
         set_random_seed(random_state)
 
+    # Set the corrrect amount of components
+    if num_components is not None:
+        n_components = num_components
+    else:
+        n_components = model.num_components
+
     # Generate new samples and weights
-    z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
+    z_samples, w = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state)
     
     # Create a tensor with the data to impute
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
@@ -672,8 +698,8 @@ def impute_missing_values(
         x_missing_rows = x_missing_rows.clone().detach()
         x_missing_rows = x_missing_rows.masked_scatter(~mask, x_missing_vals)
 
-        # # Optimization step
-        loss = -model(x_missing_rows, z_samples, w)
+        # Optimization step
+        loss = -model(x_missing_rows, z_samples, w, n_components=n_components)
         loss.backward()
         optimizer.step()
 
@@ -832,12 +858,13 @@ if __name__ == '__main__':
                          epochs=100, 
                          lr=0.001, 
                          num_components=256,
+                         num_components_impute=512,
                          k=5,
                          lo=True,
                          batch_size=None,
                          )
     #imputed = impute_missing_values_exact(all_zeros, model, verbose=1)
-    imputed = impute_missing_values(all_zeros, model, verbose=1)
+    imputed = impute_missing_values(all_zeros, model, num_components=512, verbose=1)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])

@@ -70,8 +70,9 @@ neural_network = nn.Sequential(
         )
 cm_imputer = CMImputer(
     missing_values=np.nan,
-    n_components=1024,
-    latent_dim=32,
+    n_components_train=64,
+    n_components_impute=128,
+    latent_dim=4,
     k=None,
     lo=False,
     pc_type="factorized",
@@ -129,6 +130,9 @@ for dataset_name, use_dataset in datasets.items():
         categorical = True
         mushroom = fetch_ucirepo(id=73)
         data = pd.DataFrame(mushroom.data.features, columns=mushroom.feature_names)
+        # Fix column with missing values (stalk-root)
+        #data["stalk-root"] = data["stalk-root"].astype("string")
+        #data = data.drop(columns=["stalk-root"])
         os.makedirs("evaluation/data/mushroom", exist_ok=True)
         path = "evaluation/data/mushroom/mushroom_"
     elif dataset_name == "wine":
@@ -199,10 +203,10 @@ for dataset_name, use_dataset in datasets.items():
         print(f"{name} evaluation on {dataset_name} dataset:")
         print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
         if not missing:
-            # Select only the originally missing values for comparison
-            imputed_values = data_imputed.values[mask]
-            true_values = data.values[mask]
             if not categorical:     # For non-categorical datasets
+                # Select only the originally missing values for comparison
+                imputed_values = data_imputed.values[mask]
+                true_values = data.values[mask]
                 # Compute Error Metrics
                 mae = mean_absolute_error(true_values, imputed_values)
                 rmse = np.sqrt(mean_squared_error(true_values, imputed_values))
@@ -211,6 +215,18 @@ for dataset_name, use_dataset in datasets.items():
                 print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
                 print(f"Correlation between true and imputed values: {correlation:.4f}")
             else:       # For categorical datasets
+                data = data.to_numpy()
+                data = data.astype(str)
+                try:
+                    if np.any(np.isnan(data)):
+                        mask = np.logical_and(mask, ~np.isnan(data))
+                except TypeError:
+                    if np.any(data == "nan"):
+                        mask = np.logical_and(mask, data != "nan")
+                # Select only the originally missing values for comparison
+                imputed_values = data_imputed.values[mask]
+                true_values = data[mask]
+                # Compute Accuracy
                 accuracy = (imputed_values == true_values).mean()
                 print(f"Accuracy of imputed values: {accuracy:.4f}")
     print("___________________________________________________")

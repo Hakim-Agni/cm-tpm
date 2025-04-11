@@ -22,8 +22,10 @@ class CMImputer:
     ----------
     missing_values: float, string, int, list, optional (default=np.nan)
         The placeholder(s) for missing values in the input data, all instances of missing_values will be imputed.
-    n_components: int, optional (default=8)
-        Number of components to use in the mixture model.
+    n_components_train: int, optional (default=8)
+        Number of components to use in the mixture model during training.
+    n_components_impute: int, optional (default=None)
+        Number of components to use in the mixture model during imputation. If none, the same number of components as used during training.
     latent_dim: int, optional (default=16)
         Dimensionality of the latent variable.
     k: int, optional (default=None)
@@ -103,7 +105,8 @@ class CMImputer:
     def __init__(
             self,
             missing_values: int | float | str | list | None = np.nan,
-            n_components: int = 8,
+            n_components_train: int = 8,
+            n_components_impute: int | None = None,
             latent_dim: int = 16,
             k: int | None = None,
             lo: bool = False,
@@ -131,7 +134,8 @@ class CMImputer:
         self.model = None
         # Parameters
         self.missing_values = missing_values
-        self.n_components = n_components
+        self.n_components_train = n_components_train
+        self.n_components_impute = n_components_impute
         self.latent_dim = latent_dim
         self.k = k
         self.lo = lo
@@ -195,7 +199,8 @@ class CMImputer:
             X_preprocessed, 
             pc_type=self.pc_type,
             latent_dim=self.latent_dim, 
-            num_components=self.n_components, 
+            num_components=self.n_components_train,
+            num_components_impute=self.n_components_impute, 
             k=self.k,
             lo = self.lo,
             net=self.custom_net,
@@ -297,7 +302,8 @@ class CMImputer:
         """
         return {
             "missing_values": self.missing_values,
-            "n_components": self.n_components,
+            "n_components_train": self.n_components_train,
+            "n_components_impute": self.n_components_impute,
             "latent_dim": self.latent_dim,
             "k": self.k,
             "lo": self.lo,
@@ -467,6 +473,7 @@ class CMImputer:
         X_imputed = impute_missing_values(
             X_preprocessed, 
             self.model,
+            num_components=self.n_components_impute,
             random_state=self.random_state,
             verbose = self.verbose,
         )

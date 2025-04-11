@@ -15,7 +15,8 @@ class TestClass:
         """Test the model parameters."""
         imputer = CMImputer(
             missing_values="",
-            n_components=5,
+            n_components_train=16,
+            n_components_impute=8,
             latent_dim=8,
             k=10,
             lo=True,
@@ -39,7 +40,8 @@ class TestClass:
             keep_empty_features=False,
             )
         assert imputer.missing_values == ""
-        assert imputer.n_components == 5
+        assert imputer.n_components_train == 16
+        assert imputer.n_components_impute == 8
         assert imputer.latent_dim == 8
         assert imputer.k == 10
         assert imputer.lo
@@ -85,7 +87,7 @@ class TestFit():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components=1)
+        self.imputer = CMImputer(n_components_train=1)
 
     def test_fitted(self):
         """Test the is_fitted_ attribute."""
@@ -146,7 +148,7 @@ class TestTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components=1)
+        self.imputer = CMImputer(n_components_train=1)
 
     def test_transform_no_fit(self):
         """Test transforming data without fitting the imputer."""
@@ -281,8 +283,8 @@ class TestTransform():
         assert float(X_imputed[0, 1]) <= 8
 
     def test_transform_seed(self):
-        imputer1 = CMImputer(n_components=1, random_state=42)
-        imputer2 = CMImputer(n_components=1, random_state=42)
+        imputer1 = CMImputer(n_components_train=1, random_state=42)
+        imputer2 = CMImputer(n_components_train=1, random_state=42)
         X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
         imputer1.fit(X)
         imputer2.fit(X)
@@ -316,7 +318,7 @@ class TestFitTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components=1)
+        self.imputer = CMImputer(n_components_train=1)
 
     def test_fit_transform(self):
         """Test the fit transform function."""
@@ -332,7 +334,8 @@ class TestParams():
         """Setup method for the test class."""
         self.imputer = CMImputer(
             missing_values="",
-            n_components=5,
+            n_components_train=16,
+            n_components_impute=8,
             latent_dim=8,
             k=10,
             lo=True,
@@ -360,7 +363,8 @@ class TestParams():
         """Test getting parameters."""
         params = self.imputer.get_params()
         assert params["missing_values"] == ""
-        assert params["n_components"] == 5
+        assert params["n_components_train"] == 16
+        assert params["n_components_impute"] == 8
         assert params["latent_dim"] == 8
         assert params["k"] == 10
         assert params["lo"] == True
@@ -387,7 +391,8 @@ class TestParams():
         """Test setting parameters."""
         self.imputer.set_params(
             missing_values=np.nan, 
-            n_components=10,
+            n_components_train=8,
+            n_components_impute=4,
             latent_dim=4,
             k=None,
             lo=False,
@@ -410,7 +415,8 @@ class TestParams():
             keep_empty_features=True,
             )
         assert np.isnan(self.imputer.missing_values)
-        assert self.imputer.n_components == 10
+        assert self.imputer.n_components_train == 8
+        assert self.imputer.n_components_impute == 4
         assert self.imputer.latent_dim == 4
         assert self.imputer.k is None
         assert self.imputer.lo == False

@@ -61,6 +61,8 @@ def _all_numeric(X: np.ndarray):
             float(x)
         except ValueError:
             return False
+        except TypeError:
+            return False
     return True
 
 def is_valid_integer(val):
@@ -68,6 +70,8 @@ def is_valid_integer(val):
     try:
         x = float(val)
     except ValueError:
+        return False
+    except TypeError:
         return False
     return np.isnan(x) or (np.isfinite(x) and x == np.floor(x))
 
