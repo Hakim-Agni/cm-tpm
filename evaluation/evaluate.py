@@ -12,12 +12,12 @@ from cm_tpm import CMImputer
 
 # Dataset Settings
 # Complete datasets
-diabetes = False                 # Medium sized; numerical and integer
+diabetes = True                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
 digits = False                   # Very large sized; integer
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
-mushroom = True                  # Very large sized; categorical and binary
+mushroom = False                  # Very large sized; categorical and binary
 wine = False                     # Medium sized; numerical and binary
 
 # Datasets with missing values
@@ -38,8 +38,8 @@ datasets = {
 
 # Imputer Settings
 cm_imputer = True
-knn_imputer = True
-simple_imputer = True
+knn_imputer = False
+simple_imputer = False
 imputers = {
     "cm_imputer": cm_imputer,
     "knn_imputer": knn_imputer,
@@ -47,31 +47,16 @@ imputers = {
     }
 
 # CMImputer Settings
-neural_network = nn.Sequential(
-            nn.Linear(32, 2048),
-            nn.BatchNorm1d(2048),
-            nn.LeakyReLU(),
-            nn.Linear(2048, 1024),
-            nn.BatchNorm1d(1024),
-            nn.LeakyReLU(),
-            nn.Linear(1024, 512),
-            nn.BatchNorm1d(512),
-            nn.LeakyReLU(),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.LeakyReLU(),
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.LeakyReLU(),
-            nn.Linear(128, 64),
-            nn.BatchNorm1d(64),
-            nn.LeakyReLU(),
-            nn.Linear(64, 22),
-        )
+hidden_layers = 6
+neurons_per_layer = [64, 128, 256, 512, 1024, 2048]
+activation = "LeakyReLU"
+batch_norm = True
+dropout_rate = 0.3
+
 cm_imputer = CMImputer(
     missing_values=np.nan,
-    n_components_train=64,
-    n_components_impute=128,
+    n_components_train=256,
+    n_components_impute=1024,
     latent_dim=4,
     k=None,
     lo=False,
@@ -79,6 +64,11 @@ cm_imputer = CMImputer(
     ordinal_features=None,
     max_depth=5,
     custom_net=None,
+    hidden_layers=hidden_layers,
+    neurons_per_layer=neurons_per_layer,
+    activation=activation,
+    batch_norm=batch_norm,
+    dropout_rate=dropout_rate,
     max_iter=100,
     batch_size=None,
     tol=0.0001,
@@ -188,10 +178,13 @@ for dataset_name, use_dataset in datasets.items():
             name = "Simple Imputer"
 
         start_time = time.time()
-        data_imputed = imputer.fit_transform(data_missing)
+        imputer.fit(data_missing)
+        train_time = time.time()
+        data_imputed = imputer.transform(data_missing)
+        impute_time = time.time()
         if imputer_name != "cm_imputer":
             data_imputed = pd.DataFrame(data_imputed)
-        end_time = time.time()
+        #end_time = time.time()
 
         # Save the imputed dataset (only for CM Imputer)
         if imputer_name == "cm_imputer":
@@ -201,7 +194,8 @@ for dataset_name, use_dataset in datasets.items():
         # Print evaluation results
         print("___________________________________________________")
         print(f"{name} evaluation on {dataset_name} dataset:")
-        print(f"Time taken for imputation: {end_time - start_time:.2f} seconds")
+        print(f"Time taken for training: {train_time - start_time:.2f} seconds")
+        print(f"Time taken for imputation: {impute_time - train_time:.2f} seconds")
         if not missing:
             if not categorical:     # For non-categorical datasets
                 # Select only the originally missing values for comparison

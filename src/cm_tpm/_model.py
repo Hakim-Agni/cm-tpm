@@ -91,11 +91,9 @@ class CM_TPM(nn.Module):
         else:
             phi_z = self.phi_net(self.z)
         
-        mask = ~torch.isnan(x)
-
-        # Compute likelihood without filling in missing values
-        # TODO: Fix bug!
-        x = torch.where(mask, x, 0.5)       # This line does not do anything, but the code breaks if I remove it
+        # Get the positions of the missing values
+        mask = torch.where(x == -1, False, True)
+        # mask = x != -1
 
         likelihoods = []
         for i in range(num_components):
@@ -465,6 +463,12 @@ def train_cm_tpm(
         
     # Create DataLoader
     x_tensor = torch.tensor(train_data, dtype=torch.float32)
+
+    # Replace NaN values with -1, so the missing values can be filtered out later while computing the likelihood
+    # This is necessary to avoid NaN values in the gradients of the loss function
+    mask = ~torch.isnan(x_tensor)       # Get the mask of NaN values
+    x_tensor = torch.where(mask, x_tensor, -1)       
+
     if batch_size is not None:
         train_loader = DataLoader(TensorDataset(x_tensor), batch_size=batch_size, shuffle=True)
     else:   # No batches
