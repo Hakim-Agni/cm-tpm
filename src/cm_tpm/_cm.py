@@ -9,10 +9,6 @@ from ._helpers import (
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
 )
 
-import os
-
-os.environ['OMP_NUM_THREADS'] = '1'
-
 class CMImputer:
     """
     Imputation for completing missing values using Continuous Mixtures of 
@@ -466,6 +462,7 @@ class CMImputer:
         # X_imputed = impute_missing_values_exact(
         #     X_preprocessed, 
         #     self.model,
+        #     num_components=self.n_components_impute,
         #     random_state=self.random_state,
         #     verbose = self.verbose,
         # )

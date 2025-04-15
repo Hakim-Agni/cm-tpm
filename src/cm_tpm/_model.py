@@ -157,12 +157,6 @@ class FactorizedPC(BaseProbabilisticCircuit):
         # Compute Gaussian likelihood per feature
         log_prob = -0.5 * (((x - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
 
-        # epsilon = 0.1       # Small epsilon to compute approximate probability
-        # prob_low = 0.5 * (1 + torch.erf((x - epsilon - means) / (stds * math.sqrt(2))))     # Lower probability
-        # prob_high = 0.5 * (1 + torch.erf((x + epsilon - means) / (stds * math.sqrt(2))))    # Upper probability
-        # prob = (prob_high - prob_low).clamp(min=1e-9)       # Set minimum to avoid 0
-        # log_prob = torch.log(prob)
-
         # Set all NaN values to 0
         if torch.any(torch.isnan(log_prob)):
             log_prob[torch.isnan(log_prob)] = 0.0
@@ -637,6 +631,7 @@ def impute_missing_values(
     Parameters:
         x_incomplete: The input data with missing values.
         model: A CM-TPM model to use for data imputation.
+        num_components (optional): The number of mixture components.
         epochs (optional): The number of imputation loops.
         lr (optional): The learning rate during imputation. 
         random_state (optional): A random seed for reproducibility. 
@@ -728,6 +723,7 @@ def impute_missing_values(
 def impute_missing_values_exact(
         x_incomplete, 
         model,
+        num_components=None,
         random_state=None,
         verbose=0,
         skip=False,
@@ -738,8 +734,7 @@ def impute_missing_values_exact(
     Parameters:
         x_incomplete: The input data with missing values.
         model: A CM-TPM model to use for data imputation.
-        epochs (optional): The number of imputation loops.
-        lr (optional): The learning rate during imputation. 
+        num_components (optional): The number of mixture components.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
         skip (optional): Skips the model fitted check, used for EM.
@@ -763,12 +758,17 @@ def impute_missing_values_exact(
     if random_state is not None:
         set_random_seed(random_state)
 
+    # Set the corrrect amount of components
+    if num_components is not None:
+        n_components = num_components
+    else:
+        n_components = model.num_components
+
     # Generate new samples and weights
-    z_samples, w = generate_rqmc_samples(model.num_components, model.latent_dim, random_state=random_state)
+    z_samples, w = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state)
     
     # Store which values are missing
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
-    mask = ~torch.isnan(x_incomplete)
 
     # Initially impute randomly
     x_imputed = x_incomplete.clone().detach()
@@ -778,29 +778,20 @@ def impute_missing_values_exact(
     means, log_vars = torch.chunk(phi_z, 2, dim=-1)
     stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
-    epsilon = 0.1       # Small epsilon to compute approximate probability
-
     for k in range(x_incomplete.shape[0]):      # Iterate over each sample
+        x_sample = x_incomplete[k]      # Extract the sample
         # If there are no missing values, skip this sample
-        if not torch.any(torch.isnan(x_incomplete[k])):
+        if not torch.any(torch.isnan(x_sample)):
             continue
         
         # Create tensor that tracks the likelihood for each component
-        likelihoods = torch.zeros(means.shape[0])  
+        likelihoods = torch.empty(means.shape[0])  
         for i in range(means.shape[0]):     # Iterate over each component
-            likelihood = 0
-            for j in range(x_incomplete.shape[1]):      # Iterate over each feature
-                x = x_incomplete[k, j]
-                # Likelihood computation only for non-missing values
-                if not torch.isnan(x):
-                    mean, std = means[i, j], stds[i, j]
-                    # log_prob_low = 0.5 * (1 + torch.erf((x - epsilon - mean) / (std * math.sqrt(2))))
-                    # log_prob_high = 0.5 * (1 + torch.erf((x + epsilon - mean) / (std * math.sqrt(2))))
-                    # log_prob = torch.log((log_prob_high - log_prob_low).clamp(min=1e-9))
-                    log_prob = -0.5 * (((x - mean) / std) ** 2 + 2 * torch.log(std) + math.log(2 * math.pi))
-                    likelihood += log_prob      # Take the sum of the log likelihoods
-            # Store the likelihood for this component
-            likelihoods[i] = likelihood
+            log_prob = -0.5 * (((x_sample - means[i]) / stds[i]) ** 2 + 2 * torch.log(stds[i]) + math.log(2 * math.pi))
+            if torch.any(torch.isnan(log_prob)):
+                log_prob[torch.isnan(log_prob)] = 0.0
+            log_likelihood = torch.sum(log_prob, dim=-1)
+            likelihoods[i] = log_likelihood
         
         # Get the component with the maximum likelihood for this sample
         i_max = torch.argmax(likelihoods)
