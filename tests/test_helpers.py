@@ -83,8 +83,8 @@ class TestToNumpy():
         try:
             _, _, _ = _to_numpy("test")
             assert False
-        except ValueError as e:
-            assert str(e) == "Unsupported data type. Please provide a NumPy array, pandas DataFrame or list."
+        except TypeError as e:
+            assert str(e) == "Unsupported data type: str. Expected NumPy ndarray, pandas DataFrame or list."
      
 class TestRestoreFormat():
     @pytest.fixture(autouse=True)

@@ -141,8 +141,8 @@ class TestFit():
         try:
             self.imputer.fit(0)
             assert False
-        except ValueError as e:
-            assert str(e) == "Unsupported data type. Please provide a NumPy array, pandas DataFrame or list."
+        except TypeError as e:
+            assert str(e) == "Unsupported data type: int. Expected NumPy ndarray, pandas DataFrame or list."
 
 class TestTransform():
     @pytest.fixture(autouse=True)
