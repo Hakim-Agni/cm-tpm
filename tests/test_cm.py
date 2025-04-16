@@ -18,7 +18,7 @@ class TestClass:
             n_components_train=16,
             n_components_impute=8,
             latent_dim=8,
-            k=10,
+            top_k=10,
             lo=True,
             pc_type="spn",
             ordinal_features=None,
@@ -43,7 +43,7 @@ class TestClass:
         assert imputer.n_components_train == 16
         assert imputer.n_components_impute == 8
         assert imputer.latent_dim == 8
-        assert imputer.k == 10
+        assert imputer.top_k == 10
         assert imputer.lo
         assert imputer.pc_type == "spn"
         assert imputer.ordinal_features is None
@@ -355,7 +355,7 @@ class TestParams():
             n_components_train=16,
             n_components_impute=8,
             latent_dim=8,
-            k=10,
+            top_k=10,
             lo=True,
             pc_type="spn",
             ordinal_features=None,
@@ -384,7 +384,7 @@ class TestParams():
         assert params["n_components_train"] == 16
         assert params["n_components_impute"] == 8
         assert params["latent_dim"] == 8
-        assert params["k"] == 10
+        assert params["top_k"] == 10
         assert params["lo"] == True
         assert params["pc_type"] == "spn"
         assert params["ordinal_features"] is None
@@ -412,7 +412,7 @@ class TestParams():
             n_components_train=8,
             n_components_impute=4,
             latent_dim=4,
-            k=None,
+            top_k=None,
             lo=False,
             pc_type="clt",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
@@ -436,7 +436,7 @@ class TestParams():
         assert self.imputer.n_components_train == 8
         assert self.imputer.n_components_impute == 4
         assert self.imputer.latent_dim == 4
-        assert self.imputer.k is None
+        assert self.imputer.top_k is None
         assert self.imputer.lo == False
         assert self.imputer.pc_type == "clt"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}

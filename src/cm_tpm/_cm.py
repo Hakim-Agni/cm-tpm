@@ -24,7 +24,7 @@ class CMImputer:
         Number of components to use in the mixture model during imputation. If none, the same number of components as used during training.
     latent_dim: int, optional (default=16)
         Dimensionality of the latent variable.
-    k: int, optional (default=None)
+    top_k: int, optional (default=None)
         The number of components to use for efficient learning. If None, all components are used.
     lo: bool, optional (default=False)
         Whether to use latent optimization after training.
@@ -104,7 +104,7 @@ class CMImputer:
             n_components_train: int = 8,
             n_components_impute: int | None = None,
             latent_dim: int = 16,
-            k: int | None = None,
+            top_k: int | None = None,
             lo: bool = False,
             pc_type: str = "factorized",
             ordinal_features: dict = None,
@@ -133,7 +133,7 @@ class CMImputer:
         self.n_components_train = n_components_train
         self.n_components_impute = n_components_impute
         self.latent_dim = latent_dim
-        self.k = k
+        self.top_k = top_k
         self.lo = lo
         self.pc_type = pc_type
         self.ordinal_features = ordinal_features
@@ -197,7 +197,7 @@ class CMImputer:
             latent_dim=self.latent_dim, 
             num_components=self.n_components_train,
             num_components_impute=self.n_components_impute, 
-            k=self.k,
+            k=self.top_k,
             lo = self.lo,
             net=self.custom_net,
             hidden_layers=self.hidden_layers,
@@ -333,7 +333,7 @@ class CMImputer:
             "n_components_train": self.n_components_train,
             "n_components_impute": self.n_components_impute,
             "latent_dim": self.latent_dim,
-            "k": self.k,
+            "top_k": self.top_k,
             "lo": self.lo,
             "pc_type": self.pc_type,
             "ordinal_features": self.ordinal_features,
