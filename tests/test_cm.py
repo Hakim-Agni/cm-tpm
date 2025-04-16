@@ -314,6 +314,24 @@ class TestTransform():
         assert X_imputed.shape == (2, 3)
         assert X_imputed[0, 0] == "High" or X_imputed[0, 0] == "Medium" or X_imputed[0, 0] == "Low"
 
+    def test_transform_new_value(self):
+        """Test an instance where the training data adds a new value to a categorical feature."""
+        X_train = np.array([[10, 0.3, "No", "Low"], [5, 0.8, "Yes", "High"], [8, 0.1, "No", "Medium"]])
+        self.imputer.n_features_in_ = 4
+        self.imputer.binary_info_ = np.array([False, False, True, False])
+        self.imputer.encoding_info_ = (np.array([False, False, True, True]), 
+                                       {2: {np.str_("No"): 0, np.str_("Yes"): 1},
+                                        3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
+        X_missing = np.array([[5, np.nan, "No", "Extremely High"], [3, 0.5, "No", np.nan], [12, 0.15, "No", "Low"]])
+        with pytest.warns(UserWarning, match="New categorical value detected in column 3: 'Extremely High'. Treating this value as missing."):
+            imputer = self.imputer.fit(X_train)
+            X_imputed = imputer.transform(X_missing)
+            assert isinstance(X_imputed, np.ndarray)
+            assert X_imputed.shape == (3, 4)
+            assert X_imputed[0, 3] == "Extremely High"
+            assert X_imputed[1, 3] == "High" or X_imputed[1, 3] == "Medium" or X_imputed[1, 3] == "Low"
+
+
 class TestFitTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -511,13 +529,13 @@ class TestConsistency():
                                        {2: {np.str_("No"): 0, np.str_("Yes"): 1},
                                         3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}})
         X_missing = np.array([[5, np.nan, "No", "Extremely High"], [3, 0.5, "No", np.nan], [12, 0.15, "No", "Low"]])
-        with pytest.warns(UserWarning, match="New categorical value detected in column 3: 'Extremely High'. The model has not been trained with this value."):
+        with pytest.warns(UserWarning, match="New categorical value detected in column 3: 'Extremely High'. Treating this value as missing."):
             X, mask, info = self.imputer._check_consistency(X_missing)
             assert X.shape == X_missing.shape
             assert np.array_equal(mask, np.array([False, False, True, True]))
             assert info == {2: {np.str_("No"): 0, np.str_("Yes"): 1},
-                            3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2, np.str_("Extremely High"): 3}}
-            assert X[0, 3] == 3
+                            3: {np.str_("High"): 0, np.str_("Medium"): 1, np.str_("Low"): 2}}
+            assert np.isnan(X[0, 3])
 
 class TestPreprocess():
     @pytest.fixture(autouse=True)

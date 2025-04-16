@@ -217,7 +217,7 @@ class CMImputer:
         self.is_fitted_ = True
         return self
     
-    def transform(self, X: str | np.ndarray | pd.DataFrame | list, save_path: str = None, sep=",", decimal="."):
+    def transform(self, X: str | np.ndarray | pd.DataFrame | list, save_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
         Impute missing values in the dataset.
 
@@ -227,46 +227,63 @@ class CMImputer:
             save_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
+            return_format (str, optional): Format of returned data. One of:
+                - "auto": returns same type as input
+                - "ndarray": always returns a NumPy array
+                - "dataframe": always returns a pandas DataFrame
             
         Returns:
             X_imputed (array-like, same type as X): Dataset with missing values replaced. If X is a filepath, X imputed will be a NumPy array.
+
+        Raises:
+            ValueError: If the model is not yet fitted.
+            ValueError: If an unknown file format is provided as a save path.
         """
         if not self.is_fitted_:  # Check if the model is fitted
             raise ValueError("The model has not been fitted yet. Please call the fit method first.")
         
         file_in = None      # Variable to store the input file path
-        # If the input data is a string (filepath), load the data from the file
-        if isinstance(X, str):
+        
+        if isinstance(X, str):      # If the input data is a string (filepath), load the data from the file
             file_in = X
             X = _load_file(X, sep=sep, decimal=decimal)
+
         # Transform the data to a NumPy array
         X_np, original_format, columns = _to_numpy(X)
-        if file_in:
+
+        if file_in:     # Force ndarray as file input default
             original_format = "ndarray"
-        # Perfom imputation
-        X_imputed = self._impute(X_np)
-        # Transform the imputed data to the original format
-        result = _restore_format(X_imputed, original_format, columns)
+
+        X_imputed = self._impute(X_np)      # Perfom imputation
+
+        # Respect return_format
+        if return_format == "ndarray":
+            result = np.asarray(X_imputed)
+        elif return_format == "dataframe":
+            result = pd.DataFrame(X_imputed, columns=columns)
+        else:  # auto
+            result = _restore_format(X_imputed, original_format, columns)
         
         # If save_path is set, save the imputed data to a file
         if save_path or file_in:
+            df = pd.DataFrame(result, columns=columns)
             if not save_path:
                 save_path = file_in[:file_in.rfind(".")] + "_imputed" + file_in[file_in.rfind("."):]
             if save_path.endswith(".csv"):
-                pd.DataFrame(result, columns=columns).to_csv(save_path, index=False)
+                df.to_csv(save_path, index=False)
             elif save_path.endswith(".xlsx"):
-                pd.DataFrame(result, columns=columns).to_excel(save_path, index=False, engine="openpyxl")
+                df.to_excel(save_path, index=False, engine="openpyxl")
             elif save_path.endswith(".parquet"):
-                pd.DataFrame(result, columns=columns).to_parquet(save_path)
+                df.to_parquet(save_path)
             elif save_path.endswith(".feather"):
-                pd.DataFrame(result, columns=columns).to_feather(save_path)
+                df.to_feather(save_path)
             else:
                 raise ValueError("Unsupported file format for saving.")
 
         # Return the imputed data
         return result
     
-    def fit_transform(self, X: str | np.ndarray | pd.DataFrame | list, save_path:str = None, sep=",", decimal="."):
+    def fit_transform(self, X: str | np.ndarray | pd.DataFrame | list, save_path:str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
         Fit the model and then transform the data.
 
@@ -276,25 +293,40 @@ class CMImputer:
             save_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
+            return_format (str, optional): Output format: "auto", "ndarray", or "dataframe".
             
         Returns:
             X_imputed (array-like, same type as X): Dataset with missing values replaced. If X is a filepath, X imputed will be a NumPy array.
         """
-        return self.fit(X, sep=sep, decimal=decimal).transform(X, save_path, sep=sep, decimal=decimal)
+        return self.fit(X, sep=sep, decimal=decimal).transform(X, save_path=save_path, sep=sep, decimal=decimal, return_format=return_format)
     
-    def get_feature_names_out(input_features=None):
+    def get_feature_names_out(self, input_features=None):
         """
-        Get output feature names.
+        Get output feature names for transformation.
 
         Parameters:
-            input_features (list of str or None): Input feature names.
+            input_features (list of str or None): Optional input feature names. If None, uses feature names seen during fit.
+
+        Returns:
+            np.ndarray: Array of output feature names.
         """
-        # TODO: Implement feature names
-        return 0
+        if not hasattr(self, "feature_names_in_"):
+            raise AttributeError("The model has not been fitted yet. Call `fit` before getting feature names.")
+
+        if input_features is None:
+            return np.array(self.feature_names_in_, dtype=str)
+
+        if len(input_features) != self.n_features_in_:
+            raise ValueError(f"Expected {self.n_features_in_} input features, got {len(input_features)}.")
+
+        return np.array(input_features, dtype=str)
     
     def get_params(self):
         """
         Get parameters for this CMImputer.
+
+        Returns:
+            dict: Parameter names mapped to their values.
         """
         return {
             "missing_values": self.missing_values,
@@ -329,8 +361,17 @@ class CMImputer:
 
         Parameters:
             **params: Parameters to set.
+
+        Returns:
+            self: Updated instance.
+
+        Raises:
+            ValueError: If an invalid parameter is passed.
         """
+        valid_params = self.get_params()
         for key, value in params.items():
+            if key not in valid_params:
+                raise ValueError(f"Invalid parameter '{key}' for CMImputer.")
             setattr(self, key, value)
         return self
     
@@ -364,35 +405,35 @@ class CMImputer:
             raise ValueError(f"Mismatch in number of features. Expected {self.n_features_in_}, got {X.shape[1]}.")
         
         mask, info = self.encoding_info_
+        X_checked = X.copy()
+
         for i in range(X.shape[1]):
             if mask[i]:     # Feature is categorical
-                if _all_numeric(X[:, i]):
+                if _all_numeric(X_checked[:, i]):
                     raise ValueError(f"Feature {i} was categorical during training but numeric in new data.")
                 
+                # Get the encoding info of this feature
                 enc_info = info[i]
-                # TODO: Keep this feature? Model is not trained to recognize unseen values...
-                # If there are new non-binary feature values in the input data, update the encoding info
-                next_index = max(enc_info.values(), default=-1) + 1
-                for val in X[:, i]:
-                    if val not in enc_info and not self.binary_info_[i] and val != "nan" and next_index.bit_count() != 1:
-                        warnings.warn(f"New categorical value detected in column {i}: '{val}'. The model has not been trained with this value.")
-                        enc_info[val] = next_index
-                        next_index += 1
+
+                # If there are new categorical feature values in the input data, warn the user
+                for val in X_checked[:, i]:
+                    if val not in enc_info and val != "nan":
+                        warnings.warn(f"New categorical value detected in column {i}: '{val}'. Treating this value as missing.")
 
                 # Apply the same encoding
-                X[:, i] = [enc_info[val] if val in enc_info else np.nan for val in X[:, i]]
+                X_checked[:, i] = [enc_info[val] if val in enc_info else np.nan for val in X_checked[:, i]]
 
             else:       # Feature is numeric
-                if not _all_numeric(X[:, i]):
+                if not _all_numeric(X_checked[:, i]):
                     raise ValueError(f"Feature {i} was numeric during training but categorical in new data.")
 
-        return X.astype(float), mask, info
+        return X_checked.astype(float), mask, info
 
     
     def _preprocess_data(self, X: np.ndarray, train: bool = False):
         """Preprocess the input data before imputation."""
         if self.copy:
-            X_transformed = X.copy()
+            X = X.copy()
 
         # Change all instances of 'missing_value' to NaN
         X_transformed = _missing_to_nan(X, self.missing_values)
@@ -404,6 +445,7 @@ class CMImputer:
         if train:
             X_transformed, encoding_mask, encoding_info = _integer_encoding(X_transformed, ordinal_features=self.ordinal_features)
         else:
+            # Use encoding info from training to ensure consistent encoding at transform time
             X_transformed, encoding_mask, encoding_info = self._check_consistency(X_transformed)
         self.encoding_info_ = (encoding_mask, encoding_info)
 
@@ -424,23 +466,17 @@ class CMImputer:
         X_transformed, bin_info = _binary_encoding(X_transformed, encoding_mask, encoding_info, ordinal_features=self.ordinal_features)
         self.bin_encoding_info_ = bin_info
 
-        # # Check which features are binary features (only consisting of 0s and 1s)
-        # binary_mask = np.array([
-        #     np.isin(np.unique(X_transformed[:, i][~np.isnan(X_transformed[:, i])]), [0, 1]).all()
-        #     for i in range(X_transformed.shape[1])
-        # ])
-
-        if train:       # Update the means and stds only during training
+        # Compute min and max for scaling (during training only)
+        if train:       
             min_vals = np.nanmin(X_transformed, axis=0)
             self.min_vals_ = np.where(np.isnan(min_vals), 0.0, min_vals)
             max_vals = np.nanmax(X_transformed, axis=0)
             self.max_vals_ = np.where(np.isnan(max_vals), 1.0, max_vals)
         
-        # Scale the data
+        # Apply min-max scaling
         scale = self.max_vals_ - self.min_vals_
         scale[scale == 0] = 1e-9
         X_scaled = (X_transformed - self.min_vals_) / scale
-        #X_scaled[:, binary_mask] = X_transformed[:, binary_mask]    # Keep binary columns unscaled
 
         # Check which features are binary features (only consisting of 0s and 1s)
         binary_mask = np.array([
@@ -483,9 +519,6 @@ class CMImputer:
         scale[scale == 0] = 1e-9
         X_scaled = X_imputed * scale + self.min_vals_
 
-        # Round the binary features to the nearest option
-        #X_scaled[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
-
         # Decode the binary features
         encoding_mask, encoding_info = self.encoding_info_
         X_decoded = _restore_binary_encoding(X_scaled, self.bin_encoding_info_, X_imputed)
@@ -497,10 +530,10 @@ class CMImputer:
         X_decoded = _restore_encoding(X_decoded, encoding_mask, encoding_info)        
 
         # Make sure the original values remain the same
-        # try:
-        #     mask = ~np.isnan(X_nan)
-        # except TypeError:
-        #     mask = X_nan != "nan"
-        # X_filled = np.where(mask, X_in, X_decoded)
-        # return X_filled
-        return X_decoded
+        try:
+            mask = ~np.isnan(X_nan)
+        except TypeError:
+            mask = X_nan != "nan"
+        X_filled = np.where(mask, X_in, X_decoded)
+        
+        return X_filled
