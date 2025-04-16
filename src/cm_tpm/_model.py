@@ -54,11 +54,11 @@ class CM_TPM(nn.Module):
         # Neural network to generate PC parameters
         self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4])
 
-        # # Create multiple PCs (one per component)
-        # self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
+        # Create multiple PCs (one per component)
+        self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
 
         self._is_trained = False
-    
+
     def forward(self, x, z_samples, w, k=None, n_components=None):
         """
         Compute the mixture likelihood.
@@ -73,32 +73,33 @@ class CM_TPM(nn.Module):
             mixture_likelihood: The likelihood of the x given z_samples.
         """
         # Set the corrrect amount of components
-        if n_components is not None:
-            num_components = n_components
-        else:
-            num_components = self.num_components
-        
-        # Create multiple PCs (one per component)
-        pcs = nn.ModuleList([get_probabilistic_circuit(self.pc_type, self.input_dim) for _ in range(num_components)])
+        num_components = n_components or self.num_components
 
+        # Error checks
         if x.shape[1] != self.input_dim:
             raise ValueError(f"Invalid input tensor x. Expected shape: ({x.shape[0]}, {self.input_dim}), but got shape: ({x.shape[0]}, {x.shape[1]}).")
         if z_samples.shape[0] != num_components or z_samples.shape[1] != self.latent_dim:
             raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
-        if self.z is None:
-            phi_z = self.phi_net(z_samples)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
-        else:
-            phi_z = self.phi_net(self.z)
+        # Use RQMC samples for z if not provided
+        phi_input = self.z if self.z is not None else z_samples
+        phi_z = self.phi_net(phi_input)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
+        
+        if self.pc_type == "factorized" and self._can_use_fastpath():
+            # Faster computation path for factorized PCs
+            return self._fast_forward_factorized(x, phi_z, w, k)
+        
+        # Create a new list of PCs if the number of components has changed
+        if len(self.pcs) != num_components:
+            self.pcs = nn.ModuleList([get_probabilistic_circuit(self.pc_type, self.input_dim) for _ in range(num_components)])
         
         # Get the positions of the missing values
-        mask = torch.where(x == -1, False, True)
-        # mask = x != -1
+        mask = x != -1
 
         likelihoods = []
         for i in range(num_components):
-            pcs[i].set_params(phi_z[i])  # Assign PC parameters
-            likelihood = pcs[i](x, mask)  # Compute p(x | phi(z_i)), shape: (batch_size)
+            self.pcs[i].set_params(phi_z[i])  # Assign PC parameters
+            likelihood = self.pcs[i](x, mask)  # Compute p(x | phi(z_i)), shape: (batch_size,)
 
             if torch.isnan(likelihood).any():
                 raise ValueError(f"NaN detected in likelihood at component {i}: {likelihood}")
@@ -112,6 +113,50 @@ class CM_TPM(nn.Module):
             mixture_likelihood = torch.logsumexp(top_k_values, dim=0)  # Take the sum of the weighted likelihoods, shape: (batch_size)
         else:
             mixture_likelihood = torch.logsumexp(likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
+        
+        return torch.mean(mixture_likelihood)  # Average over batch
+    
+    def _can_use_fastpath(self):
+        """Check if the fast path for factorized PCs can be used."""
+        return True
+        #return self.pc_type == "factorized" and self.num_components > 1
+
+    def _fast_forward_factorized(self, x, phi_z, w, k=None):
+        """
+        Vectorized forward pass for fully factorized PCs.
+        This functions computes the log likelihoods of all components at once, speeding up the process significantly.
+        """
+        batch_size = x.shape[0]
+        num_components = phi_z.shape[0]
+
+        means, log_vars = torch.chunk(phi_z, 2, dim=-1)
+        stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
+
+        x_expanded = x.unsqueeze(0).expand(num_components, -1, -1)  # Shape: (num_components, batch_size, input_dim)
+        means = means.unsqueeze(1)  # Shape: (num_components, 1, input_dim)
+        stds = stds.unsqueeze(1)    # Shape: (num_components, 1, input_dim)
+
+        log_prob = -0.5 * (((x_expanded - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
+
+        # Ignore missing values in the log probability
+        if torch.isnan(log_prob).any():
+            log_prob[torch.isnan(log_prob)] = 0.0
+
+        if (x == -1).any():
+            mask = (x != -1).unsqueeze(0)  # Shape: (1, batch_size, input_dim)
+            log_prob = torch.where(mask, log_prob, 0.0)
+
+        log_likelihoods = log_prob.sum(dim=-1)  # Shape: (num_components, batch_size)
+
+        # Add weights
+        log_weights = torch.log(w).view(-1, 1)  # Shape: (num_components, 1)
+        weighted_log_likelihoods = log_likelihoods + log_weights  # Shape: (num_components, batch_size)
+
+        if k is not None and k < num_components:        
+            top_k_values, _ = torch.topk(weighted_log_likelihoods, k, dim=0)  # Get top K values and indices
+            mixture_likelihood = torch.logsumexp(top_k_values, dim=0)  # Take the sum of the weighted likelihoods, shape: (batch_size)
+        else:
+            mixture_likelihood = torch.logsumexp(weighted_log_likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
         
         return torch.mean(mixture_likelihood)  # Average over batch
 
@@ -168,125 +213,30 @@ class FactorizedPC(BaseProbabilisticCircuit):
         
 
 class SPN(BaseProbabilisticCircuit):
-    """An SPN PC structure."""
-    def __init__(self, input_dim, num_sums=1, num_prods=2):
+    """An SPN PC structure. (Not implemented yet)"""
+    def __init__(self, input_dim):
         super().__init__(input_dim)
-        self.num_sums = num_sums
-        self.num_prods = num_prods
-        self.params = None
-
-        self.sum_weights = nn.Parameter(torch.randn(num_sums, num_prods))   # TODO: Make weight initialized by phi
     
     def set_params(self, params):
         """Set the parameters for the SPN"""
-        self.params = params
+        return 0
 
     def forward(self, x, ignore_mask=None):
         """SPN computation"""
-        if self.params is None:
-            raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
-        if self.params.shape != (self.input_dim * 2,):  # Ensure twice the size of features
-            raise ValueError(f"Expected params of shape ({self.input_dim * 2},), got {self.params.shape}")
-        
-        batch_size = x.shape[0]
-        means, log_vars = torch.chunk(self.params, 2, dim=-1)
-        stds = torch.exp(0.5 * log_vars) + 1e-6
-
-        # Compute Gaussian likelihoods
-        leaf_probs = torch.exp(-0.5 * ((x.unsqueeze(1) - means) / stds) ** 2) / (stds * torch.sqrt(torch.tensor(2 * torch.pi)))
-        
-        # Dynamically compute feature groups and number of product nodes
-        feature_group_sizes, num_products = _dynamic_feature_grouping(self.input_dim, self.num_sums, self.num_prods)
-
-        # Update sum_weights to match new `num_products`
-        self.sum_weights = nn.Parameter(torch.randn(self.num_sums, num_products))
-
-        # Split leaf_probs into dynamically assigned feature groups
-        split_indices = torch.cumsum(torch.tensor([0] + feature_group_sizes), dim=0)
-        grouped_leaf_probs = [leaf_probs[:, :, split_indices[i]:split_indices[i+1]] for i in range(num_products)]
-
-        # Compute product node probabilities
-        product_probs = [torch.prod(group, dim=-1) for group in grouped_leaf_probs]
-        product_probs = torch.stack(product_probs, dim=-1)  # Shape: (batch_size, num_sums, num_products)
-
-        # Sum node weighted aggregation (now correctly aligned)
-        sum_weights = F.softmax(self.sum_weights, dim=-1)  # Ensure sum_weights shape matches product_probs
-        sum_probs = torch.sum(sum_weights * product_probs, dim=-1)  # Weighted sum over product nodes
-
-        return torch.mean(sum_probs, dim=-1)
+        return 0
 
 class ChowLiuTreePC(BaseProbabilisticCircuit):
     """A Chow Liu Tree PC structrue. (Not implemented yet)"""
     def __init__(self, input_dim):
         super().__init__(input_dim)
-        self.params = None
-        self.tree_structure = None
     
     def set_params(self, params):
         """Set the parameters for the CLT"""
+        return 0
 
-        if torch.isnan(params).any():
-            raise ValueError(f"NaN detected in phi_z output before splitting: {params}")
-    
-        if params.shape != (self.input_dim * 2,):  # Ensure twice the size of features
-            raise ValueError(f"Expected params of shape ({self.input_dim * 2},), got {params.shape}")
-        
-        raw_means, raw_stds = params[:self.input_dim], params[self.input_dim:]
-        if torch.isnan(raw_means).any() or torch.isnan(raw_stds).any():
-            raise ValueError(f"NaN detected after splitting: means={means}, raw_stds={raw_stds}")
-        
-        means = torch.tanh(raw_means) * 2
-        stds = torch.nn.functional.softplus(raw_stds) + 1e-6
-        if torch.isnan(stds).any():
-            raise ValueError(f"NaN detected after softplus transformation: stds={stds}")
-
-        self.params = torch.stack((means, stds), dim=1)
-
-    def fit_tree(self, data, ignore_mask=None):
-        n_features = data.shape[1]
-        mutual_info_matrix = np.zeros((n_features, n_features))
-
-        for i in range(n_features):
-            for j in range(i + 1, n_features):
-                corr = np.corrcoef(data[:, i], data[:, j])[0, 1]    # Bug: Returns null if elements are identical
-                mutual_info_matrix[i, j] = mutual_info_matrix[j, i] = np.abs(corr)
-
-        G = nx.Graph()
-        for i in range(n_features):
-            for j in range(i + 1, n_features):
-                G.add_edge(i, j, weight=mutual_info_matrix[i, j])
-
-        self.tree_structure = nx.maximum_spanning_tree(G)
-
-    def forward(self, x):
+    def forward(self, x, ignore_mask=None):
         """Placeholder for CLT computation"""
-        if self.params is None:
-            raise ValueError("PC parameters are not set. Call set_params(phi_z) first.")
-        if self.tree_structure is None:
-            self.fit_tree(x)
-
-        log_likelihood = torch.zeros(x.shape[0])
-        for edge in self.tree_structure.edges():
-            i, j = edge
-            mean_i, std_i = self.params[i]
-            mean_j, std_j = self.params[j]
-
-            if torch.isnan(mean_i) or torch.isnan(std_i):
-                raise ValueError(f"NaN detected in mean/std: mean_i={mean_i}, std_i={std_i}")
-
-            normal_i = dist.Normal(mean_i, std_i)
-            normal_j = dist.Normal(mean_j, std_j)
-
-            if torch.isnan(x[:, i]).any() or torch.isnan(x[:, j]).any():
-                raise ValueError(f"NaN detected in input x[:, {i}] or x[:, {j}]")
-
-            p_xi_given_xj = normal_i.log_prob(x[:, i]) + normal_j.log_prob(x[:, j])  # Log probabilities
-            if torch.isnan(p_xi_given_xj).any():
-                raise ValueError(f"NaN detected in log_prob computation: mean_i={mean_i}, std_i={std_i}, mean_j={mean_j}, std_j={std_j}")
-            
-            log_likelihood += p_xi_given_xj
-
-        return log_likelihood
+        return 0
 
 def get_probabilistic_circuit(pc_type, input_dim):
     """Factory function for the different PC types."""
@@ -294,8 +244,10 @@ def get_probabilistic_circuit(pc_type, input_dim):
     if pc_type == "factorized":
         return FactorizedPC(input_dim)
     elif pc_type == "spn" or pc_type == "SPN":
+        raise NotImplementedError("SPN is not implemented yet.")
         return SPN(input_dim)
     elif pc_type == "clt" or pc_type == "CLT":
+        raise NotImplementedError("Chow Liu Tree is not implemented yet.")
         return ChowLiuTreePC(input_dim)
     else:
         raise ValueError(f"Unknown PC type: '{pc_type}', use one of the following types: {types}")
@@ -317,6 +269,7 @@ class PhiNet(nn.Module):
     def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0):
         super().__init__()
         out_dim = pc_param_dim * 2
+        self.out_dim = out_dim
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
@@ -335,11 +288,16 @@ class PhiNet(nn.Module):
 
             # Get the chosen activation function
             activations_list = {
-                "ReLU": nn.ReLU(),
-                "Tanh": nn.Tanh(),
-                "Sigmoid": nn.Sigmoid(),
-                "LeakyReLU": nn.LeakyReLU(),
+                "relu": nn.ReLU(),
+                "tanh": nn.Tanh(),
+                "sigmoid": nn.Sigmoid(),
+                "leakyrelu": nn.LeakyReLU(),
+                "identity": nn.Identity(),
+                "": nn.Identity(),      # Empty string is also seen as Identity
+                None: nn.Identity(),    # None is also seen as Identity
             }
+            if isinstance(activation, str):
+                activation = activation.lower()     # Make it case insensitive
             activation_fn = activations_list.get(activation, nn.ReLU())     # Default is ReLU
 
             # Create the neural network layer by layer
@@ -372,7 +330,7 @@ class PhiNet(nn.Module):
             z: Integration points of shape (num_components, latent_dim)
 
         Returns: 
-            phi(z): The pc parameters obtained by runiing z throuh the neural network, of shape (num_components, pc_param_dim)
+            phi(z): The pc parameters obtained by running z throuh the neural network, of shape (num_components, pc_param_dim)
         """
         if z.shape[1] != self.net[0].in_features:
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
@@ -385,6 +343,7 @@ def generate_rqmc_samples(num_samples, latent_dim, random_state=None):
     Parameters:
         num_samples: The number of samples to generate.
         latent_dim: Dimensionality of the latent variable
+        random_state (optional): A random seed for reproducibility.
 
     Returns:
         z_samples: The sampled values z of shape (num_samples, latent_dim)
@@ -427,6 +386,8 @@ def train_cm_tpm(
         latent_dim (optional): Dimensionality of the latent variable. 
         num_components (optional): Number of mixture components.
         num_components_impute (optional): Number of mixture components for imputation.
+        k (optional): Number of top components to consider for the mixture likelihood.
+        lo (optional): Whether to perform latent optimization post training.
         net (optional): A custom neural network.
         hidden_layers (optional): Number of hidden layers in the neural network.
         neurons_per_layer (optional): Number of neurons per layer in the neural network.
@@ -444,6 +405,7 @@ def train_cm_tpm(
     Returns:
         model: A trained CM-TPM model
     """
+    rng = np.random.default_rng(random_state)  # Random number generator for reproducibility
     input_dim = train_data.shape[1]
 
     # Define the model
@@ -483,7 +445,7 @@ def train_cm_tpm(
             x_batch = batch[0]      # Extract batch data
 
             # Generate new z samples and weights
-            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=random_state)
+            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=rng.integers(1e9)) 
 
             optimizer.zero_grad()       # Reset gradients
 
@@ -527,7 +489,7 @@ def train_cm_tpm(
     if lo:
         model.z = latent_optimization(model, train_loader, num_components_impute, latent_dim, epochs=math.ceil(epochs/2), tol=tol, lr=lr, weight_decay=weight_decay, random_state=random_state, verbose=verbose)  # Optimize z_samples
 
-    return model
+    return model        # Return the trained model
 
 def latent_optimization(
         model,
@@ -564,7 +526,7 @@ def latent_optimization(
     else:
         n_components = model.num_components
 
-    # Generate new z samples and weights
+    # Generate new z samples and weights (move to every epoch?)
     z_samples, w = generate_rqmc_samples(n_components, latent_dim, random_state=random_state)
 
     # Make z_samples a parameter to optimize
@@ -722,7 +684,7 @@ def impute_missing_values(
     # Return completed data with imputed values
     x_missing_rows = x_missing_rows.masked_scatter(~mask, x_missing_vals)
     x_imputed[nan_rows_indices] = x_missing_rows
-    return x_imputed.detach().cpu().numpy()
+    return x_imputed.detach().cpu().numpy(), -loss.item()  # Return the imputed data and the final log-likelihood
 
 def impute_missing_values_exact(
         x_incomplete, 
@@ -782,6 +744,7 @@ def impute_missing_values_exact(
     means, log_vars = torch.chunk(phi_z, 2, dim=-1)
     stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
+    max_likelihoods = []
     for k in range(x_incomplete.shape[0]):      # Iterate over each sample
         x_sample = x_incomplete[k]      # Extract the sample
         # If there are no missing values, skip this sample
@@ -800,6 +763,9 @@ def impute_missing_values_exact(
         # Get the component with the maximum likelihood for this sample
         i_max = torch.argmax(likelihoods)
 
+        # Store the maximum likelihood for this sample
+        max_likelihoods.append(likelihoods[i_max].item())
+
         if verbose > 1:
             print(f"Sample {k}, most likely component: {i_max}, component means: {means[i_max]}.")
 
@@ -808,24 +774,13 @@ def impute_missing_values_exact(
             if torch.isnan(x_incomplete[k, j]):
                 x_imputed[k, j] = means[i_max, j]
         
-    return x_imputed.detach().cpu().numpy()
+    return x_imputed.detach().cpu().numpy(), np.mean(max_likelihoods)  # Return the imputed data and the average log-likelihood
 
 def set_random_seed(seed):
     """Ensure reproducibility by setting random seeds for all libraries."""
     np.random.seed(seed)  # NumPy's random generator
     torch.manual_seed(seed)  # PyTorch CPU random generator
     torch.cuda.manual_seed_all(seed)  # If using GPU
-
-def _dynamic_feature_grouping(input_dim, num_sums, num_products):
-    """Dynamically assigns feature groups when input_dim is not evenly divisible."""
-    num_groups = num_sums * num_products  # Total product nodes
-    base_group_size = input_dim // num_groups  # Minimum features per product node
-    remainder = input_dim % num_groups  # Features that need to be distributed
-
-    # Create feature sizes for each group
-    feature_group_sizes = [base_group_size + (1 if i < remainder else 0) for i in range(num_groups)]
-    
-    return feature_group_sizes, num_groups
 
 # Example Usage
 if __name__ == '__main__':
@@ -849,20 +804,22 @@ if __name__ == '__main__':
     all_zeros[92, 0] = np.nan
     model = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
-                         verbose=1, 
+                         verbose=0, 
                          epochs=100, 
                          lr=0.001, 
                          num_components=256,
                          num_components_impute=512,
-                         k=5,
-                         lo=True,
+                         k=None,
+                         lo=False,
                          batch_size=None,
+                         random_state=0
                          )
-    #imputed = impute_missing_values_exact(all_zeros, model, verbose=1)
-    imputed = impute_missing_values(all_zeros, model, num_components=512, verbose=1)
+    #imputed, likelihood = impute_missing_values_exact(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
+    print("Log-Likelihood:", likelihood)
     print("Imputation time:", time.time() - start_time)
 
     # all_zeros = np.full((6, 6), 0.23)

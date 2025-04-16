@@ -495,7 +495,7 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        # X_imputed = impute_missing_values_exact(
+        # X_imputed, self.log_likelihood_ = impute_missing_values_exact(
         #     X_preprocessed, 
         #     self.model,
         #     num_components=self.n_components_impute,
@@ -503,7 +503,7 @@ class CMImputer:
         #     verbose = self.verbose,
         # )
 
-        X_imputed = impute_missing_values(
+        X_imputed, self.log_likelihood_ = impute_missing_values(
             X_preprocessed, 
             self.model,
             num_components=self.n_components_impute,

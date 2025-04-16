@@ -131,7 +131,7 @@ class TestSPN():
         """Setup method for the test class."""
         self.pc = SPN(input_dim=20)
     
-    # TODO: Add tests
+    # Add more tests when implementing
 
 
 class TestCLT():
@@ -140,7 +140,7 @@ class TestCLT():
         """Setup method for the test class."""
         self.pc = ChowLiuTreePC(input_dim=20)
     
-    # TODO: Add tests
+    # Add more tests when implementing
 
 class TestPCFactory():
     def test_get_factorized(self):
@@ -150,13 +150,19 @@ class TestPCFactory():
 
     def test_get_spn(self):
         """Test getting a SPN."""
-        pc = get_probabilistic_circuit("spn", 20)
-        assert isinstance(pc, SPN)
+        try:
+            pc = get_probabilistic_circuit("spn", 20)
+            assert isinstance(pc, SPN)
+        except NotImplementedError as e:
+            assert str(e) == "SPN is not implemented yet."
 
     def test_get_clt(self):
         """Test getting a Chow Liu Tree PC."""
-        pc = get_probabilistic_circuit("clt", 20)
-        assert isinstance(pc, ChowLiuTreePC)
+        try:
+            pc = get_probabilistic_circuit("clt", 20)
+            assert isinstance(pc, ChowLiuTreePC)
+        except NotImplementedError as e:
+            assert str(e) == "Chow Liu Tree is not implemented yet."
 
     def test_invalid(self):
         """Test getting an invalid PC."""
