@@ -608,7 +608,7 @@ def impute_missing_values(
         x_imputed: A copy of x_incomplete with the missing values imputed.
     """
     if not np.isnan(x_incomplete).any():
-        return x_incomplete
+        return x_incomplete, None
     
     if not model._is_trained and not skip:
         raise ValueError("The model has not been fitted yet. Please call the fit method first.")
@@ -709,7 +709,7 @@ def impute_missing_values_exact(
         x_imputed: A copy of x_incomplete with the missing values imputed.
     """
     if not np.isnan(x_incomplete).any():
-        return x_incomplete
+        return x_incomplete, None
     
     if not model._is_trained and not skip:
         raise ValueError("The model has not been fitted yet. Please call the fit method first.")
