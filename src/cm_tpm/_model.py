@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import time
 import math
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -447,7 +448,7 @@ def train_cm_tpm(
     else:   # No batches
         train_loader = [torch.unsqueeze(x_tensor, 0)]   # Add batch dimension
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Training"):
         start_time_epoch = time.time()
 
         total_loss = 0.0       # Keep track of the total loss for the epoch
@@ -479,14 +480,14 @@ def train_cm_tpm(
 
         # Check early stopping criteria
         if epoch > 10 and abs(average_loss - prev_loss) < tol:
-                if verbose > 0:
+                if verbose > 1:
                     print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
                 break
         prev_loss = average_loss
             
-        if verbose > 1:
+        if verbose > 2:
             print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
-        elif verbose > 0:
+        elif verbose > 1:
             if epoch % 10 == 0:
                 print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
 
@@ -555,7 +556,7 @@ def latent_optimization(
     start_time = time.time()        # Keep track of training time
 
     model.eval()       # Set model to evaluation mode
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Latent Optimization"):
         start_time_epoch = time.time()
 
         total_loss = 0.0       # Keep track of the total loss for the epoch
@@ -582,14 +583,14 @@ def latent_optimization(
 
         # Check early stopping criteria
         if epoch > 10 and abs(average_loss - prev_loss) < tol:
-                if verbose > 0:
+                if verbose > 1:
                     print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
                 break
         prev_loss = average_loss
 
-        if verbose > 1:
+        if verbose > 2:
             print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
-        elif verbose > 0:
+        elif verbose > 1:
             if epoch % 10 == 0:
                 print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
 
@@ -683,7 +684,7 @@ def impute_missing_values(
     optimizer = optim.Adam([x_missing_vals], lr=lr)
 
     # Imputation loop
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Imputing"):
         optimizer.zero_grad()
 
         # Insert the missing values into the correct places
@@ -698,9 +699,9 @@ def impute_missing_values(
         with torch.no_grad():
             x_missing_vals.clamp_(0, 1)
 
-        if verbose > 1:
+        if verbose > 2:
                 print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
-        elif verbose > 0:
+        elif verbose > 1:
             if epoch % 10 == 0:
                 print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
 
@@ -876,7 +877,7 @@ if __name__ == '__main__':
     all_zeros[92, 0] = np.nan
     model = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
-                         verbose=0, 
+                         verbose=1, 
                          epochs=100, 
                          lr=0.001, 
                          num_components=256,
@@ -887,7 +888,7 @@ if __name__ == '__main__':
                          random_state=0
                          )
     #imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=None, verbose=1, random_state=0)
-    imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=1, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
