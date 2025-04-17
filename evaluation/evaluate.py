@@ -14,7 +14,7 @@ from cm_tpm import CMImputer
 # Complete datasets
 diabetes = True                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
-digits = False                   # Very large sized; integer
+digits = False                   # Very large sized; integer; image
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
 mushroom = False                  # Very large sized; categorical and binary

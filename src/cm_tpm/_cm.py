@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import torch.nn as nn
 import warnings
-from ._model import train_cm_tpm, impute_missing_values, impute_missing_values_exact
+from ._model import train_cm_tpm, impute_missing_values, impute_missing_values_component
 from ._helpers import (
     _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
@@ -495,21 +495,21 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        # X_imputed, self.log_likelihood_ = impute_missing_values_exact(
-        #     X_preprocessed, 
-        #     self.model,
-        #     num_components=self.n_components_impute,
-        #     random_state=self.random_state,
-        #     verbose = self.verbose,
-        # )
-
-        X_imputed, self.log_likelihood_ = impute_missing_values(
+        X_imputed, self.log_likelihood_ = impute_missing_values_component(
             X_preprocessed, 
             self.model,
             num_components=self.n_components_impute,
             random_state=self.random_state,
             verbose = self.verbose,
         )
+
+        # X_imputed, self.log_likelihood_ = impute_missing_values(
+        #     X_preprocessed, 
+        #     self.model,
+        #     num_components=self.n_components_impute,
+        #     random_state=self.random_state,
+        #     verbose = self.verbose,
+        # )
 
         # Round the binary features to the nearest option
         X_imputed[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
@@ -535,5 +535,5 @@ class CMImputer:
         except TypeError:
             mask = X_nan != "nan"
         X_filled = np.where(mask, X_in, X_decoded)
-        
+
         return X_filled

@@ -536,6 +536,7 @@ def latent_optimization(
     if verbose > 0:
         print(f"Starting latent optimization with {epochs} epochs...")
     prev_loss = -float('inf')       # Initial loss
+    best_loss = float('inf')
     start_time = time.time()        # Keep track of training time
 
     for epoch in range(epochs):
@@ -559,6 +560,10 @@ def latent_optimization(
 
         average_loss = total_loss / len(train_loader)       # Average loss over batches
 
+        if average_loss < best_loss:
+            best_z = z_optimized.detach().clone()
+            best_loss = average_loss
+
         # Check early stopping criteria
         if epoch > 10 and abs(average_loss - prev_loss) < tol:
                 if verbose > 0:
@@ -574,11 +579,11 @@ def latent_optimization(
 
     if verbose > 0:
         print(f"Latent optimization complete.")
-        print(f"Final Latent Optimization Log-Likelihood: {-average_loss}")
+        print(f"Final Latent Optimization Log-Likelihood: {-best_loss}")
     if verbose > 1:
         print(f"Total optimization time: {time.time() - start_time}")
     
-    return z_optimized.detach()  # Return optimized z_samples
+    return best_z  # Return optimized z_samples
 
 
 def impute_missing_values(
@@ -593,6 +598,7 @@ def impute_missing_values(
         ):
     """
     Imputes missing data using a specified model.
+    Imputation is done by optimizing the imputed values with the log-likelihood.
     
     Parameters:
         x_incomplete: The input data with missing values.
@@ -606,6 +612,7 @@ def impute_missing_values(
 
     Returns:
         x_imputed: A copy of x_incomplete with the missing values imputed.
+        log_likelihood: The log-likelihood of the imputed data.
     """
     if not np.isnan(x_incomplete).any():
         return x_incomplete, None
@@ -631,6 +638,8 @@ def impute_missing_values(
 
     # Generate new samples and weights
     z_samples, w = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state)
+    z_samples = z_samples.detach()
+    w = w.detach()
     
     # Create a tensor with the data to impute
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
@@ -644,6 +653,7 @@ def impute_missing_values(
     # Initially impute with a standard value of 0.5
     mask = ~torch.isnan(x_missing_rows)
     x_missing_rows[~mask] = 0.5
+    x_missing_rows_fixed = x_missing_rows.clone().detach()
 
     # Create tensor with only values that need to be changed
     x_missing_vals = x_missing_rows[~mask].clone().detach().requires_grad_(True)
@@ -656,8 +666,8 @@ def impute_missing_values(
         optimizer.zero_grad()
 
         # Insert the missing values into the correct places
-        x_missing_rows = x_missing_rows.clone().detach()
-        x_missing_rows = x_missing_rows.masked_scatter(~mask, x_missing_vals)
+        #x_missing_rows = x_missing_rows.clone().detach()
+        x_missing_rows = x_missing_rows_fixed.masked_scatter(~mask, x_missing_vals)
 
         # Optimization step
         loss = -model(x_missing_rows, z_samples, w, n_components=n_components)
@@ -686,7 +696,7 @@ def impute_missing_values(
     x_imputed[nan_rows_indices] = x_missing_rows
     return x_imputed.detach().cpu().numpy(), -loss.item()  # Return the imputed data and the final log-likelihood
 
-def impute_missing_values_exact(
+def impute_missing_values_component(
         x_incomplete, 
         model,
         num_components=None,
@@ -696,6 +706,7 @@ def impute_missing_values_exact(
         ):
     """
     Imputes missing data using a specified model.
+    Imputation is done by selecting the most likely component for each sample.
     
     Parameters:
         x_incomplete: The input data with missing values.
@@ -707,6 +718,7 @@ def impute_missing_values_exact(
 
     Returns:
         x_imputed: A copy of x_incomplete with the missing values imputed.
+        log_likelihood: The log-likelihood of the imputed data.
     """
     if not np.isnan(x_incomplete).any():
         return x_incomplete, None
@@ -744,6 +756,8 @@ def impute_missing_values_exact(
     means, log_vars = torch.chunk(phi_z, 2, dim=-1)
     stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
+    log_2pi = math.log(2 * math.pi)     # Store this value to avoid recalculating every loop
+
     max_likelihoods = []
     for k in range(x_incomplete.shape[0]):      # Iterate over each sample
         x_sample = x_incomplete[k]      # Extract the sample
@@ -754,7 +768,7 @@ def impute_missing_values_exact(
         # Create tensor that tracks the likelihood for each component
         likelihoods = torch.empty(means.shape[0])  
         for i in range(means.shape[0]):     # Iterate over each component
-            log_prob = -0.5 * (((x_sample - means[i]) / stds[i]) ** 2 + 2 * torch.log(stds[i]) + math.log(2 * math.pi))
+            log_prob = -0.5 * (((x_sample - means[i]) / stds[i]) ** 2 + 2 * torch.log(stds[i]) + log_2pi)
             if torch.any(torch.isnan(log_prob)):
                 log_prob[torch.isnan(log_prob)] = 0.0
             log_likelihood = torch.sum(log_prob, dim=-1)
@@ -770,9 +784,8 @@ def impute_missing_values_exact(
             print(f"Sample {k}, most likely component: {i_max}, component means: {means[i_max]}.")
 
         # Impute the missing values with the means of the most likely component
-        for j in range(x_incomplete.shape[1]):
-            if torch.isnan(x_incomplete[k, j]):
-                x_imputed[k, j] = means[i_max, j]
+        missing_mask = torch.isnan(x_sample)
+        x_imputed[k, missing_mask] = means[i_max, missing_mask]
         
     return x_imputed.detach().cpu().numpy(), np.mean(max_likelihoods)  # Return the imputed data and the average log-likelihood
 
@@ -814,8 +827,8 @@ if __name__ == '__main__':
                          batch_size=None,
                          random_state=0
                          )
-    #imputed, likelihood = impute_missing_values_exact(all_zeros, model, num_components=512, verbose=0, random_state=0)
-    imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    #imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
