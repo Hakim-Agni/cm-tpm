@@ -499,6 +499,7 @@ class CMImputer:
             X_preprocessed, 
             self.model,
             num_components=self.n_components_impute,
+            k = None,
             random_state=self.random_state,
             verbose = self.verbose,
         )
