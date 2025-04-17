@@ -336,7 +336,7 @@ class PhiNet(nn.Module):
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
         return self.net(z)
 
-def generate_rqmc_samples(num_samples, latent_dim, random_state=None):
+def generate_rqmc_samples(num_samples, latent_dim, random_state=None, device="cpu"):
     """
     Generates samples using Randomized Quasi Monte Carlo.
     
@@ -351,8 +351,8 @@ def generate_rqmc_samples(num_samples, latent_dim, random_state=None):
     """
     sampler = qmc.Sobol(d=latent_dim, scramble=True, seed=random_state)
     z_samples = sampler.random(n=num_samples)
-    z_samples = torch.tensor(qmc.scale(z_samples, -3, 3), dtype=torch.float32)  # Scale for Gaussian prior
-    w = torch.full(size=(num_samples,), fill_value=1 / num_samples)     # Uniform weights
+    z_samples = torch.tensor(qmc.scale(z_samples, -3, 3), dtype=torch.float32, device=device)  # Scale for Gaussian prior
+    w = torch.full(size=(num_samples,), fill_value=1 / num_samples, dtype=torch.float32, device=device)     # Uniform weights
     return z_samples, w
 
 def train_cm_tpm(
@@ -374,6 +374,7 @@ def train_cm_tpm(
         tol=1e-5, 
         lr=0.001,
         weight_decay=1e-5,
+        use_gpu=True,
         random_state=None,
         verbose=0,
         ):
@@ -399,6 +400,7 @@ def train_cm_tpm(
         tol (optional): Tolerance for the convergence criterion.
         lr (optional): The learning rate of the optimizer.
         weight_decay (optional): Weight decay for the optimizer.
+        use_gpu (optional): Whether to use GPU for computation if available.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
 
@@ -422,9 +424,18 @@ def train_cm_tpm(
         print(f"Starting training with {epochs} epochs...")
     prev_loss = -float('inf')       # Initial loss
     start_time = time.time()        # Keep track of training time
+
+    # Use GPU if available
+    device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
+    if verbose > 0:
+        print(f"Using device: {device}")
+
+    # Move model to device
+    model = model.to(device)
+    model.train()
         
-    # Create DataLoader
-    x_tensor = torch.tensor(train_data, dtype=torch.float32)
+    # Convert training data to tensor
+    x_tensor = torch.tensor(train_data, dtype=torch.float32, device=device)  
 
     # Replace NaN values with -1, so the missing values can be filtered out later while computing the likelihood
     # This is necessary to avoid NaN values in the gradients of the loss function
@@ -445,7 +456,7 @@ def train_cm_tpm(
             x_batch = batch[0]      # Extract batch data
 
             # Generate new z samples and weights
-            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=rng.integers(1e9)) 
+            z_samples, w = generate_rqmc_samples(num_components, latent_dim, random_state=rng.integers(1e9), device=device) 
 
             optimizer.zero_grad()       # Reset gradients
 
@@ -487,8 +498,11 @@ def train_cm_tpm(
     model._is_trained = True        # Mark model as trained
 
     if lo:
-        model.z = latent_optimization(model, train_loader, num_components_impute, latent_dim, epochs=math.ceil(epochs/2), tol=tol, lr=lr, weight_decay=weight_decay, random_state=random_state, verbose=verbose)  # Optimize z_samples
-
+        # Optimize z_samples
+        model.z = latent_optimization(model, train_loader, num_components_impute, latent_dim, 
+                                      epochs=math.ceil(epochs/2), tol=tol, lr=lr, 
+                                      weight_decay=weight_decay, random_state=random_state, 
+                                      verbose=verbose, device=device).to(device)  
     return model        # Return the trained model
 
 def latent_optimization(
@@ -501,7 +515,8 @@ def latent_optimization(
         lr=0.01, 
         weight_decay=1e-5,
         random_state=None, 
-        verbose=0):
+        verbose=0,
+        device="cpu"):
     """
     Optimizes the integration points z after training.
 
@@ -527,10 +542,10 @@ def latent_optimization(
         n_components = model.num_components
 
     # Generate new z samples and weights (move to every epoch?)
-    z_samples, w = generate_rqmc_samples(n_components, latent_dim, random_state=random_state)
+    z_samples, w = generate_rqmc_samples(n_components, latent_dim, random_state=random_state, device=device)
 
     # Make z_samples a parameter to optimize
-    z_optimized = torch.nn.Parameter(z_samples.clone().detach(), requires_grad=True)  
+    z_optimized = torch.nn.Parameter(z_samples.clone().to(device), requires_grad=True)  
     optimizer = optim.Adam([z_optimized], lr=lr, weight_decay=weight_decay)
 
     if verbose > 0:
@@ -539,6 +554,7 @@ def latent_optimization(
     best_loss = float('inf')
     start_time = time.time()        # Keep track of training time
 
+    model.eval()       # Set model to evaluation mode
     for epoch in range(epochs):
         start_time_epoch = time.time()
 
@@ -579,10 +595,9 @@ def latent_optimization(
 
     if verbose > 0:
         print(f"Latent optimization complete.")
-        print(f"Final Latent Optimization Log-Likelihood: {-best_loss}")
+        print(f"Final latent optimization Log-Likelihood: {-best_loss}")
     if verbose > 1:
-        print(f"Total optimization time: {time.time() - start_time}")
-    
+        print(f"Total latent optimization time: {time.time() - start_time}")
     return best_z  # Return optimized z_samples
 
 
@@ -592,6 +607,7 @@ def impute_missing_values(
         num_components=None,
         epochs=100,
         lr=0.01,
+        use_gpu=True,
         random_state=None,
         verbose=0,
         skip=False,
@@ -606,6 +622,7 @@ def impute_missing_values(
         num_components (optional): The number of mixture components.
         epochs (optional): The number of imputation loops.
         lr (optional): The learning rate during imputation. 
+        use_gpu (optional): Whether to use GPU for computation if available.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
         skip (optional): Skips the model fitted check, used for EM.
@@ -627,23 +644,27 @@ def impute_missing_values(
         print(f"Starting with imputing data...")
     start_time = time.time()
 
+    # Use GPU if available
+    device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
+    if verbose > 0:
+        print(f"Using device: {device}")
+
     if random_state is not None:
         set_random_seed(random_state)
 
-    # Set the corrrect amount of components
-    if num_components is not None:
-        n_components = num_components
-    else:
-        n_components = model.num_components
+    # Set the correct amount of components
+    n_components = num_components or model.num_components
+
+    # Move model to device
+    model = model.to(device)
+    model.eval()
 
     # Generate new samples and weights
-    z_samples, w = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state)
-    z_samples = z_samples.detach()
-    w = w.detach()
+    z_samples, w = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state, device=device)
     
     # Create a tensor with the data to impute
-    x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32)
-    x_imputed = x_incomplete.clone().detach()
+    x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32, device=device)
+    x_imputed = x_incomplete.clone()
 
     # Get a copy of X with only rows with missing values
     nan_rows_mask = torch.any(torch.isnan(x_incomplete), dim=1)  # True if a row has NaN
@@ -653,10 +674,10 @@ def impute_missing_values(
     # Initially impute with a standard value of 0.5
     mask = ~torch.isnan(x_missing_rows)
     x_missing_rows[~mask] = 0.5
-    x_missing_rows_fixed = x_missing_rows.clone().detach()
+    x_missing_rows_fixed = x_missing_rows.clone()
 
     # Create tensor with only values that need to be changed
-    x_missing_vals = x_missing_rows[~mask].clone().detach().requires_grad_(True)
+    x_missing_vals = x_missing_rows[~mask].clone().requires_grad_(True)
 
     # Set up optimizer
     optimizer = optim.Adam([x_missing_vals], lr=lr)
@@ -666,7 +687,6 @@ def impute_missing_values(
         optimizer.zero_grad()
 
         # Insert the missing values into the correct places
-        #x_missing_rows = x_missing_rows.clone().detach()
         x_missing_rows = x_missing_rows_fixed.masked_scatter(~mask, x_missing_vals)
 
         # Optimization step
@@ -700,7 +720,8 @@ def impute_missing_values_component(
         x_incomplete, 
         model,
         num_components=None,
-        k = None,
+        k=None,
+        use_gpu=True,
         random_state=None,
         verbose=0,
         skip=False,
@@ -714,6 +735,7 @@ def impute_missing_values_component(
         model: A CM-TPM model to use for data imputation.
         num_components (optional): The number of mixture components.
         k (optional): The number of top components to consider for the mixture likelihood.
+        use_gpu (optional): Whether to use GPU for computation if available.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
         skip (optional): Skips the model fitted check, used for EM.
@@ -735,31 +757,47 @@ def impute_missing_values_component(
         print(f"Starting with imputing data...")
     start_time = time.time()
 
+    # Use GPU if available
+    device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
+    if verbose > 0:
+        print(f"Using device: {device}")
+
     if random_state is not None:
         set_random_seed(random_state)
 
+    # Set the correct amount of components
+    n_components = num_components or model.num_components
+
+    # Move model to device
+    model = model.to(device)
+    model.eval()
+
+    # Generate component samples
+    if model.z is not None:
+        z_samples = model.z
+    else:
+        z_samples, _ = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state, device=device)
+
     # Convert the input data to a tensor
-    x_incomplete_tensor = torch.tensor(x_incomplete, dtype=torch.float32)
+    x_incomplete_tensor = torch.tensor(x_incomplete, dtype=torch.float32, device=device)
     x_imputed_tensor = x_incomplete_tensor.clone()
 
     # Identify rows with missing values
     missing_row_mask = torch.isnan(x_incomplete_tensor).any(dim=1)  # shape: (batch_size,)
-    incomplete_tensor = x_incomplete_tensor[missing_row_mask]
-    n_incomplete = incomplete_tensor.shape[0]
+    x_rows_with_missing = x_incomplete_tensor[missing_row_mask]
+    n_incomplete = x_rows_with_missing.shape[0]
     n_features = x_incomplete.shape[1]
-    n_components = num_components or model.num_components
 
-    # Generate component samples
-    z_samples, _ = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state)
+    # Forward pass through neural network
     phi_z = model.phi_net(z_samples)  # shape: (C, 2 * F)
     means, log_vars = torch.chunk(phi_z, 2, dim=-1)
     stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
-    # Build masks
-    missing_mask = torch.isnan(incomplete_tensor)           # shape: (n_missing_rows, input_dim)
+    # Build mask for missing values
+    missing_mask = torch.isnan(x_rows_with_missing)           # shape: (n_missing_rows, input_dim)
 
     # Expand dims for broadcasting
-    x_exp = incomplete_tensor.unsqueeze(0).expand(n_components, -1, -1)  # (n_components, n_missing_rows, input_dim)
+    x_exp = x_rows_with_missing.unsqueeze(0).expand(n_components, -1, -1)  # (n_components, n_missing_rows, input_dim)
     means_exp = means.unsqueeze(1)                                       # (n_components, 1, input_dim)
     stds_exp = stds.unsqueeze(1)                                         # (n_components, 1, input_dim)
 
@@ -795,15 +833,17 @@ def impute_missing_values_component(
         avg_log_likelihood = top_k_values.mean().item()
 
     # Fill missing values with the mean from the best component
-    incomplete_imputed = incomplete_tensor.clone()
-    incomplete_imputed[missing_mask] = best_means[missing_mask]
+    x_rows_imputed = x_rows_with_missing.clone()
+    x_rows_imputed[missing_mask] = best_means[missing_mask]
 
     # Insert imputed rows back into the full tensor
-    x_imputed_tensor[missing_row_mask] = incomplete_imputed
+    x_imputed_tensor[missing_row_mask] = x_rows_imputed
 
     if verbose > 0:
+        print(f"Finished imputing data.")
         print(f"Successfully imputed {missing_mask.sum().item()} missing values across {n_incomplete} samples.")
         print(f"Final imputed data log-likelihood: {avg_log_likelihood:.4f}")
+    if verbose > 1:    
         print(f"Total imputation time: {time.time() - start_time:.2f}s")
 
     return x_imputed_tensor.detach().cpu().numpy(), avg_log_likelihood  # Return the imputed data and the log-likelihood
@@ -842,12 +882,12 @@ if __name__ == '__main__':
                          num_components=256,
                          num_components_impute=512,
                          k=None,
-                         lo=False,
+                         lo=True,
                          batch_size=None,
                          random_state=0
                          )
-    imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=None, verbose=1, random_state=0)
-    #imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    #imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=None, verbose=1, random_state=0)
+    imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])

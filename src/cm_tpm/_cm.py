@@ -1,4 +1,5 @@
 import math
+import time
 import numpy as np
 import pandas as pd
 import torch.nn as nn
@@ -56,6 +57,8 @@ class CMImputer:
         The learning rate for the optimizer.
     weight_decay: float, optional (default=1e-5)
         The weight decay (L2 penalty) for the optimizer.
+    use_gpu: bool, optional (default=True)
+        Whether to use GPU for training and imputation if available. If False, CPU is used.
     random_state: int, RandomState instance or None, optional (default=None)
         Random seed for reproducibility.
     verbose: int, optional (default=0)
@@ -120,6 +123,7 @@ class CMImputer:
             tol: float = 1e-4,
             lr: float = 0.001,
             weight_decay: float = 1e-5, 
+            use_gpu: bool = True,
             random_state: int = None,
             verbose: int = 0,
             copy: bool = True,
@@ -149,6 +153,7 @@ class CMImputer:
         self.tol = tol
         self.lr = lr
         self.weight_decay = weight_decay
+        self.use_gpu = use_gpu
         self.random_state = random_state
         self.verbose = verbose
         self.copy = copy
@@ -181,6 +186,7 @@ class CMImputer:
         Returns:
             self (CMImputer): Fitted instance.        
         """
+        start_time = time.time() 
         # If the input data is a string (filepath), load the data from the file
         if isinstance(X, str):
             X = _load_file(X, sep=sep, decimal=decimal)
@@ -189,8 +195,16 @@ class CMImputer:
         self.n_features_in_ = X.shape[1]
         self.feature_names_in_ = feature_names
 
-        # Fit the model using X
+        if self.verbose > 1:
+            print(f"Training data loading time: {time.time() - start_time:.2f}")
+
+        # Preprocess the data
+        start_time_preprocessing = time.time()
         X_preprocessed, self.binary_info_, self.integer_info_, self.encoding_info_ = self._preprocess_data(X, train=True)
+        if self.verbose > 1: 
+            print(f"Training data preprocessing time: {time.time() - start_time_preprocessing:.2f}")
+
+        # Fit the model using X
         self.model = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
@@ -210,6 +224,7 @@ class CMImputer:
             tol=self.tol, 
             lr=self.lr,
             weight_decay=self.weight_decay,
+            use_gpu=self.use_gpu,
             random_state=self.random_state,
             verbose=self.verbose,
             )
@@ -239,6 +254,7 @@ class CMImputer:
             ValueError: If the model is not yet fitted.
             ValueError: If an unknown file format is provided as a save path.
         """
+        start_time = time.time()
         if not self.is_fitted_:  # Check if the model is fitted
             raise ValueError("The model has not been fitted yet. Please call the fit method first.")
         
@@ -253,6 +269,9 @@ class CMImputer:
 
         if file_in:     # Force ndarray as file input default
             original_format = "ndarray"
+        
+        if self.verbose > 1:
+            print(f"Missing data loading time: {time.time() - start_time:.2f}")
 
         X_imputed = self._impute(X_np)      # Perfom imputation
 
@@ -488,30 +507,37 @@ class CMImputer:
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
         """Impute missing values in input X"""
+        start_time = time.time()
         X_in = X.copy()
         X_nan = _missing_to_nan(X, self.missing_values)
         X_preprocessed, _, _, _ = self._preprocess_data(X, train=False)
 
+        if self.verbose > 1:
+            print(f"Missing data preprocessing time: {time.time() - start_time:.2f}")
+
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        X_imputed, self.log_likelihood_ = impute_missing_values_component(
-            X_preprocessed, 
-            self.model,
-            num_components=self.n_components_impute,
-            k = None,
-            random_state=self.random_state,
-            verbose = self.verbose,
-        )
-
-        # X_imputed, self.log_likelihood_ = impute_missing_values(
+        # X_imputed, self.log_likelihood_ = impute_missing_values_component(
         #     X_preprocessed, 
         #     self.model,
         #     num_components=self.n_components_impute,
+        #     k = None,
+        #     use_gpu=self.use_gpu,
         #     random_state=self.random_state,
         #     verbose = self.verbose,
         # )
 
+        X_imputed, self.log_likelihood_ = impute_missing_values(
+            X_preprocessed, 
+            self.model,
+            num_components=self.n_components_impute,
+            use_gpu=self.use_gpu,
+            random_state=self.random_state,
+            verbose = self.verbose,
+        )
+
+        start_time_post = time.time()
         # Round the binary features to the nearest option
         X_imputed[:, self.binary_info_] = np.round(X_imputed[:, self.binary_info_])
         
@@ -537,4 +563,6 @@ class CMImputer:
             mask = X_nan != "nan"
         X_filled = np.where(mask, X_in, X_decoded)
 
+        if self.verbose > 1:
+            print(f"Data post-processing time: {time.time() - start_time_post:.2f}")
         return X_filled
