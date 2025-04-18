@@ -274,7 +274,7 @@ class CMImputer:
             print(f"Missing data loading time: {time.time() - start_time:.2f}")
 
         X_imputed = self._impute(X_np)      # Perfom imputation
-
+        
         # Respect return_format
         if return_format == "ndarray":
             result = np.asarray(X_imputed)
@@ -436,7 +436,7 @@ class CMImputer:
 
                 # If there are new categorical feature values in the input data, warn the user
                 for val in X_checked[:, i]:
-                    if val not in enc_info and val != "nan":
+                    if val not in enc_info and val != "nan" and ~np.isnan(val):
                         warnings.warn(f"New categorical value detected in column {i}: '{val}'. Treating this value as missing.")
 
                 # Apply the same encoding

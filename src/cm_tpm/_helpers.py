@@ -87,10 +87,6 @@ def _missing_to_nan(X: np.ndarray, missing_values: float | str | int | list) -> 
     """
     X_nan = X.copy()
 
-    # Check if something needs to be replaced
-    if missing_values is np.nan:
-        return X_nan
-    
     # Assure missing_values is a list
     is_list = isinstance(missing_values, list)
     missing_values = missing_values if is_list else [missing_values]
