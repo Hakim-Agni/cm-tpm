@@ -544,55 +544,50 @@ def latent_optimization(
 
     # Generate new z samples and weights (move to every epoch?)
     z_samples, w = generate_rqmc_samples(n_components, latent_dim, random_state=random_state, device=device)
+    w = w.to(device).detach()  # Detach weights to avoid gradient tracking
 
     # Make z_samples a parameter to optimize
     z_optimized = torch.nn.Parameter(z_samples.clone().to(device), requires_grad=True)  
     optimizer = optim.Adam([z_optimized], lr=lr, weight_decay=weight_decay)
 
+    full_x = torch.cat([batch[0].to(device) for batch in train_loader], dim=0)  # Concatenate all batches to get the full dataset
+
     if verbose > 0:
         print(f"Starting latent optimization with {epochs} epochs...")
     prev_loss = -float('inf')       # Initial loss
     best_loss = float('inf')
+    best_z = z_optimized.detach().clone()     # Keep track of the best z_samples
     start_time = time.time()        # Keep track of training time
 
     model.eval()       # Set model to evaluation mode
     for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Latent Optimization"):
         start_time_epoch = time.time()
 
-        total_loss = 0.0       # Keep track of the total loss for the epoch
+        optimizer.zero_grad()       # Reset gradients
+        loss = -model(full_x, z_optimized, w, n_components=n_components)    # Compute loss
+        loss.backward()  # Backpropagation
+        optimizer.step()  # Update z_samples
 
-        for batch in train_loader:  # Iterate over batches
-            x_batch = batch[0]      # Extract batch data
+        # Evaluate loss without tracking gradients
+        with torch.no_grad():
+            eval_loss = -model(full_x, z_optimized, w, n_components=n_components)  
 
-            optimizer.zero_grad()
-
-            # Compute the loss with optimized z
-            loss = -model(x_batch, z_optimized, w, n_components=n_components)    # Compute loss
-
-            loss.backward()  # Backpropagation
-
-            optimizer.step()  # Update z_samples
-
-            total_loss += loss.item()       # Accumulate loss
-
-        average_loss = total_loss / len(train_loader)       # Average loss over batches
-
-        if average_loss < best_loss:
+        if eval_loss < best_loss:
             best_z = z_optimized.detach().clone()
-            best_loss = average_loss
+            best_loss = eval_loss
 
         # Check early stopping criteria
-        if epoch > 10 and abs(average_loss - prev_loss) < tol:
+        if epoch > 10 and abs(eval_loss - prev_loss) < tol:
                 if verbose > 1:
                     print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
                 break
-        prev_loss = average_loss
+        prev_loss = eval_loss
 
         if verbose > 2:
-            print(f"Epoch {epoch}, Log-Likelihood: {-average_loss}, Training time: {time.time() - start_time_epoch}")
+            print(f"Epoch {epoch}, Log-Likelihood: {-eval_loss}, Training time: {time.time() - start_time_epoch}")
         elif verbose > 1:
             if epoch % 10 == 0:
-                print(f'Epoch {epoch}, Log-Likelihood: {-average_loss}')
+                print(f'Epoch {epoch}, Log-Likelihood: {-eval_loss}')
 
     if verbose > 0:
         print(f"Latent optimization complete.")
@@ -717,10 +712,10 @@ def impute_missing_values(
             elif epoch % 10 == 0 and verbose > 1 and batch_size == total_nan_rows:
                 print(f"Epoch {epoch}, Log-likelihood: {-loss.item()}")
             elif epoch % 10 == 0 and verbose > 2:
-                print(f"Batch {start_idx}/{end_idx} | Epoch {epoch}, Log-likelihood: {-loss.item()}")
+                print(f"Batch {start_idx}-{end_idx} | Epoch {epoch}, Log-likelihood: {-loss.item()}")
 
         if verbose > 1 and batch_size != total_nan_rows:
-            print(f"Batch {start_idx}/{end_idx} | Final Log-likelihood: {-loss.item()}")
+            print(f"Batch {start_idx}-{end_idx} | Final Log-likelihood: {-loss.item()}")
 
         # Finalize batch
         with torch.no_grad():
