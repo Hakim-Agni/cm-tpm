@@ -436,7 +436,7 @@ class CMImputer:
 
                 # If there are new categorical feature values in the input data, warn the user
                 for val in X_checked[:, i]:
-                    if val not in enc_info and val != "nan" and ~np.isnan(val):
+                    if val not in enc_info and val != "nan":
                         warnings.warn(f"New categorical value detected in column {i}: '{val}'. Treating this value as missing.")
 
                 # Apply the same encoding

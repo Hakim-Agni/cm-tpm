@@ -608,6 +608,7 @@ def impute_missing_values(
         num_components=None,
         epochs=100,
         lr=0.01,
+        max_batch_size=512,
         use_gpu=True,
         random_state=None,
         verbose=0,
@@ -623,6 +624,7 @@ def impute_missing_values(
         num_components (optional): The number of mixture components.
         epochs (optional): The number of imputation loops.
         lr (optional): The learning rate during imputation. 
+        max_batch_size (optional): The maximum batch size for imputation or None if not using batches.
         use_gpu (optional): Whether to use GPU for computation if available.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
@@ -667,54 +669,65 @@ def impute_missing_values(
     x_incomplete = torch.tensor(x_incomplete, dtype=torch.float32, device=device)
     x_imputed = x_incomplete.clone()
 
-    # Get a copy of X with only rows with missing values
-    nan_rows_mask = torch.any(torch.isnan(x_incomplete), dim=1)  # True if a row has NaN
-    nan_rows_indices = torch.where(nan_rows_mask)[0]  # Get row indices
-    x_missing_rows = x_incomplete[nan_rows_mask]  # Extract rows with NaN
+    # Identify rows with missing values
+    nan_mask = torch.isnan(x_incomplete)
+    row_mask = torch.any(nan_mask, dim=1)
+    nan_indices = torch.where(row_mask)[0]
+    total_nan_rows = len(nan_indices)
 
-    # Initially impute with a standard value of 0.5
-    mask = ~torch.isnan(x_missing_rows)
-    x_missing_rows[~mask] = 0.5
-    x_missing_rows_fixed = x_missing_rows.clone()
+    if verbose > 0:
+        print(f"Found {total_nan_rows} rows with missing values.")
 
-    # Create tensor with only values that need to be changed
-    x_missing_vals = x_missing_rows[~mask].clone().requires_grad_(True)
+    # If we do not use batches, set batch size to the number of rows with missing values
+    if max_batch_size is None or max_batch_size > total_nan_rows:
+        iterator = range(1)
+        batch_size = total_nan_rows
+    else:   # Set correct batch size
+        batch_size = max_batch_size
+        iterator = tqdm(range(0, total_nan_rows, batch_size), disable=(verbose != 1), desc="Imputing")
 
-    # Set up optimizer
-    optimizer = optim.Adam([x_missing_vals], lr=lr)
 
-    # Imputation loop
-    for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Imputing"):
-        optimizer.zero_grad()
+    for start_idx in iterator:
+        # Get the current batch of rows with missing values
+        end_idx = min(start_idx + batch_size, total_nan_rows)
+        batch_rows = nan_indices[start_idx:end_idx]
+        x_batch = x_incomplete[batch_rows].clone()
+        batch_mask = ~torch.isnan(x_batch)
 
-        # Insert the missing values into the correct places
-        x_missing_rows = x_missing_rows_fixed.masked_scatter(~mask, x_missing_vals)
+        # Create a tensor for the batch with missing values
+        x_batch[~batch_mask] = 0.5      # Initialize missing values to 0.5
+        x_fixed = x_batch.clone()
+        x_vals = x_batch[~batch_mask].clone().detach().requires_grad_(True)
 
-        # Optimization step
-        loss = -model(x_missing_rows, z_samples, w, n_components=n_components)
-        loss.backward()
-        optimizer.step()
+        optimizer = optim.Adam([x_vals], lr=lr)  # Set optimizer
 
-        # Keep imputed values in (0,1) range
+        # Optimize the missing values
+        for epoch in tqdm(range(epochs), disable=(batch_size != total_nan_rows or verbose != 1), desc="Imputation Epoch"):
+            optimizer.zero_grad()
+            x_batch_imputed = x_fixed.masked_scatter(~batch_mask, x_vals)
+            loss = -model(x_batch_imputed, z_samples, w, n_components=n_components)
+            loss.backward()
+            optimizer.step()
+            with torch.no_grad():
+                x_vals.clamp_(0, 1)
+
+            if verbose > 2:
+                print(f"Batch {start_idx}-{end_idx} | Epoch {epoch} | -LL: {loss.item():.4f}")
+            elif verbose > 1 and epoch % 10 == 0:
+                print(f"Epoch {epoch} | -LL: {loss.item():.4f}")
+
+        # Finalize batch
         with torch.no_grad():
-            x_missing_vals.clamp_(0, 1)
-
-        if verbose > 2:
-                print(f"Epoch {epoch}, Log-Likelihood: {-loss.item()}")
-        elif verbose > 1:
-            if epoch % 10 == 0:
-                print(f'Epoch {epoch}, Log-Likelihood: {-loss.item()}')
+            x_final = x_fixed.masked_scatter(~batch_mask, x_vals)
+            x_imputed[batch_rows] = x_final
 
     if verbose > 0:
         print(f"Finished imputing data.")
-        print(f"Succesfully imputed {torch.sum(~mask).item()} values.")
+        print(f"Succesfully imputed {total_nan_rows} rows.")
         print(f"Final Imputed Data Log-Likelihood: {-loss.item()}")
     if verbose > 1:
         print(f"Total imputation time: {time.time() - start_time}")
 
-    # Return completed data with imputed values
-    x_missing_rows = x_missing_rows.masked_scatter(~mask, x_missing_vals)
-    x_imputed[nan_rows_indices] = x_missing_rows
     return x_imputed.detach().cpu().numpy(), -loss.item()  # Return the imputed data and the final log-likelihood
 
 def impute_missing_values_component(
