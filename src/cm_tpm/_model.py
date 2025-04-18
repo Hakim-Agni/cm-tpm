@@ -686,6 +686,7 @@ def impute_missing_values(
         batch_size = max_batch_size
         iterator = tqdm(range(0, total_nan_rows, batch_size), disable=(verbose != 1), desc="Imputing")
 
+    all_log_likelihoods = []
 
     for start_idx in iterator:
         # Get the current batch of rows with missing values
@@ -711,20 +712,26 @@ def impute_missing_values(
             with torch.no_grad():
                 x_vals.clamp_(0, 1)
 
-            if verbose > 2:
-                print(f"Batch {start_idx}-{end_idx} | Epoch {epoch} | -LL: {loss.item():.4f}")
-            elif verbose > 1 and epoch % 10 == 0:
-                print(f"Epoch {epoch} | -LL: {loss.item():.4f}")
+            if verbose > 2 and batch_size == total_nan_rows:
+                print(f"Epoch {epoch}, Log-likelihood: {-loss.item()}")
+            elif epoch % 10 == 0 and verbose > 1 and batch_size == total_nan_rows:
+                print(f"Epoch {epoch}, Log-likelihood: {-loss.item()}")
+            elif epoch % 10 == 0 and verbose > 2:
+                print(f"Batch {start_idx}/{end_idx} | Epoch {epoch}, Log-likelihood: {-loss.item()}")
+
+        if verbose > 1 and batch_size != total_nan_rows:
+            print(f"Batch {start_idx}/{end_idx} | Final Log-likelihood: {-loss.item()}")
 
         # Finalize batch
         with torch.no_grad():
             x_final = x_fixed.masked_scatter(~batch_mask, x_vals)
             x_imputed[batch_rows] = x_final
+            all_log_likelihoods.append(-loss.item())
 
     if verbose > 0:
         print(f"Finished imputing data.")
         print(f"Succesfully imputed {total_nan_rows} rows.")
-        print(f"Final Imputed Data Log-Likelihood: {-loss.item()}")
+        print(f"Final Imputed Data Log-Likelihood: {np.mean(all_log_likelihoods)}")
     if verbose > 1:
         print(f"Total imputation time: {time.time() - start_time}")
 
@@ -856,7 +863,7 @@ def impute_missing_values_component(
     if verbose > 0:
         print(f"Finished imputing data.")
         print(f"Successfully imputed {missing_mask.sum().item()} missing values across {n_incomplete} samples.")
-        print(f"Final imputed data log-likelihood: {avg_log_likelihood:.4f}")
+        print(f"Final imputed data log-likelihood: {avg_log_likelihood}")
     if verbose > 1:    
         print(f"Total imputation time: {time.time() - start_time:.2f}s")
 
