@@ -41,7 +41,7 @@ class CMImputer:
         The number of hidden layers in the neural network.
     neuron_per_layer: int or list of ints, optional (default=64)
         The number of neuron in each layer in the neural network.
-    activation: str, optional (default="ReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU"
+    activation: str, optional (default="ReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU", "Identity
         The activation function used in the neural network.
     batch_norm: bool, optional (default=False)
         Whether to use batch normalization in the neural network.
@@ -518,24 +518,24 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        # X_imputed, self.log_likelihood_ = impute_missing_values_component(
-        #     X_preprocessed, 
-        #     self.model,
-        #     num_components=self.n_components_impute,
-        #     k = None,
-        #     use_gpu=self.use_gpu,
-        #     random_state=self.random_state,
-        #     verbose = self.verbose,
-        # )
-
-        X_imputed, self.log_likelihood_ = impute_missing_values(
+        X_imputed, self.log_likelihood_ = impute_missing_values_component(
             X_preprocessed, 
             self.model,
             num_components=self.n_components_impute,
+            k = None,
             use_gpu=self.use_gpu,
             random_state=self.random_state,
             verbose = self.verbose,
         )
+
+        # X_imputed, self.log_likelihood_ = impute_missing_values(
+        #     X_preprocessed, 
+        #     self.model,
+        #     num_components=self.n_components_impute,
+        #     use_gpu=self.use_gpu,
+        #     random_state=self.random_state,
+        #     verbose = self.verbose,
+        # )
 
         start_time_post = time.time()
         # Round the binary features to the nearest option
