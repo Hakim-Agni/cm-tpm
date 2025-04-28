@@ -1,18 +1,38 @@
 from sklearn.datasets import load_digits
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import math
 import numpy as np
 import pandas as pd
 from cm_tpm import CMImputer
 
-random_state = 0
+# TODO: Add option for multiple samples
+random_state = 42
+remove = "Bottom"   # "top" or "bottom" or "random"
 
-# Function to introduce missingness in the dataset
+# Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
     rng = np.random.RandomState(random_state)  # Ensures reproducibility
     mask = rng.rand(*data.shape) < missing_rate  # Create mask for missing values
     data_missing = data.mask(mask)  # Apply mask
     return data_missing, mask
+
+# Funtion to remove the bottom part of the image
+def remove_bottom(data):
+    data = data.copy()
+    num_cols = data.shape[0]
+    halfway = math.floor(num_cols / 2)
+    data.iloc[halfway:] = np.nan  # Set the right half to NaN
+    return data
+
+# Funtion to remove the top part of the image
+def remove_top(data):
+    data = data.copy()
+    num_cols = data.shape[0]
+    halfway = math.floor(num_cols / 2)
+    data.iloc[:halfway] = np.nan  # Set the left half to NaN
+    return data
+
 
 def show_image(image_data, ax, title):
     # Convert the 1D array into an 8x8 2D array
@@ -36,7 +56,18 @@ data = data.drop("target", axis=1)
 
 train_data = data[:1500]
 test_data = data[1500:]
-test_data_missing, _ = introduce_missingness(test_data, missing_rate=0.5, random_state=random_state)
+
+if remove == "random":
+    # Remove random parts of the image
+    test_data_missing, _ = introduce_missingness(test_data, missing_rate=0.5, random_state=random_state)
+elif remove == "top":
+    # Remove the top part of the image
+    test_data_missing = test_data.apply(remove_top, axis=1)    
+else: # Default to bottom
+    # Remove the bottom part of the image
+    test_data_missing = test_data.apply(remove_bottom, axis=1)
+
+
 test_data = test_data
 test_data_missing = test_data_missing
 
