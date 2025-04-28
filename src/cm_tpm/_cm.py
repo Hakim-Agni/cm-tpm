@@ -80,6 +80,10 @@ class CMImputer:
         List of trained components in the mixture model.
     log_likelihood_: float
         Log likelihood of the data under the model.
+    training_likelihoods_: list of floats
+        List of recorded log likelihoods during training.
+    imputing_likelihoods_: list of floats
+        List of recorded log likelihoods during imputation.
     mean_: float
         The mean value for each feature observed during training.
     std_: float
@@ -165,6 +169,8 @@ class CMImputer:
         self.feature_names_in_ = None
         self.components_ = None
         self.log_likelihood_ = None
+        self.training_likelihoods_ = None
+        self.imputing_likelihoods_ = None
         self.min_vals_ = 0.0
         self.max_vals_ = 1.0
         self.binary_info_ = None
@@ -205,7 +211,7 @@ class CMImputer:
             print(f"Training data preprocessing time: {time.time() - start_time_preprocessing:.2f}")
 
         # Fit the model using X
-        self.model, _ = train_cm_tpm(
+        self.model, self.training_likelihoods_ = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
             latent_dim=self.latent_dim, 
@@ -528,7 +534,7 @@ class CMImputer:
         #     verbose = self.verbose,
         # )
 
-        X_imputed, self.log_likelihood_, _ = impute_missing_values(
+        X_imputed, self.log_likelihood_, self.imputing_likelihoods_ = impute_missing_values(
             X_preprocessed, 
             self.model,
             num_components=self.n_components_impute,
