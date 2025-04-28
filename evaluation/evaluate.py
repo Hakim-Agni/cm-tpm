@@ -218,7 +218,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
 if __name__ == "__main__":
     # CMImputer Settings
     hidden_layers = 5
-    neurons_per_layer = 512
+    neurons_per_layer = 1024
     activation = "LeakyReLU"
     batch_norm = True
     dropout_rate = 0.1
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         missing_values=np.nan,
         n_components_train=256,
         n_components_impute=1024,
-        latent_dim=4,
+        latent_dim=8,
         top_k=None,
         lo=False,
         pc_type="factorized",
@@ -246,7 +246,7 @@ if __name__ == "__main__":
         weight_decay=0.01,
         use_gpu=True,
         random_state=0,
-        verbose=1,
+        verbose=0,
         copy=True,
         keep_empty_features=True,
     )

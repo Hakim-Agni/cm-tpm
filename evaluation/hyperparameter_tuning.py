@@ -7,17 +7,18 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.datasets import load_diabetes, load_breast_cancer, load_digits, load_iris, load_linnerud, load_wine
 from sklearn.impute import KNNImputer, SimpleImputer
 from ucimlrepo import fetch_ucirepo
+import matplotlib.pyplot as plt
 from cm_tpm import CMImputer
 
 
 # Dataset Settings
 # Complete datasets
-diabetes = False                 # Medium sized; numerical and integer
+diabetes = True                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
 digits = False                   # Very large sized; integer; image
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
-mushroom = True                  # Very large sized; categorical and binary
+mushroom = False                  # Very large sized; categorical and binary
 wine = False                     # Medium sized; numerical and binary
 
 # Datasets with missing values
@@ -56,6 +57,7 @@ def introduce_missingness(data, missing_rate=0.1, random_state=42):
 
 def run_evaluation(cm_imputer=CMImputer(), print_results=True):
     scores = {}
+    likelihoods = {}
     for dataset_name, use_dataset in datasets.items():
         if not use_dataset:
             continue
@@ -153,7 +155,13 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             impute_time = time.time()
             if imputer_name != "cm_imputer":
                 data_imputed = pd.DataFrame(data_imputed)
-            #end_time = time.time()
+
+            # Store the likelihoods during trainging and imputation (only for CM Imputer)
+            if imputer_name == "cm_imputer":
+                likelihoods[dataset_name] = {
+                    "Training": imputer.training_likelihoods_,
+                    "Inference": imputer.imputing_likelihoods_,
+                }
 
             # Save the imputed dataset (only for CM Imputer)
             if imputer_name == "cm_imputer":
@@ -212,16 +220,16 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
                         "Training Time": train_time - start_time,
                         "Imputation Time": impute_time - train_time,
                     }
-    return scores
+    return scores, likelihoods
 
 
 if __name__ == "__main__":
     # CMImputer Settings
     hidden_layers = 5
     neurons_per_layer = 1024
-    activation = "Identity"
+    activation = "LeakyReLU"
     batch_norm = True
-    dropout_rate = 0.3
+    dropout_rate = 0.1
 
     random_states = [0, 42, 100, 35, 8]
 
@@ -229,7 +237,10 @@ if __name__ == "__main__":
     accs = {}
     tt = {}
     ti = {}
+    ll_train = {}
+    ll_inference = {}
 
+    # Run once with each random state
     for i in range(len(random_states)):
         cm_imputer = CMImputer(
             missing_values=np.nan,
@@ -259,7 +270,13 @@ if __name__ == "__main__":
             keep_empty_features=True,
         )
 
-        score = run_evaluation(cm_imputer=cm_imputer, print_results=False)
+        score, likelihood = run_evaluation(cm_imputer=cm_imputer, print_results=False)
+
+        # Store the likelihoods for the first loop only
+        if i == 0:
+            for dataset_name in likelihood.keys():
+                ll_train[dataset_name] = likelihood[dataset_name].get("Training", [])
+                ll_inference[dataset_name] = likelihood[dataset_name].get("Inference", [])
         
         for dataset_name, imputer_name in score.keys():
             if imputer_name != "cm_imputer":
@@ -280,25 +297,37 @@ if __name__ == "__main__":
             accs[dataset_name].append(accuracy)
             tt[dataset_name].append(time_train)
             ti[dataset_name].append(time_impute)
-    
-    # print(f"Mean Absolute Error (MAE):")
-    # for dataset_name in maes.keys():
-    #     print(f"\t{dataset_name}: {np.mean(maes[dataset_name]):.4f}")
-    # print(f"Accuracy:")
-    # for dataset_name in accs.keys():
-    #     print(f"\t{dataset_name}: {np.mean(accs[dataset_name]):.4f}")
-    # print(f"Training Time:")
-    # for dataset_name in tt.keys():
-    #     print(f"\t{dataset_name}: {np.mean(tt[dataset_name]):.4f} seconds")
-    # print(f"Imputation Time:")
-    # for dataset_name in ti.keys():
-    #     print(f"\t{dataset_name}: {np.mean(ti[dataset_name]):.4f} seconds")
 
+    # Print results
     for dataset_name in datasets.keys():
         if dataset_name not in maes:
             continue
         print(f"Dataset: {dataset_name}")
-        #print(f"\tMean Absolute Error (MAE): {np.mean(maes[dataset_name]):.4f}")
-        print(f"\tAccuracy: {np.mean(accs[dataset_name]):.4f}")
+        print(f"\tMean Absolute Error (MAE): {np.mean(maes[dataset_name]):.4f}")
+        #print(f"\tAccuracy: {np.mean(accs[dataset_name]):.4f}")
         print(f"\tTraining Time: {np.mean(tt[dataset_name]):.4f} seconds")
         print(f"\tImputation Time: {np.mean(ti[dataset_name]):.4f} seconds")
+
+    # Print likelihood results
+    n_datasets = len(ll_train.keys())
+    fig, axes = plt.subplots(n_datasets, 2, sharex=True, sharey=False, figsize=(9, 4 * n_datasets))
+
+    index = 0
+    for name in ll_train.keys():
+        if n_datasets == 1:
+            axes[0].plot(ll_train[name])
+            axes[0].set_title(name + " - training")
+            axes[1].plot(ll_inference[name])
+            axes[1].set_title(name + " - inference")
+        else:
+            axes[index, 0].plot(ll_train[name])
+            axes[index, 0].set_title(name + " - training")
+            axes[index, 1].plot(ll_inference[name])
+            axes[index, 1].set_title(name + " - inference")
+
+            index += 1
+
+    fig.supxlabel('Epoch')
+    fig.supylabel('Log-likelihood')
+
+    plt.show()
