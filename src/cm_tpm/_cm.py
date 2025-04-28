@@ -205,7 +205,7 @@ class CMImputer:
             print(f"Training data preprocessing time: {time.time() - start_time_preprocessing:.2f}")
 
         # Fit the model using X
-        self.model = train_cm_tpm(
+        self.model, _ = train_cm_tpm(
             X_preprocessed, 
             pc_type=self.pc_type,
             latent_dim=self.latent_dim, 
@@ -518,24 +518,24 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        X_imputed, self.log_likelihood_ = impute_missing_values_component(
-            X_preprocessed, 
-            self.model,
-            num_components=self.n_components_impute,
-            k = None,
-            use_gpu=self.use_gpu,
-            random_state=self.random_state,
-            verbose = self.verbose,
-        )
-
-        # X_imputed, self.log_likelihood_ = impute_missing_values(
+        # X_imputed, self.log_likelihood_ = impute_missing_values_component(
         #     X_preprocessed, 
         #     self.model,
         #     num_components=self.n_components_impute,
+        #     k = None,
         #     use_gpu=self.use_gpu,
         #     random_state=self.random_state,
         #     verbose = self.verbose,
         # )
+
+        X_imputed, self.log_likelihood_, _ = impute_missing_values(
+            X_preprocessed, 
+            self.model,
+            num_components=self.n_components_impute,
+            use_gpu=self.use_gpu,
+            random_state=self.random_state,
+            verbose = self.verbose,
+        )
 
         start_time_post = time.time()
         # Round the binary features to the nearest option

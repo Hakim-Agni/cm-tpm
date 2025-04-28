@@ -314,13 +314,13 @@ class TestTrainCM_TPM():
     def test_train_dafault(self):
         """Test training data with a default model."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data, epochs=5)
+        model, _ = train_cm_tpm(train_data=train_data, epochs=5)
         assert isinstance(model, CM_TPM)
 
     def test_train_parameters(self):
         """Test training data with a model with different parameters."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data, pc_type="factorized", latent_dim=6, num_components=64, k=5, epochs=5, lr=0.01)
+        model, _ = train_cm_tpm(train_data=train_data, pc_type="factorized", latent_dim=6, num_components=64, k=5, epochs=5, lr=0.01)
         assert isinstance(model, CM_TPM)
         assert model.input_dim == 10
         assert model.latent_dim == 6
@@ -330,25 +330,25 @@ class TestTrainCM_TPM():
         """Test training data with missing values."""
         train_data = np.random.rand(100, 10)
         train_data[0, 0] = np.nan
-        model = train_cm_tpm(train_data=train_data, epochs=5)
+        model, _ = train_cm_tpm(train_data=train_data, epochs=5)
         assert isinstance(model, CM_TPM)
 
     def test_train_batches(self):
         """Test training data with batches."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data, batch_size=32, epochs=5)
+        model, _ = train_cm_tpm(train_data=train_data, batch_size=32, epochs=5)
         assert isinstance(model, CM_TPM)
 
     def test_train_no_batches(self):
         """Test training data without batches."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data, batch_size=None, epochs=5)
+        model, _ = train_cm_tpm(train_data=train_data, batch_size=None, epochs=5)
         assert isinstance(model, CM_TPM)
 
     def test_train_lo(self):
         """Test training with latent optimization."""
         train_data = np.random.rand(100, 10)
-        model = train_cm_tpm(train_data=train_data, lo=True, epochs=5)
+        model, _ = train_cm_tpm(train_data=train_data, lo=True, epochs=5)
         assert isinstance(model, CM_TPM)
 
 class TestImpute():
@@ -356,7 +356,7 @@ class TestImpute():
     def setup_method(self):
         """Setup method for the test class."""
         self.train_data = np.random.rand(100, 10)
-        self.model = train_cm_tpm(train_data=self.train_data, epochs=5)
+        self.model, _ = train_cm_tpm(train_data=self.train_data, epochs=5)
 
     def test_impute_data(self):
         """Test imputing data with missing values."""
@@ -364,7 +364,7 @@ class TestImpute():
         data_incomplete[4, 6] = np.nan
         data_incomplete[25, 1] = np.nan
         data_incomplete[0, 7] = np.nan
-        data_imputed, _ = impute_missing_values(data_incomplete, self.model, epochs=5)
+        data_imputed, _, _ = impute_missing_values(data_incomplete, self.model, epochs=5)
         assert isinstance(data_imputed, np.ndarray)
         assert data_imputed.shape == data_incomplete.shape
         assert data_imputed[4, 6] != np.nan
@@ -378,8 +378,8 @@ class TestImpute():
         data_incomplete[4, 6] = np.nan
         data_incomplete[25, 1] = np.nan
         data_incomplete[0, 7] = np.nan
-        model = train_cm_tpm(train_data=self.train_data, lo=True, epochs=5)
-        data_imputed, _ = impute_missing_values(data_incomplete, model, epochs=5)
+        model, _ = train_cm_tpm(train_data=self.train_data, lo=True, epochs=5)
+        data_imputed, _, _ = impute_missing_values(data_incomplete, model, epochs=5)
         assert isinstance(data_imputed, np.ndarray)
         assert data_imputed.shape == data_incomplete.shape
         assert data_imputed[4, 6] != np.nan
@@ -390,7 +390,7 @@ class TestImpute():
     def test_impute_data_no_missing(self):
         """Test imputing data with no missing values."""
         data_incomplete = np.random.rand(30, 10)
-        data_imputed, _ = impute_missing_values(data_incomplete, self.model)
+        data_imputed, _, _ = impute_missing_values(data_incomplete, self.model)
         assert data_imputed.shape == data_incomplete.shape
         assert np.array_equal(data_incomplete, data_imputed)
 
@@ -399,7 +399,7 @@ class TestImpute():
         data_incomplete = np.random.rand(50, 5)
         data_incomplete[0, 0] = np.nan
         try:
-            data_imputed, _ = impute_missing_values(data_incomplete, self.model)
+            data_imputed, _, _ = impute_missing_values(data_incomplete, self.model)
             assert False
         except ValueError as e:
             assert str(e) == "The missing data does not have the same number of features as the training data. Expected features: 10, but got features: 5."
@@ -410,7 +410,7 @@ class TestImpute():
         data_incomplete = np.random.rand(50, 10)
         data_incomplete[0, 0] = np.nan
         try:
-            data_imputed, _ = impute_missing_values(data_incomplete, model)
+            data_imputed, _, _ = impute_missing_values(data_incomplete, model)
             assert False
         except ValueError as e:
             assert str(e) == "The model has not been fitted yet. Please call the fit method first."
@@ -421,8 +421,8 @@ class TestModelResult():
         p = 0.05
         all_zeros = np.zeros((100, 10))
         all_zeros[0, 0] = np.nan
-        model = train_cm_tpm(all_zeros, random_state=42)
-        imputed, log_likelihood = impute_missing_values(all_zeros, model, random_state=42)
+        model, _ = train_cm_tpm(all_zeros, random_state=42)
+        imputed, log_likelihood, _ = impute_missing_values(all_zeros, model, random_state=42)
         assert imputed[0, 0] < p
         assert log_likelihood > 0
 
@@ -434,8 +434,8 @@ class TestModelResult():
         all_const[43, 8] = np.nan
         all_const[10, 2] = np.nan
         all_const[84, 0] = np.nan
-        model = train_cm_tpm(all_const, random_state=42)
-        imputed, log_likelihood = impute_missing_values(all_const, model, random_state=42)
+        model, _ = train_cm_tpm(all_const, random_state=42)
+        imputed, log_likelihood, _ = impute_missing_values(all_const, model, random_state=42)
         assert imputed[43, 8] < constant + p and imputed[43, 8] > constant - p
         assert imputed[10, 2] < constant + p and imputed[10, 2] > constant - p
         assert imputed[84, 0] < constant + p and imputed[84, 0] > constant - p

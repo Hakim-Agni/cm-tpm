@@ -406,7 +406,8 @@ def train_cm_tpm(
         verbose (optional): Verbosity level.
 
     Returns:
-        model: A trained CM-TPM model
+        model: A trained CM-TPM model.
+        likelihoods: The computed likelihoods at each epoch during training.
     """
     rng = np.random.default_rng(random_state)  # Random number generator for reproducibility
     input_dim = train_data.shape[1]
@@ -441,7 +442,9 @@ def train_cm_tpm(
     # Replace NaN values with -1, so the missing values can be filtered out later while computing the likelihood
     # This is necessary to avoid NaN values in the gradients of the loss function
     mask = ~torch.isnan(x_tensor)       # Get the mask of NaN values
-    x_tensor = torch.where(mask, x_tensor, -1)       
+    x_tensor = torch.where(mask, x_tensor, -1)
+
+    likelihoods = []    # Store likelihoods during training       
 
     if batch_size is not None:
         train_loader = DataLoader(TensorDataset(x_tensor), batch_size=batch_size, shuffle=True)
@@ -477,6 +480,7 @@ def train_cm_tpm(
             total_loss += loss.item()       # Accumulate loss
 
         average_loss = total_loss / len(train_loader)       # Average loss over batches
+        likelihoods.append(-average_loss)
 
         # Check early stopping criteria
         if epoch > 10 and abs(average_loss - prev_loss) < tol:
@@ -504,7 +508,7 @@ def train_cm_tpm(
                                       epochs=math.ceil(epochs/2), tol=tol, lr=lr, 
                                       weight_decay=weight_decay, random_state=random_state, 
                                       verbose=verbose, device=device).to(device)  
-    return model        # Return the trained model
+    return model, likelihoods        # Return the trained model
 
 def latent_optimization(
         model,
@@ -628,9 +632,10 @@ def impute_missing_values(
     Returns:
         x_imputed: A copy of x_incomplete with the missing values imputed.
         log_likelihood: The log-likelihood of the imputed data.
+        likelihoods: The computed likelihoods at each epoch during inference.
     """
     if not np.isnan(x_incomplete).any():
-        return x_incomplete, None
+        return x_incomplete, None, None
     
     if not model._is_trained and not skip:
         raise ValueError("The model has not been fitted yet. Please call the fit method first.")
@@ -681,9 +686,14 @@ def impute_missing_values(
         batch_size = max_batch_size
         iterator = tqdm(range(0, total_nan_rows, batch_size), disable=(verbose != 1), desc="Imputing")
 
-    all_log_likelihoods = []
+    likelihoods = []    # Store the likelihoods during imputation
+    final_likelihoods = []       # Store the final likelihoods for each batch
 
+
+    index = 0
     for start_idx in iterator:
+        likelihoods.append([])       # Add list for the batch
+
         # Get the current batch of rows with missing values
         end_idx = min(start_idx + batch_size, total_nan_rows)
         batch_rows = nan_indices[start_idx:end_idx]
@@ -706,6 +716,7 @@ def impute_missing_values(
             optimizer.step()
             with torch.no_grad():
                 x_vals.clamp_(0, 1)
+                likelihoods[index].append(-loss.item())     # Store the likelihood at this epoch
 
             if verbose > 2 and batch_size == total_nan_rows:
                 print(f"Epoch {epoch}, Log-likelihood: {-loss.item()}")
@@ -721,16 +732,17 @@ def impute_missing_values(
         with torch.no_grad():
             x_final = x_fixed.masked_scatter(~batch_mask, x_vals)
             x_imputed[batch_rows] = x_final
-            all_log_likelihoods.append(-loss.item())
+            final_likelihoods.append(-loss.item())
 
     if verbose > 0:
         print(f"Finished imputing data.")
         print(f"Succesfully imputed {total_nan_rows} rows.")
-        print(f"Final Imputed Data Log-Likelihood: {np.mean(all_log_likelihoods)}")
+        print(f"Final Imputed Data Log-Likelihood: {np.mean(final_likelihoods)}")
     if verbose > 1:
         print(f"Total imputation time: {time.time() - start_time}")
 
-    return x_imputed.detach().cpu().numpy(), -loss.item()  # Return the imputed data and the final log-likelihood
+    # Return the imputed data and the final log-likelihood
+    return x_imputed.detach().cpu().numpy(), np.mean(final_likelihoods), np.mean(likelihoods, axis=0)  
 
 def impute_missing_values_component(
         x_incomplete, 
@@ -890,7 +902,7 @@ if __name__ == '__main__':
     all_zeros[50, 3] = np.nan
     all_zeros[10, 2] = np.nan
     all_zeros[92, 0] = np.nan
-    model = train_cm_tpm(all_zeros, 
+    model, train_likelihoods = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
                          verbose=1, 
                          epochs=100, 
@@ -903,12 +915,15 @@ if __name__ == '__main__':
                          random_state=0
                          )
     #imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=None, verbose=1, random_state=0)
-    imputed, likelihood = impute_missing_values(all_zeros, model, num_components=512, verbose=1, random_state=0)
+    imputed, likelihood, impute_likelihoods = impute_missing_values(all_zeros, model, num_components=512, verbose=1, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
     print("Log-Likelihood:", likelihood)
     print("Imputation time:", time.time() - start_time)
+
+    # print(train_likelihoods)
+    # print(impute_likelihoods)
 
     # all_zeros = np.full((6, 6), 0.23)
     # all_zeros[0, 0] = np.nan
