@@ -129,37 +129,87 @@ class CM_TPM(nn.Module):
         """
         batch_size = x.shape[0]
         num_components = phi_z.shape[0]
+        input_dim = x.shape[1]
 
         means, log_vars = torch.chunk(phi_z, 2, dim=-1)
         stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
 
-        x_expanded = x.unsqueeze(0).expand(num_components, -1, -1)  # Shape: (num_components, batch_size, input_dim)
-        means = means.unsqueeze(1)  # Shape: (num_components, 1, input_dim)
-        stds = stds.unsqueeze(1)    # Shape: (num_components, 1, input_dim)
+        if k is not None and k < num_components:
+            # First forward pass (no gradients) to find the top k components per sample
+            with torch.no_grad():
+                x_expanded = x.unsqueeze(0).expand(num_components, -1, -1)  # Shape: (num_components, batch_size, input_dim)
+                mean = means.unsqueeze(1)  # Shape: (num_components, 1, input_dim)
+                std = stds.unsqueeze(1)  # Shape: (num_components, 1, input_dim)
 
-        log_prob = -0.5 * (((x_expanded - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
+                log_prob = -0.5 * (((x_expanded - mean) / std) ** 2 + 2 * torch.log(std) + math.log(2 * math.pi))
 
-        # Ignore missing values in the log probability
-        if torch.isnan(log_prob).any():
-            log_prob[torch.isnan(log_prob)] = 0.0
+                # Ignore missing values in the log probability
+                if torch.isnan(log_prob).any():
+                    log_prob[torch.isnan(log_prob)] = 0.0
 
-        if (x == -1).any():
-            mask = (x != -1).unsqueeze(0)  # Shape: (1, batch_size, input_dim)
-            log_prob = torch.where(mask, log_prob, 0.0)
+                if (x == -1).any():
+                    mask = (x != -1).unsqueeze(0)  # Shape: (1, batch_size, input_dim)
+                    log_prob = torch.where(mask, log_prob, 0.0)
 
-        log_likelihoods = log_prob.sum(dim=-1)  # Shape: (num_components, batch_size)
+                log_likelihoods = log_prob.sum(dim=-1)  # Shape: (num_components, batch_size)
 
-        # Add weights
-        log_weights = torch.log(w).view(-1, 1)  # Shape: (num_components, 1)
-        weighted_log_likelihoods = log_likelihoods + log_weights  # Shape: (num_components, batch_size)
+                # Add weights
+                log_weights = torch.log(w).view(-1, 1)  # Shape: (num_components, 1)
+                weighted_log_likelihoods = log_likelihoods + log_weights  # Shape: (num_components, batch_size)
 
-        if k is not None and k < num_components:        
-            top_k_values, _ = torch.topk(weighted_log_likelihoods, k, dim=0)  # Get top K values and indices
-            mixture_likelihood = torch.logsumexp(top_k_values, dim=0)  # Take the sum of the weighted likelihoods, shape: (batch_size)
+                top_k_values, top_k_indices = torch.topk(weighted_log_likelihoods, k, dim=0)  # Get top K values and indices
+
+            # Second forward pass, over only top k components
+            topk_indices = top_k_indices.transpose(0, 1)  # (batch_size, k)
+
+            means_topk = means[topk_indices]  # (batch_size, k, input_dim)
+            stds_topk = stds[topk_indices]  # (batch_size, k, input_dim)
+            w_topk = w[topk_indices]  # (batch_size, k)
+
+            x_expanded_topk = x.unsqueeze(1)  # Shape: (batch_size, 1, input_dim)
+
+            # Try loop per k?
+
+            log_prob = -0.5 * (((x_expanded_topk - means_topk) / stds_topk) ** 2 + 2 * torch.log(stds_topk) + math.log(
+                2 * math.pi))
+
+            # Ignore missing values in the log probability
+            if torch.isnan(log_prob).any():
+                log_prob[torch.isnan(log_prob)] = 0.0
+
+            if (x == -1).any():
+                mask = (x != -1).unsqueeze(1)  # Shape: (batch_size, 1, input_dim)
+                log_prob = torch.where(mask, log_prob, 0.0)
+
+            log_lik = log_prob.sum(dim=-1)  # (batch_size, k)
+            log_weighted = log_lik + torch.log(w_topk)  # (batch_size, k)
+            mixture_log_lik = torch.logsumexp(log_weighted, dim=1)  # (batch_size,)
+
+            return mixture_log_lik.mean()
+
         else:
-            mixture_likelihood = torch.logsumexp(weighted_log_likelihoods, dim=0)      # Take the sum of the weighted likelihoods, shape: (batch_size)
-        
-        return torch.mean(mixture_likelihood)  # Average over batch
+            # Full forward pass, no top k selection
+            x_expanded = x.unsqueeze(0).expand(num_components, -1, -1)  # Shape: (num_components, batch_size, input_dim)
+            means = means.unsqueeze(1)  # Shape: (num_components, 1, input_dim)
+            stds = stds.unsqueeze(1)  # Shape: (num_components, 1, input_dim)
+
+            log_prob = -0.5 * (((x_expanded - means) / stds) ** 2 + 2 * torch.log(stds) + math.log(2 * math.pi))
+
+            # Ignore missing values in the log probability
+            if torch.isnan(log_prob).any():
+                log_prob[torch.isnan(log_prob)] = 0.0
+
+            if (x == -1).any():
+                mask = (x != -1).unsqueeze(0)  # Shape: (1, batch_size, input_dim)
+                log_prob = torch.where(mask, log_prob, 0.0)
+
+            log_likelihoods = log_prob.sum(dim=-1)  # Shape: (num_components, batch_size)
+
+            # Add weights
+            log_weights = torch.log(w).view(-1, 1)  # Shape: (num_components, 1)
+            weighted_log_likelihoods = log_likelihoods + log_weights  # Shape: (num_components, batch_size)
+            mixture_likelihood = torch.logsumexp(weighted_log_likelihoods,dim=0)
+            return torch.mean(mixture_likelihood)
 
 class BaseProbabilisticCircuit(nn.Module, ABC):
     """Base Probabilistic Circuit, other PC structures inherit from this class"""
@@ -733,6 +783,7 @@ def impute_missing_values(
             x_final = x_fixed.masked_scatter(~batch_mask, x_vals)
             x_imputed[batch_rows] = x_final
             final_likelihoods.append(-loss.item())
+            index += 1
 
     if verbose > 0:
         print(f"Finished imputing data.")
@@ -904,7 +955,7 @@ if __name__ == '__main__':
     all_zeros[92, 0] = np.nan
     model, train_likelihoods = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
-                         verbose=1, 
+                         verbose=0, 
                          epochs=100, 
                          lr=0.001, 
                          num_components=256,
@@ -915,7 +966,7 @@ if __name__ == '__main__':
                          random_state=0
                          )
     #imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=None, verbose=1, random_state=0)
-    imputed, likelihood, impute_likelihoods = impute_missing_values(all_zeros, model, num_components=512, verbose=1, random_state=0)
+    imputed, likelihood, impute_likelihoods = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
