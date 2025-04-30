@@ -82,6 +82,7 @@ model = CMImputer(
     n_components_train=256,
     n_components_impute=1024,
     latent_dim=4,
+    imputation_method="EM",
     random_state=random_state,
     verbose=1,
     # hidden_layers=hidden_layers,

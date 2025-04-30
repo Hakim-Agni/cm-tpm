@@ -654,7 +654,7 @@ def latent_optimization(
     return best_z  # Return optimized z_samples
 
 
-def impute_missing_values(
+def impute_missing_values_exact(
         x_incomplete, 
         model,
         num_components=None,
@@ -976,7 +976,7 @@ if __name__ == '__main__':
                          random_state=0
                          )
     imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=1, verbose=1, random_state=0)
-    #imputed, likelihood, impute_likelihoods = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    #imputed, likelihood, impute_likelihoods = impute_missing_values_exact(all_zeros, model, num_components=512, verbose=0, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])

@@ -250,6 +250,7 @@ if __name__ == "__main__":
             top_k=None,
             lo=False,
             pc_type="factorized",
+            imputation_method="EM",
             ordinal_features=None,
             max_depth=5,
             custom_net=None,

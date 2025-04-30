@@ -21,6 +21,7 @@ class TestClass:
             top_k=10,
             lo=True,
             pc_type="spn",
+            imputation_method="exact",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -34,6 +35,7 @@ class TestClass:
             tol=1e-3,
             lr=0.01,
             weight_decay=1e-3,
+            use_gpu=False,
             random_state=42,
             verbose=2,
             copy=False,
@@ -46,6 +48,7 @@ class TestClass:
         assert imputer.top_k == 10
         assert imputer.lo
         assert imputer.pc_type == "spn"
+        assert imputer.imputation_method == "exact"
         assert imputer.ordinal_features is None
         assert imputer.max_depth == 3
         assert imputer.custom_net is None
@@ -59,6 +62,7 @@ class TestClass:
         assert imputer.tol == 1e-3
         assert imputer.lr == 0.01
         assert imputer.weight_decay == 1e-3
+        assert not imputer.use_gpu
         assert imputer.random_state == 42
         assert imputer.verbose == 2
         assert not imputer.copy
@@ -72,6 +76,8 @@ class TestClass:
         assert imputer.feature_names_in_ is None
         assert imputer.components_ is None
         assert imputer.log_likelihood_ is None
+        assert imputer.training_likelihoods_ is None
+        assert imputer.imputing_likelihoods_ is None
         assert imputer.min_vals_ == 0.0
         assert imputer.max_vals_ == 1.0
         assert imputer.binary_info_ is None
@@ -148,7 +154,7 @@ class TestTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components_train=1)
+        self.imputer = CMImputer(n_components_train=4, n_components_impute=8)
 
     def test_transform_no_fit(self):
         """Test transforming data without fitting the imputer."""
@@ -331,15 +337,37 @@ class TestTransform():
             assert X_imputed[0, 3] == "Extremely High"
             assert X_imputed[1, 3] == "High" or X_imputed[1, 3] == "Medium" or X_imputed[1, 3] == "Low"
 
+    def test_transform_exact(self):
+        """Tests the exact imputation method"""
+        self.imputer.imputation_method = "exact"
+        X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        imputer = self.imputer.fit(X)
+        X_missing = np.array([[np.nan, 2., 3.], [4., 5., 6.]])
+        X_imputed = imputer.transform(X_missing)
+        assert isinstance(X_imputed, np.ndarray)
+        assert X_imputed.shape == (2, 3)
+        assert not np.isnan(X_imputed).any()
+        assert X_imputed[0, 0] >= 1
+        assert X_imputed[0, 0] <= 7
+
 
 class TestFitTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components_train=1)
+        self.imputer = CMImputer(n_components_train=4, n_components_impute=8)
 
     def test_fit_transform(self):
         """Test the fit transform function."""
+        X_missing = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
+        X_imputed = self.imputer.fit_transform(X_missing)
+        assert X_imputed.shape[0] == 3
+        assert X_imputed.shape[1] == 3
+        assert not np.isnan(X_imputed).any()
+
+    def test_fit_transform_cpu(self):
+        """Test the fit transform function on cpu."""
+        self.imputer.use_gpu = False
         X_missing = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
         X_imputed = self.imputer.fit_transform(X_missing)
         assert X_imputed.shape[0] == 3
@@ -358,6 +386,7 @@ class TestParams():
             top_k=10,
             lo=True,
             pc_type="spn",
+            imputation_method="exact",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -371,6 +400,7 @@ class TestParams():
             tol=1e-3,
             lr=0.01,
             weight_decay=1e-3,
+            use_gpu=False,
             random_state=42,
             verbose=2,
             copy=False,
@@ -387,6 +417,7 @@ class TestParams():
         assert params["top_k"] == 10
         assert params["lo"] == True
         assert params["pc_type"] == "spn"
+        assert params["imputation_method"] == "exact"
         assert params["ordinal_features"] is None
         assert params["max_depth"] == 3
         assert params["custom_net"] is None
@@ -400,6 +431,7 @@ class TestParams():
         assert params["tol"] == 1e-3
         assert params["lr"] == 0.01
         assert params["weight_decay"] == 1e-3
+        assert params["use_gpu"] == False
         assert params["random_state"] == 42
         assert params["verbose"] == 2
         assert params["copy"] == False
@@ -415,6 +447,7 @@ class TestParams():
             top_k=None,
             lo=False,
             pc_type="clt",
+            imputation_method="EM",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
             hidden_layers=2,
@@ -427,6 +460,7 @@ class TestParams():
             tol=1e-4,
             lr=0.001,
             weight_decay=1e-6,
+            use_gpu=True,
             random_state=43,
             verbose=1,
             copy=True,
@@ -439,6 +473,7 @@ class TestParams():
         assert self.imputer.top_k is None
         assert self.imputer.lo == False
         assert self.imputer.pc_type == "clt"
+        assert self.imputer.imputation_method == "EM"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5
         assert self.imputer.hidden_layers == 2
@@ -451,6 +486,7 @@ class TestParams():
         assert self.imputer.tol == 1e-4
         assert self.imputer.lr == 0.001
         assert self.imputer.weight_decay == 1e-6
+        assert self.imputer.use_gpu == True
         assert self.imputer.random_state == 43
         assert self.imputer.verbose == 1
         assert self.imputer.copy == True

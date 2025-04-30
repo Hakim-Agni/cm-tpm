@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import torch.nn as nn
 import warnings
-from ._model import train_cm_tpm, impute_missing_values, impute_missing_values_component
+from ._model import train_cm_tpm, impute_missing_values_exact, impute_missing_values_component
 from ._helpers import (
     _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
@@ -31,6 +31,10 @@ class CMImputer:
         Whether to use latent optimization after training.
     pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
         The type of PC to use in the model.
+    imputation_method: str, optional (default="EM") allowed: "EM", "exact"
+        The imputation method to use during inference.
+        - EM: Imputes values by maximizing the expected values, fast method.
+        - Exact: Imputed values by finding the optimal values using an optimizer, slow method.
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
     max_depth: int, optional (default=5)
@@ -114,6 +118,7 @@ class CMImputer:
             top_k: int | None = None,
             lo: bool = False,
             pc_type: str = "factorized",
+            imputation_method: str = "EM",
             ordinal_features: dict = None,
             max_depth: int = 5,
             custom_net: nn.Sequential = None,
@@ -144,6 +149,7 @@ class CMImputer:
         self.top_k = top_k
         self.lo = lo
         self.pc_type = pc_type
+        self.imputation_method = imputation_method
         self.ordinal_features = ordinal_features
         self.custom_net = custom_net
         self.hidden_layers = hidden_layers
@@ -365,6 +371,7 @@ class CMImputer:
             "top_k": self.top_k,
             "lo": self.lo,
             "pc_type": self.pc_type,
+            "imputation_method": self.imputation_method,
             "ordinal_features": self.ordinal_features,
             "max_depth": self.max_depth,
             "custom_net": self.custom_net,
@@ -378,6 +385,7 @@ class CMImputer:
             "tol": self.tol,
             "lr": self.lr,
             "weight_decay": self.weight_decay,
+            "use_gpu": self.use_gpu,
             "random_state": self.random_state,
             "verbose": self.verbose,
             "copy": self.copy,
@@ -528,26 +536,32 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
 
-        # X_imputed, self.log_likelihood_ = impute_missing_values_component(
-        #     X_preprocessed, 
-        #     self.model,
-        #     num_components=self.n_components_impute,
-        #     k = None,
-        #     use_gpu=self.use_gpu,
-        #     random_state=self.random_state,
-        #     verbose = self.verbose,
-        # )
+        if not self.imputation_method in ["EM", "exact"]:
+            warnings.warn(f"Invalid imputation method selected: {self.imputation_method}, defaulting to EM")
+            self.imputation_method = "EM"
 
-        X_imputed, self.log_likelihood_, self.imputing_likelihoods_ = impute_missing_values(
-            X_preprocessed, 
-            self.model,
-            num_components=self.n_components_impute,
-            # epochs=self.max_iter,
-            # lr=self.lr,
-            use_gpu=self.use_gpu,
-            random_state=self.random_state,
-            verbose = self.verbose,
-        )
+        if self.imputation_method == "exact":
+            X_imputed, self.log_likelihood_, self.imputing_likelihoods_ = impute_missing_values_exact(
+                X_preprocessed, 
+                self.model,
+                num_components=self.n_components_impute,
+                # epochs=self.max_iter,
+                # lr=self.lr,
+                use_gpu=self.use_gpu,
+                random_state=self.random_state,
+                verbose = self.verbose,
+            )
+        else:    
+            X_imputed, self.log_likelihood_ = impute_missing_values_component(
+                X_preprocessed, 
+                self.model,
+                num_components=self.n_components_impute,
+                k=1,
+                use_gpu=self.use_gpu,
+                random_state=self.random_state,
+                verbose = self.verbose,
+            )
+            self.imputing_likelihoods_ = self.log_likelihood_
 
         start_time_post = time.time()
         # Round the binary features to the nearest option

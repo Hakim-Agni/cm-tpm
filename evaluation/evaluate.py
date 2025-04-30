@@ -12,12 +12,12 @@ from cm_tpm import CMImputer
 
 # Dataset Settings
 # Complete datasets
-diabetes = True                 # Medium sized; numerical and integer
+diabetes = False                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
 digits = False                   # Very large sized; integer; image
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
-mushroom = False                  # Very large sized; categorical and binary
+mushroom = True                  # Very large sized; categorical and binary
 wine = False                     # Medium sized; numerical and binary
 
 # Datasets with missing values
@@ -231,6 +231,7 @@ if __name__ == "__main__":
         top_k=None,
         lo=False,
         pc_type="factorized",
+        imputation_method="EM",
         ordinal_features=None,
         max_depth=5,
         custom_net=None,
