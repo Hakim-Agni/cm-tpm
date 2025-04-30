@@ -480,7 +480,10 @@ def train_cm_tpm(
     # Use GPU if available
     device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
     if verbose > 0:
-        print(f"Using device: {device}")
+        if use_gpu and device == "cpu":
+            print("No GPU device detected, using cpu instead")
+        else:
+            print(f"Using device: {device}")
 
     # Move model to device
     model = model.to(device)
@@ -700,7 +703,10 @@ def impute_missing_values(
     # Use GPU if available
     device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
     if verbose > 0:
-        print(f"Using device: {device}")
+        if use_gpu and device == "cpu":
+            print("No GPU device detected, using cpu instead")
+        else:
+            print(f"Using device: {device}")
 
     if random_state is not None:
         set_random_seed(random_state)
@@ -839,7 +845,10 @@ def impute_missing_values_component(
     # Use GPU if available
     device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
     if verbose > 0:
-        print(f"Using device: {device}")
+        if use_gpu and device == "cpu":
+            print("No GPU device detected, using cpu instead")
+        else:
+            print(f"Using device: {device}")
 
     if random_state is not None:
         set_random_seed(random_state)

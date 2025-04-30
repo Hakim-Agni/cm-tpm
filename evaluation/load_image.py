@@ -9,6 +9,7 @@ from cm_tpm import CMImputer
 # TODO: Add option for multiple samples
 random_state = 42
 remove = "Bottom"   # "top" or "bottom" or "random"
+n_outputs = 5
 
 # Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
@@ -98,15 +99,24 @@ model.fit(train_data)
 
 test_samples = test_data_missing.shape[0]
 
-np.random.seed(random_state)
-index = np.random.randint(low=0, high=test_samples)
-
-test_sample = test_data_missing.iloc[index]
-imputed_sample = model.transform([test_sample])
-
 # Create the figure and axes
-fig, axes = plt.subplots(1, 3, figsize=(9, 6))
-show_image(test_data.iloc[index], axes[0], "Full image")
-show_image(test_sample, axes[1], "Image with missing")
-show_image(imputed_sample, axes[2], "Imputed image")
+fig, axes = plt.subplots(n_outputs, 3, figsize=(9, 4*n_outputs + 2))
+
+rng = np.random.default_rng(random_state)
+for i in range(n_outputs):
+    np.random.seed(rng.integers(1e9))
+    index = np.random.randint(low=0, high=test_samples)
+
+    test_sample = test_data_missing.iloc[index].to_numpy()
+    imputed_sample = model.transform(test_sample)
+
+    if n_outputs == 1:
+        show_image(test_data.iloc[index], axes[0], "Full image")
+        show_image(test_sample, axes[1], "Image with missing")
+        show_image(imputed_sample, axes[2], "Imputed image")
+    else:
+        show_image(test_data.iloc[index], axes[i][0], "Full image")
+        show_image(test_sample, axes[i][1], "Image with missing")
+        show_image(imputed_sample, axes[i][2], "Imputed image")
+
 plt.show()
