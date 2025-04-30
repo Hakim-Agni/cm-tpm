@@ -819,7 +819,7 @@ def impute_missing_values_component(
         x_incomplete: The input data with missing values.
         model: A CM-TPM model to use for data imputation.
         num_components (optional): The number of mixture components.
-        k (optional): The number of top components to consider for the mixture likelihood.
+        k (optional): The number of top components to consider for the mixture likelihood. If None, all components are used.
         use_gpu (optional): Whether to use GPU for computation if available.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
@@ -861,10 +861,9 @@ def impute_missing_values_component(
     model.eval()
 
     # Generate component samples
+    z_samples, w = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state, device=device)
     if model.z is not None:
         z_samples = model.z
-    else:
-        z_samples, _ = generate_rqmc_samples(n_components, model.latent_dim, random_state=random_state, device=device)
 
     # Convert the input data to a tensor
     x_incomplete_tensor = torch.tensor(x_incomplete, dtype=torch.float32, device=device)
@@ -900,13 +899,14 @@ def impute_missing_values_component(
     # Sum over features → log-likelihoods for (n_components, n_missing_rows)
     log_likelihoods = log_probs.sum(dim=-1)
 
-    if k is None or k == 1:
+    if k is None:       # Use all components for imputation
+        weights = torch.softmax(log_likelihoods, dim=0)  # (n_components, n_missing_rows)
+        weights_expanded = weights.unsqueeze(-1)    # (n_components, n_missing_rows, 1)
+        best_means = (means_exp * weights_expanded).sum(dim=0)  # (n_missing_rows, input_dim)
+    elif k == 1:
         # Find the best component for each sample
         best_components = torch.argmax(log_likelihoods, dim=0)  # (n_missing_rows,)
         best_means = means[best_components]                    # (n_missing_rows, input_dim)
-
-        # Compute the average log-likelihood of the imputed data for logging
-        avg_log_likelihood = log_likelihoods[best_components, torch.arange(n_incomplete)].mean().item()
     else:
         # Find the k best components for each sample
         top_k_values, top_k_indices = torch.topk(log_likelihoods, k=k, dim=0)
@@ -917,12 +917,13 @@ def impute_missing_values_component(
         weights_expanded = weights.unsqueeze(-1)  # (k, n_missing_rows, 1)
         best_means = (top_k_means * weights_expanded).sum(dim=0)  # (n_missing_rows, input_dim)
 
-        # Compute the average log-likelihood of the imputed data for logging
-        avg_log_likelihood = top_k_values.mean().item()
-
     # Fill missing values with the mean from the best component
     x_rows_imputed = x_rows_with_missing.clone()
     x_rows_imputed[missing_mask] = best_means[missing_mask]
+
+    # Compute the final log-likelihood of the imputed data for logging
+    with torch.no_grad():
+        final_log_likelihood = model(x_rows_imputed, z_samples, w, n_components=n_components).item()
 
     # Insert imputed rows back into the full tensor
     x_imputed_tensor[missing_row_mask] = x_rows_imputed
@@ -930,11 +931,11 @@ def impute_missing_values_component(
     if verbose > 0:
         print(f"Finished imputing data.")
         print(f"Successfully imputed {missing_mask.sum().item()} missing values across {n_incomplete} samples.")
-        print(f"Final imputed data log-likelihood: {avg_log_likelihood}")
+        print(f"Final imputed data log-likelihood: {final_log_likelihood}")
     if verbose > 1:    
         print(f"Total imputation time: {time.time() - start_time:.2f}s")
 
-    return x_imputed_tensor.detach().cpu().numpy(), avg_log_likelihood  # Return the imputed data and the log-likelihood
+    return x_imputed_tensor.detach().cpu().numpy(), final_log_likelihood  # Return the imputed data and the log-likelihood
 
 def set_random_seed(seed):
     """Ensure reproducibility by setting random seeds for all libraries."""
@@ -974,8 +975,8 @@ if __name__ == '__main__':
                          batch_size=None,
                          random_state=0
                          )
-    #imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=None, verbose=1, random_state=0)
-    imputed, likelihood, impute_likelihoods = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=1, verbose=1, random_state=0)
+    #imputed, likelihood, impute_likelihoods = impute_missing_values(all_zeros, model, num_components=512, verbose=0, random_state=0)
     print(imputed[50, 3])
     print(imputed[10, 2])
     print(imputed[92, 0])
