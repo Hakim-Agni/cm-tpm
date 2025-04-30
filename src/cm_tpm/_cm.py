@@ -273,6 +273,10 @@ class CMImputer:
         # Transform the data to a NumPy array
         X_np, original_format, columns = _to_numpy(X)
 
+        # Add a dimension to 1-dimensional data
+        if X_np.ndim == 1:
+            X_np = np.expand_dims(X_np, 0)
+
         if file_in:     # Force ndarray as file input default
             original_format = "ndarray"
         
@@ -538,6 +542,8 @@ class CMImputer:
             X_preprocessed, 
             self.model,
             num_components=self.n_components_impute,
+            # epochs=self.max_iter,
+            # lr=self.lr,
             use_gpu=self.use_gpu,
             random_state=self.random_state,
             verbose = self.verbose,
