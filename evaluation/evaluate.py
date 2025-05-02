@@ -243,11 +243,12 @@ if __name__ == "__main__":
         max_iter=100,
         batch_size=None,
         tol=0.0001,
+        patience=10,
         lr=0.001,
         weight_decay=0.01,
         use_gpu=True,
         random_state=0,
-        verbose=0,
+        verbose=1,
         copy=True,
         keep_empty_features=True,
     )

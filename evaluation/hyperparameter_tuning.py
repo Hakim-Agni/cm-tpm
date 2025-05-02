@@ -231,7 +231,9 @@ if __name__ == "__main__":
     batch_norm = True
     dropout_rate = 0.1
 
-    random_states = [0, 42, 100, 35, 8]
+    random_state = None
+    rng = np.random.default_rng(random_state) 
+    nr_of_runs = 5
 
     maes = {}
     accs = {}
@@ -241,7 +243,8 @@ if __name__ == "__main__":
     ll_inference = {}
 
     # Run once with each random state
-    for i in range(len(random_states)):
+    for i in range(nr_of_runs):
+        rand_state = rng.integers(1e9)
         cm_imputer = CMImputer(
             missing_values=np.nan,
             n_components_train=256,
@@ -250,7 +253,7 @@ if __name__ == "__main__":
             top_k=None,
             lo=False,
             pc_type="factorized",
-            imputation_method="EM",
+            imputation_method="exact",
             ordinal_features=None,
             max_depth=5,
             custom_net=None,
@@ -261,11 +264,12 @@ if __name__ == "__main__":
             dropout_rate=dropout_rate,
             max_iter=100,
             batch_size=None,
-            tol=0.0001,
-            lr=0.001,
+            tol=1e-4,
+            patience=10,
+            lr=1e-3,
             weight_decay=0.01,
             use_gpu=True,
-            random_state=random_states[i],
+            random_state=rand_state,
             verbose=0,
             copy=True,
             keep_empty_features=True,
@@ -274,10 +278,9 @@ if __name__ == "__main__":
         score, likelihood = run_evaluation(cm_imputer=cm_imputer, print_results=False)
 
         # Store the likelihoods for the first loop only
-        if i == 0:
-            for dataset_name in likelihood.keys():
-                ll_train[dataset_name] = likelihood[dataset_name].get("Training", [])
-                ll_inference[dataset_name] = likelihood[dataset_name].get("Inference", [])
+        for dataset_name in likelihood.keys():
+            ll_train[dataset_name, i] = likelihood[dataset_name].get("Training", [])
+            ll_inference[dataset_name, i] = likelihood[dataset_name].get("Inference", [])
         
         for dataset_name, imputer_name in score.keys():
             if imputer_name != "cm_imputer":
@@ -305,26 +308,38 @@ if __name__ == "__main__":
             continue
         print(f"Dataset: {dataset_name}")
         print(f"\tMean Absolute Error (MAE): {np.mean(maes[dataset_name]):.4f}")
+        print(maes[dataset_name])
         #print(f"\tAccuracy: {np.mean(accs[dataset_name]):.4f}")
         print(f"\tTraining Time: {np.mean(tt[dataset_name]):.4f} seconds")
         print(f"\tImputation Time: {np.mean(ti[dataset_name]):.4f} seconds")
 
-    # Print likelihood results
-    n_datasets = len(ll_train.keys())
-    fig, axes = plt.subplots(n_datasets, 2, sharex=True, sharey=False, figsize=(9, 4 * n_datasets))
+    # Plot likelihood results
+    n_datasets = sum(datasets.values())
+    if n_datasets > 1:
+        fig, axes = plt.subplots(n_datasets, 2, sharex=True, sharey=False, figsize=(9, 4 * n_datasets))
+        mult_data = True
+        n_rows = n_datasets
+    else:
+        fig, axes = plt.subplots(nr_of_runs, 2, sharex=True, sharey=False, figsize=(9, 4 * nr_of_runs))
+        mult_data = False
+        n_rows = nr_of_runs
 
     index = 0
-    for name in ll_train.keys():
-        if n_datasets == 1:
-            axes[0].plot(ll_train[name])
+    for name, i in ll_train.keys():
+        if mult_data and i > 0:
+            print(mult_data)
+            continue
+
+        if n_rows == 1:
+            axes[0].plot(ll_train[name, i])
             axes[0].set_title(name + " - training")
-            axes[1].plot(ll_inference[name])
+            axes[1].plot(ll_inference[name, i])
             axes[1].set_title(name + " - inference")
         else:
-            axes[index, 0].plot(ll_train[name])
-            axes[index, 0].set_title(name + " - training")
-            axes[index, 1].plot(ll_inference[name])
-            axes[index, 1].set_title(name + " - inference")
+            axes[index, 0].plot(ll_train[name, i])
+            axes[index, 0].set_title(name + " - training - run " + str(i))
+            axes[index, 1].plot(ll_inference[name, i])
+            axes[index, 1].set_title(name + " - inference - run " + str(i))
 
             index += 1
 
