@@ -1,4 +1,5 @@
 from sklearn.datasets import load_digits
+import torchvision
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import math
@@ -7,8 +8,9 @@ import pandas as pd
 from cm_tpm import CMImputer
 
 # TODO: Add option for multiple samples
+dataset = "fashion"
 random_state = 42
-remove = "Bottom"   # "top" or "bottom" or "random"
+remove = "bottom"   # "top" or "bottom" or "random"
 n_outputs = 5
 
 # Function to introduce random missingness in the dataset
@@ -35,9 +37,9 @@ def remove_top(data):
     return data
 
 
-def show_image(image_data, ax, title):
+def show_image(image_data, ax, title, image_shape):
     # Convert the 1D array into an 8x8 2D array
-    image_array = np.array(image_data).reshape((8, 8))
+    image_array = np.array(image_data).reshape(image_shape)
 
     # Create a masked array: mask NaNs
     masked_array = np.ma.masked_invalid(image_array)
@@ -52,11 +54,32 @@ def show_image(image_data, ax, title):
     ax.axis('off')
     ax.set_title(title)
 
-data = pd.DataFrame(load_digits(as_frame=True).frame)
-data = data.drop("target", axis=1)
+if dataset == "digits":
+    data = pd.DataFrame(load_digits(as_frame=True).frame)
+    data = data.drop("target", axis=1)
 
-train_data = data[:1500]
-test_data = data[1500:]
+    train_data = data[:1500]
+    test_data = data[1500:]
+
+    image_shape = (8, 8)
+elif dataset == "fashion":
+    # Load FashionMNIST (only the data, no labels)
+    fashion_mnist = torchvision.datasets.FashionMNIST(
+        root="/data", train=True, download=True, transform=torchvision.transforms.ToTensor()
+    )
+
+    # Limit the size if needed (e.g., for speed)
+    images = [img for img, label in list(fashion_mnist)[:5000]]  # First 2000 samples
+    data_np = np.stack([img.squeeze().numpy().flatten() * 255 for img in images])  # Scale to 0-255
+
+    data = pd.DataFrame(data_np)
+
+    train_data = data[:4000]
+    test_data = data[4000:]
+
+    image_shape = (28, 28)
+else:
+    raise ValueError(f"Unsupported dataset: {dataset}")
 
 if remove == "random":
     # Remove random parts of the image
@@ -72,28 +95,10 @@ else: # Default to bottom
 test_data = test_data
 test_data_missing = test_data_missing
 
-hidden_layers = 5
-neurons_per_layer = 512
-activation = "LeakyReLU"
-batch_norm = True
-dropout_rate = 0.3
-
 model = CMImputer(
-    n_components_train=256,
-    n_components_impute=1024,
-    latent_dim=4,
-    imputation_method="EM",
-    random_state=random_state,
+    settings="balanced",
+    random_state=0,
     verbose=1,
-    # hidden_layers=hidden_layers,
-    # neurons_per_layer=neurons_per_layer,
-    # activation=activation,
-    # batch_norm=batch_norm,
-    # dropout_rate=dropout_rate,
-    # max_iter=100,
-    # tol=0.0001,
-    # lr=0.001,
-    # weight_decay=0.01,
 )
 
 model.fit(train_data)
@@ -112,12 +117,12 @@ for i in range(n_outputs):
     imputed_sample = model.transform(test_sample)
 
     if n_outputs == 1:
-        show_image(test_data.iloc[index], axes[0], "Full image")
-        show_image(test_sample, axes[1], "Image with missing")
-        show_image(imputed_sample, axes[2], "Imputed image")
+        show_image(test_data.iloc[index], axes[0], "Full image", image_shape)
+        show_image(test_sample, axes[1], "Image with missing", image_shape)
+        show_image(imputed_sample, axes[2], "Imputed image", image_shape)
     else:
-        show_image(test_data.iloc[index], axes[i][0], "Full image")
-        show_image(test_sample, axes[i][1], "Image with missing")
-        show_image(imputed_sample, axes[i][2], "Imputed image")
+        show_image(test_data.iloc[index], axes[i][0], "Full image", image_shape)
+        show_image(test_sample, axes[i][1], "Image with missing", image_shape)
+        show_image(imputed_sample, axes[i][2], "Imputed image", image_shape)
 
 plt.show()

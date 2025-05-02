@@ -5,12 +5,13 @@ import time
 from torch import nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.datasets import load_diabetes, load_breast_cancer, load_digits, load_iris, load_linnerud, load_wine
+import torchvision
 from sklearn.impute import KNNImputer, SimpleImputer
 from ucimlrepo import fetch_ucirepo
 from cm_tpm import CMImputer
 
 # CMImputer Settings
-settings = 1                    # 0 is high fidelity, 1 is medium, 2 is fast
+settings = 3                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is custom
 random_state = 42
 
 # Dataset Settings
@@ -18,10 +19,11 @@ random_state = 42
 diabetes = False                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
 digits = False                   # Very large sized; integer; image
+fashion = True                  # Very large sized; numerical, image
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
 mushroom = False                  # Very large sized; categorical and binary
-wine = True                     # Medium sized; numerical and binary
+wine = False                     # Medium sized; numerical and binary
 
 # Datasets with missing values
 credit = False                     # Large sized; numerical, integer and categorical
@@ -31,6 +33,7 @@ datasets = {
     "diabetes": diabetes,
     "breast_cancer": breast_cancer,
     "digits": digits,
+    "fashion": fashion,
     "iris": iris,
     "linnerud": linnerud,
     "mushroom": mushroom,
@@ -41,8 +44,8 @@ datasets = {
 
 # Imputer Settings
 use_cm_imputer = True
-use_knn_imputer = False
-use_simple_imputer = False
+use_knn_imputer = True
+use_simple_imputer = True
 imputers = {
     "cm_imputer": use_cm_imputer,
     "knn_imputer": use_knn_imputer,
@@ -79,6 +82,16 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             data = load_digits(as_frame=True).frame
             os.makedirs("evaluation/data/digits", exist_ok=True)
             path = "evaluation/data/digits/digits_"
+        elif dataset_name == "fashion":
+            fashion_mnist = torchvision.datasets.FashionMNIST(
+                root="/data", train=True, download=True, transform=torchvision.transforms.ToTensor()
+            )
+            images = [img for img, label in list(fashion_mnist)[:5000]]  # First 2000 samples
+            data_np = np.stack([img.squeeze().numpy().flatten() * 255 for img in images])  # Scale to 0-255
+            data = pd.DataFrame(data_np)
+            data = data[:5000]  # Reduce amount of samples
+            os.makedirs("evaluation/data/fashion", exist_ok=True)
+            path = "evaluation/data/fashion/fashion_"
         elif dataset_name == "iris":
             data = load_iris(as_frame=True).frame
             os.makedirs("evaluation/data/iris", exist_ok=True)
@@ -223,19 +236,33 @@ if __name__ == "__main__":
     if settings == 0:
         # "High fidelity"
         cm_imputer = CMImputer(
-            settings="precise"
+            settings="precise",
+            random_state=random_state,
+            verbose=1,
         )
 
     elif settings == 2:
         # "Fast"
         cm_imputer = CMImputer(
-            setting="fast"
+            setting="fast",
+            random_state=random_state,
+            verbose=1,
+        )
+
+    elif settings == 3:
+        # "Custom"
+        cm_imputer = CMImputer(
+            batch_size=1024,
+            random_state=random_state,
+            verbose=1,
         )
 
     else:
         # "Balanced"
         cm_imputer = CMImputer(
-            settings="balanced"
+            settings="balanced",
+            random_state=random_state,
+            verbose=1,
         )
 
     run_evaluation(cm_imputer=cm_imputer, print_results=True)
