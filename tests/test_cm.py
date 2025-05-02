@@ -41,7 +41,7 @@ class TestClass:
             verbose=2,
             copy=False,
             keep_empty_features=False,
-            )
+        )
         assert imputer.missing_values == ""
         assert imputer.n_components_train == 16
         assert imputer.n_components_impute == 8
@@ -89,13 +89,164 @@ class TestClass:
         assert np.array_equal(
             imputer.random_state_.get_state()[1], 
             np.random.RandomState(42).get_state()[1]
-        )  
+        )
+
+class TestSettings():
+    def test_custom_settings(self):
+        """Test setting custom parameters."""
+        imputer = CMImputer(
+            settings="custom",
+            missing_values="",
+            n_components_train=16,
+            n_components_impute=8,
+            latent_dim=8,
+            top_k=10,
+            lo=True,
+            pc_type="spn",
+            imputation_method="exact",
+            ordinal_features=None,
+            max_depth=3,
+            custom_net=None,
+            hidden_layers=4,
+            neurons_per_layer=128,
+            activation="Tanh",
+            batch_norm=True,
+            dropout_rate=0.3,
+            max_iter=100,
+            batch_size=16,
+            tol=1e-3,
+            patience=8,
+            lr=0.01,
+            weight_decay=1e-3,
+            use_gpu=False,
+            random_state=42,
+            verbose=2,
+            copy=False,
+            keep_empty_features=False,
+        )
+        assert imputer.missing_values == ""
+        assert imputer.n_components_train == 16
+        assert imputer.n_components_impute == 8
+        assert imputer.latent_dim == 8
+        assert imputer.top_k == 10
+        assert imputer.lo
+        assert imputer.pc_type == "spn"
+        assert imputer.imputation_method == "exact"
+        assert imputer.ordinal_features is None
+        assert imputer.max_depth == 3
+        assert imputer.custom_net is None
+        assert imputer.hidden_layers == 4
+        assert imputer.neurons_per_layer == 128
+        assert imputer.activation == "Tanh"
+        assert imputer.batch_norm
+        assert imputer.dropout_rate == 0.3
+        assert imputer.max_iter == 100
+        assert imputer.batch_size == 16
+        assert imputer.tol == 1e-3
+        assert imputer.patience == 8
+        assert imputer.lr == 0.01
+        assert imputer.weight_decay == 1e-3
+        assert not imputer.use_gpu
+        assert imputer.random_state == 42
+        assert imputer.verbose == 2
+        assert not imputer.copy
+        assert not imputer.keep_empty_features
+
+    def test_fast_settings(self):
+        """Test setting fast parameters."""
+        imputer = CMImputer(
+            settings="fast",
+            missing_values="",
+        )
+        assert imputer.missing_values == ""
+        assert imputer.n_components_train == 128
+        assert imputer.n_components_impute == 2048
+        assert imputer.latent_dim == 4
+        assert imputer.top_k is None
+        assert imputer.lo == False
+        assert imputer.pc_type == "factorized"
+        assert imputer.imputation_method == "EM"
+        assert imputer.max_depth == 5
+        assert imputer.custom_net is None
+        assert imputer.hidden_layers == 2
+        assert imputer.neurons_per_layer == 128
+        assert imputer.activation == "LeakyReLU"
+        assert imputer.batch_norm == False
+        assert imputer.dropout_rate == 0.0
+        assert imputer.max_iter == 100
+        assert imputer.batch_size is None
+        assert imputer.tol == 1e-4
+        assert imputer.patience == 10
+        assert imputer.lr == 0.001
+        assert imputer.weight_decay == 0.01
+
+    def test_balanced_settings(self):
+        """Test setting balanced parameters."""
+        imputer = CMImputer(
+            settings="balanced",
+        )
+        assert imputer.n_components_train == 256
+        assert imputer.n_components_impute == 2048
+        assert imputer.latent_dim == 4
+        assert imputer.top_k is None
+        assert imputer.lo == False
+        assert imputer.pc_type == "factorized"
+        assert imputer.imputation_method == "EM"
+        assert imputer.max_depth == 5
+        assert imputer.custom_net is None
+        assert imputer.hidden_layers == 4
+        assert imputer.neurons_per_layer == 512
+        assert imputer.activation == "LeakyReLU"
+        assert imputer.batch_norm == True
+        assert imputer.dropout_rate == 0.1
+        assert imputer.max_iter == 100
+        assert imputer.batch_size is None
+        assert imputer.tol == 1e-4
+        assert imputer.patience == 10
+        assert imputer.lr == 0.001
+        assert imputer.weight_decay == 0.01
+
+    def test_precise_settings(self):
+        """Test setting precise parameters."""
+        imputer = CMImputer(
+            settings="precise",
+        )
+        assert imputer.n_components_train == 256
+        assert imputer.n_components_impute == 1024
+        assert imputer.latent_dim == 8
+        assert imputer.top_k is None
+        assert imputer.lo == False
+        assert imputer.pc_type == "factorized"
+        assert imputer.imputation_method == "exact"
+        assert imputer.max_depth == 5
+        assert imputer.custom_net is None
+        assert imputer.hidden_layers == 5
+        assert imputer.neurons_per_layer == 1024
+        assert imputer.activation == "LeakyReLU"
+        assert imputer.batch_norm == True
+        assert imputer.dropout_rate == 0.1
+        assert imputer.max_iter == 200
+        assert imputer.batch_size is None
+        assert imputer.tol == 1e-4
+        assert imputer.patience == 10
+        assert imputer.lr == 0.001
+        assert imputer.weight_decay == 0.01
+
+    def test_invalid_settings(self):
+        """Test setting invalid settings."""
+        try:
+            imputer = CMImputer(
+                settings="Yellow",
+            )
+            assert False
+        except ValueError as e:
+            assert str(e) == "Unknown settings: 'Yellow'"
 
 class TestFit():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components_train=1)
+        self.imputer = CMImputer(n_components_train=4, random_state=0)
 
     def test_fitted(self):
         """Test the is_fitted_ attribute."""
@@ -156,7 +307,7 @@ class TestTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
-        self.imputer = CMImputer(n_components_train=4, n_components_impute=8)
+        self.imputer = CMImputer(n_components_train=4, n_components_impute=8, random_state=0)
 
     def test_transform_no_fit(self):
         """Test transforming data without fitting the imputer."""
@@ -291,8 +442,8 @@ class TestTransform():
         assert float(X_imputed[0, 1]) <= 8
 
     def test_transform_seed(self):
-        imputer1 = CMImputer(n_components_train=1, random_state=42)
-        imputer2 = CMImputer(n_components_train=1, random_state=42)
+        imputer1 = CMImputer(n_components_train=4, random_state=42)
+        imputer2 = CMImputer(n_components_train=4, random_state=42)
         X = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
         imputer1.fit(X)
         imputer2.fit(X)

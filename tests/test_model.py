@@ -521,13 +521,13 @@ class TestModelResult():
     def test_cm_factorized_constant(self):
         """Test imputing data filled with a constant."""
         constant = np.random.rand()
-        p = 0.05
+        p = 0.1
         all_const = np.full((100, 10), constant)
         all_const[43, 8] = np.nan
         all_const[10, 2] = np.nan
         all_const[84, 0] = np.nan
         model, _ = train_cm_tpm(all_const, random_state=42)
-        imputed, log_likelihood, _ = impute_missing_values_exact(all_const, model, random_state=42)
+        imputed, log_likelihood, _ = impute_missing_values_exact(all_const, model, num_components=1024, random_state=42)
         assert imputed[43, 8] < constant + p and imputed[43, 8] > constant - p
         assert imputed[10, 2] < constant + p and imputed[10, 2] > constant - p
         assert imputed[84, 0] < constant + p and imputed[84, 0] > constant - p

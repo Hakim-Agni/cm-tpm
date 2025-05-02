@@ -150,34 +150,40 @@ class CMImputer:
         ):
         # Mixture model
         self.model = None
-        # Parameters
+
+        # Parameters not related to settings
         self.missing_values = missing_values
-        self.n_components_train = n_components_train
-        self.n_components_impute = n_components_impute
-        self.latent_dim = latent_dim
-        self.top_k = top_k
-        self.lo = lo
-        self.pc_type = pc_type
-        self.imputation_method = imputation_method
         self.ordinal_features = ordinal_features
-        self.custom_net = custom_net
-        self.hidden_layers = hidden_layers
-        self.neurons_per_layer = neurons_per_layer
-        self.activation = activation
-        self.batch_norm = batch_norm
-        self.dropout_rate = dropout_rate
-        self.max_depth = max_depth
-        self.max_iter = max_iter
-        self.batch_size = batch_size
-        self.tol = tol
-        self.patience = patience
-        self.lr = lr
-        self.weight_decay = weight_decay
         self.use_gpu = use_gpu
         self.random_state = random_state
         self.verbose = verbose
         self.copy = copy
         self.keep_empty_features = keep_empty_features
+
+        # Parameters related to settings
+        if settings != "custom":    # Use preset parameters
+            self._apply_preset_settings(settings)
+        else:   # Choose user selected parameters
+            self.n_components_train = n_components_train
+            self.n_components_impute = n_components_impute
+            self.latent_dim = latent_dim
+            self.top_k = top_k
+            self.lo = lo
+            self.pc_type = pc_type
+            self.imputation_method = imputation_method
+            self.custom_net = custom_net
+            self.hidden_layers = hidden_layers
+            self.neurons_per_layer = neurons_per_layer
+            self.activation = activation
+            self.batch_norm = batch_norm
+            self.dropout_rate = dropout_rate
+            self.max_depth = max_depth
+            self.max_iter = max_iter
+            self.batch_size = batch_size
+            self.tol = tol
+            self.patience = patience
+            self.lr = lr
+            self.weight_decay = weight_decay
 
         # Attributes
         self.is_fitted_ = False
@@ -433,7 +439,7 @@ class CMImputer:
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
 
         Returns:
-            log_likelihood_ (float): Log likelihood of the data under the model.
+            log_likelihood_ (float): Log likelihood of the data under the trained model.
         """
         # If the input data is a string (filepath), load the data from the file
         if isinstance(X, str):
@@ -444,9 +450,91 @@ class CMImputer:
         if not self.is_fitted_:
             raise ValueError("The model has not been fitted yet. Please call the fit method first.")
         
-        # Evaluate the model using X
+        # Evaluate the model using X (One pass through the model?)
         # TODO
         return 0.0
+    
+    def _apply_preset_settings(self, settings: str):
+        """Applies the chosen settings on the class parameters."""
+        # The presets for each setting option
+        settings_lower = settings.lower()
+        presets = {
+            "fast": {
+                "n_components_train": 128,
+                "n_components_impute": 2048,
+                "latent_dim": 4,
+                "top_k": None,
+                "lo": False,
+                "pc_type": "factorized",
+                "imputation_method": "EM",
+                "max_depth": 5,
+                "custom_net": None,
+                "hidden_layers": 2,
+                "neurons_per_layer": 128,
+                "activation": "LeakyReLU",
+                "batch_norm": False,
+                "dropout_rate": 0.0,
+                "max_iter": 100,
+                "batch_size": None,
+                "tol": 1e-4,
+                "patience": 10,
+                "lr": 0.001,
+                "weight_decay": 0.01,
+            },
+            "balanced": {
+                "n_components_train": 256,
+                "n_components_impute": 2048,
+                "latent_dim": 4,
+                "top_k": None,
+                "lo": False,
+                "pc_type": "factorized",
+                "imputation_method": "EM",
+                "max_depth": 5,
+                "custom_net": None,
+                "hidden_layers": 4,
+                "neurons_per_layer": 512,
+                "activation": "LeakyReLU",
+                "batch_norm": True,
+                "dropout_rate": 0.1,
+                "max_iter": 100,
+                "batch_size": None,
+                "tol": 1e-4,
+                "patience": 10,
+                "lr": 0.001,
+                "weight_decay": 0.01,
+            },
+            "precise": {
+                "n_components_train": 256,
+                "n_components_impute": 1024,
+                "latent_dim": 8,
+                "top_k": None,
+                "lo": False,
+                "pc_type": "factorized",
+                "imputation_method": "exact",
+                "max_depth": 5,
+                "custom_net": None,
+                "hidden_layers": 5,
+                "neurons_per_layer": 1024,
+                "activation": "LeakyReLU",
+                "batch_norm": True,
+                "dropout_rate": 0.1,
+                "max_iter": 200,
+                "batch_size": None,
+                "tol": 1e-4,
+                "patience": 10,
+                "lr": 0.001,
+                "weight_decay": 0.01,
+            }
+        }
+
+        # Check if valid setting is chosen
+        if settings_lower not in presets:
+            raise ValueError(f"Unknown settings: '{settings}'")
+        
+        # Apply the settings
+        for param, value in presets[settings_lower].items():
+            setattr(self, param, value)
+        return
     
     def _check_consistency(self, X: np.ndarray):
         """Ensures that the input data is consistent with the training data."""

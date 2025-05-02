@@ -223,97 +223,19 @@ if __name__ == "__main__":
     if settings == 0:
         # "High fidelity"
         cm_imputer = CMImputer(
-            missing_values=np.nan,
-            n_components_train=256,
-            n_components_impute=1024,
-            latent_dim=8,
-            top_k=None,
-            lo=False,
-            pc_type="factorized",
-            imputation_method="exact",
-            ordinal_features=None,
-            max_depth=5,
-            custom_net=None,
-            hidden_layers=5,
-            neurons_per_layer=1024,
-            activation="LeakyReLU",
-            batch_norm=True,
-            dropout_rate=0.1,
-            max_iter=200,
-            batch_size=None,
-            tol=1e-4,
-            patience=10,
-            lr=0.001,
-            weight_decay=0.01,
-            use_gpu=True,
-            random_state=random_state,
-            verbose=0,
-            copy=True,
-            keep_empty_features=True,
+            settings="precise"
         )
 
     elif settings == 2:
         # "Fast"
         cm_imputer = CMImputer(
-            missing_values=np.nan,
-            n_components_train=128,
-            n_components_impute=2048,
-            latent_dim=4,
-            top_k=None,
-            lo=False,
-            pc_type="factorized",
-            imputation_method="EM",
-            ordinal_features=None,
-            max_depth=5,
-            custom_net=None,
-            hidden_layers=2,
-            neurons_per_layer=128,
-            activation="LeakyReLU",
-            batch_norm=False,
-            dropout_rate=0.0,
-            max_iter=100,
-            batch_size=None,
-            tol=1e-4,
-            patience=10,
-            lr=0.001,
-            weight_decay=0.01,
-            use_gpu=True,
-            random_state=random_state,
-            verbose=0,
-            copy=True,
-            keep_empty_features=True,
+            setting="fast"
         )
 
     else:
         # "Balanced"
         cm_imputer = CMImputer(
-            missing_values=np.nan,
-            n_components_train=256,
-            n_components_impute=2048,
-            latent_dim=4,
-            top_k=None,
-            lo=False,
-            pc_type="factorized",
-            imputation_method="EM",
-            ordinal_features=None,
-            max_depth=5,
-            custom_net=None,
-            hidden_layers=4,
-            neurons_per_layer=512,
-            activation="LeakyReLU",
-            batch_norm=True,
-            dropout_rate=0.1,
-            max_iter=100,
-            batch_size=None,
-            tol=1e-4,
-            patience=10,
-            lr=0.001,
-            weight_decay=0.01,
-            use_gpu=True,
-            random_state=random_state,
-            verbose=0,
-            copy=True,
-            keep_empty_features=True,
+            settings="balanced"
         )
 
     run_evaluation(cm_imputer=cm_imputer, print_results=True)
