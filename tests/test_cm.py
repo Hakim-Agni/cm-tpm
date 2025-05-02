@@ -33,6 +33,7 @@ class TestClass:
             max_iter=100,
             batch_size=16,
             tol=1e-3,
+            patience=8,
             lr=0.01,
             weight_decay=1e-3,
             use_gpu=False,
@@ -60,6 +61,7 @@ class TestClass:
         assert imputer.max_iter == 100
         assert imputer.batch_size == 16
         assert imputer.tol == 1e-3
+        assert imputer.patience == 8
         assert imputer.lr == 0.01
         assert imputer.weight_decay == 1e-3
         assert not imputer.use_gpu
@@ -398,6 +400,7 @@ class TestParams():
             max_iter=100,
             batch_size=16,
             tol=1e-3,
+            patience=8,
             lr=0.01,
             weight_decay=1e-3,
             use_gpu=False,
@@ -429,6 +432,7 @@ class TestParams():
         assert params["max_iter"] == 100
         assert params["batch_size"] == 16
         assert params["tol"] == 1e-3
+        assert params["patience"] == 8
         assert params["lr"] == 0.01
         assert params["weight_decay"] == 1e-3
         assert params["use_gpu"] == False
@@ -458,6 +462,7 @@ class TestParams():
             max_iter=200,
             batch_size=64,
             tol=1e-4,
+            patience=5,
             lr=0.001,
             weight_decay=1e-6,
             use_gpu=True,
@@ -484,6 +489,7 @@ class TestParams():
         assert self.imputer.max_iter == 200
         assert self.imputer.batch_size == 64
         assert self.imputer.tol == 1e-4
+        assert self.imputer.patience == 5
         assert self.imputer.lr == 0.001
         assert self.imputer.weight_decay == 1e-6
         assert self.imputer.use_gpu == True

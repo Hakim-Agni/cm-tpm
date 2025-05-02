@@ -422,7 +422,8 @@ def train_cm_tpm(
         dropout_rate=0.0,
         epochs=100,
         batch_size=32,
-        tol=1e-5, 
+        tol=1e-5,
+        patience=5, 
         lr=0.001,
         weight_decay=1e-5,
         use_gpu=True,
@@ -449,6 +450,7 @@ def train_cm_tpm(
         epochs (optional): The number of training loops.
         batch_size (optional): The batch size for training or None if not using batches.
         tol (optional): Tolerance for the convergence criterion.
+        patience (optional): Number of epochs to wait if no improvement and then stop the training.
         lr (optional): The learning rate of the optimizer.
         weight_decay (optional): Weight decay for the optimizer.
         use_gpu (optional): Whether to use GPU for computation if available.
@@ -461,6 +463,9 @@ def train_cm_tpm(
     """
     rng = np.random.default_rng(random_state)  # Random number generator for reproducibility
     input_dim = train_data.shape[1]
+
+    # Disable patience if set to None
+    patience = patience if patience is not None else float('inf')
 
     # Define the model
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, 
@@ -475,6 +480,8 @@ def train_cm_tpm(
     if verbose > 0:
         print(f"Starting training with {epochs} epochs...")
     prev_loss = -float('inf')       # Initial loss
+    best_loss = float('inf')       # Keep track of best loss
+    patience_counter = 0            # Early stopping parameter
     start_time = time.time()        # Keep track of training time
 
     # Use GPU if available
@@ -535,8 +542,15 @@ def train_cm_tpm(
         average_loss = total_loss / len(train_loader)       # Average loss over batches
         likelihoods.append(-average_loss)
 
+        # Update best loss and early stopping counter
+        if average_loss > best_loss:
+            patience_counter += 1
+        else:
+            best_loss = average_loss
+            patience_counter = 0
+
         # Check early stopping criteria
-        if epoch > 10 and abs(average_loss - prev_loss) < tol:
+        if epoch > 10 and (abs(average_loss - prev_loss) < tol or patience_counter > patience):
                 if verbose > 1:
                     print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
                 break
@@ -558,7 +572,7 @@ def train_cm_tpm(
     if lo:
         # Optimize z_samples
         model.z = latent_optimization(model, train_loader, num_components_impute, latent_dim, 
-                                      epochs=math.ceil(epochs/2), tol=tol, lr=lr, 
+                                      epochs=math.ceil(epochs/2), tol=tol, patience=patience, lr=lr, 
                                       weight_decay=weight_decay, random_state=random_state, 
                                       verbose=verbose, device=device).to(device)  
     return model, likelihoods        # Return the trained model
@@ -570,6 +584,7 @@ def latent_optimization(
         latent_dim=16,
         epochs=100, 
         tol=1e-5,
+        patience=5,
         lr=0.01, 
         weight_decay=1e-5,
         random_state=None, 
@@ -585,6 +600,7 @@ def latent_optimization(
         latent_dim (optional): The dimensionality of the latent variable.
         epochs (optional): The number of optimization loops.
         tol (optional): Tolerance for the convergence criterion.
+        patience (optional): Number of epochs to wait if no improvement and then stop the optimization.
         lr (optional): The learning rate during optimization. 
         weight_decay (optional): Weight decay for the optimizer.
         random_state (optional): A random seed for reproducibility. 
@@ -613,6 +629,7 @@ def latent_optimization(
         print(f"Starting latent optimization with {epochs} epochs...")
     prev_loss = -float('inf')       # Initial loss
     best_loss = float('inf')
+    patience_counter = 0
     best_z = z_optimized.detach().clone()     # Keep track of the best z_samples
     start_time = time.time()        # Keep track of training time
 
@@ -629,12 +646,15 @@ def latent_optimization(
         with torch.no_grad():
             eval_loss = -model(full_x, z_optimized, w, n_components=n_components)  
 
-        if eval_loss < best_loss:
+        if eval_loss > best_loss:
+            patience_counter += 1
+        else:
             best_z = z_optimized.detach().clone()
             best_loss = eval_loss
+            patience_counter = 0
 
         # Check early stopping criteria
-        if epoch > 10 and abs(eval_loss - prev_loss) < tol:
+        if epoch > 10 and (abs(eval_loss - prev_loss) < tol or patience_counter > patience):
                 if verbose > 1:
                     print(f"Early stopping at epoch {epoch} due to small log likelihood improvement.")
                 break
@@ -965,9 +985,11 @@ if __name__ == '__main__':
     all_zeros[92, 0] = np.nan
     model, train_likelihoods = train_cm_tpm(all_zeros, 
                          pc_type="factorized", 
-                         verbose=0, 
+                         verbose=1, 
                          epochs=100, 
                          lr=0.001, 
+                         tol=1e-5,
+                         patience=5,
                          num_components=256,
                          num_components_impute=512,
                          k=None,

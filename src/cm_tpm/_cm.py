@@ -57,6 +57,8 @@ class CMImputer:
         The number of batches to use for training. If None, the entire dataset is used.
     tol: float, optional (default=1e-4)
         Tolerance for the convergence criterion.
+    patience: int, optional (default=5)
+        Number of iterations to wait if no improvement and then stop the training.
     lr:  float, optional (default=0.001)
         The learning rate for the optimizer.
     weight_decay: float, optional (default=1e-5)
@@ -130,6 +132,7 @@ class CMImputer:
             max_iter: int = 100,
             batch_size: int | None = 32,
             tol: float = 1e-4,
+            patience: int = 5,
             lr: float = 0.001,
             weight_decay: float = 1e-5, 
             use_gpu: bool = True,
@@ -161,6 +164,7 @@ class CMImputer:
         self.max_iter = max_iter
         self.batch_size = batch_size
         self.tol = tol
+        self.patience = patience
         self.lr = lr
         self.weight_decay = weight_decay
         self.use_gpu = use_gpu
@@ -234,6 +238,7 @@ class CMImputer:
             epochs=self.max_iter,
             batch_size=self.batch_size,
             tol=self.tol, 
+            patience=self.patience,
             lr=self.lr,
             weight_decay=self.weight_decay,
             use_gpu=self.use_gpu,
@@ -383,6 +388,7 @@ class CMImputer:
             "max_iter": self.max_iter,
             "batch_size": self.batch_size,
             "tol": self.tol,
+            "patience": self.patience,
             "lr": self.lr,
             "weight_decay": self.weight_decay,
             "use_gpu": self.use_gpu,
@@ -551,7 +557,7 @@ class CMImputer:
                 random_state=self.random_state,
                 verbose = self.verbose,
             )
-        else:    
+        else:    # Use EM imputation by default
             X_imputed, self.log_likelihood_ = impute_missing_values_component(
                 X_preprocessed, 
                 self.model,
