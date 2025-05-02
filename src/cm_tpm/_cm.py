@@ -17,6 +17,12 @@ class CMImputer:
 
     Parameters
     ----------
+    settings: string, optional (default="custom"), allowed: "custom", "fast", "balanced", "precise"
+        The hyperparameter settings to use for the model.
+        - custom: allows custom hyperparameters by setting them manually.
+        - fast: Quick imputation, acceptable quality. Use this option when speed is most important.
+        - balanced: Trade-off between speed and accuracy. Good for general use. Default parameters use the balanced option.
+        - precise: Highest quality, slowest. Use this option when accuracy matters most.
     missing_values: float, string, int, list, optional (default=np.nan)
         The placeholder(s) for missing values in the input data, all instances of missing_values will be imputed.
     n_components_train: int, optional (default=8)
@@ -113,35 +119,35 @@ class CMImputer:
     """
     def __init__(
             self,
+            settings: str = "custom",
             missing_values: int | float | str | list | None = np.nan,
-            n_components_train: int = 8,
-            n_components_impute: int | None = None,
-            latent_dim: int = 16,
+            n_components_train: int = 256,
+            n_components_impute: int | None = 2048,
+            latent_dim: int = 4,
             top_k: int | None = None,
             lo: bool = False,
             pc_type: str = "factorized",
             imputation_method: str = "EM",
-            ordinal_features: dict = None,
+            ordinal_features: dict | None = None,
             max_depth: int = 5,
-            custom_net: nn.Sequential = None,
-            hidden_layers: int = 2,
-            neurons_per_layer: int | list = 64,
-            activation: str = "ReLU",
-            batch_norm: bool = False,
-            dropout_rate: float = 0.0,
+            custom_net: nn.Sequential | None = None,
+            hidden_layers: int = 4,
+            neurons_per_layer: int | list = 512,
+            activation: str = "LeakyReLU",
+            batch_norm: bool = True,
+            dropout_rate: float = 0.1,
             max_iter: int = 100,
-            batch_size: int | None = 32,
+            batch_size: int | None = None,
             tol: float = 1e-4,
-            patience: int = 5,
+            patience: int = 10,
             lr: float = 0.001,
-            weight_decay: float = 1e-5, 
+            weight_decay: float = 0.01, 
             use_gpu: bool = True,
-            random_state: int = None,
+            random_state: int | None = None,
             verbose: int = 0,
             copy: bool = True,
             keep_empty_features: bool = False,
         ):
-        """Initialize the CMImputer instance."""
         # Mixture model
         self.model = None
         # Parameters
@@ -562,7 +568,7 @@ class CMImputer:
                 X_preprocessed, 
                 self.model,
                 num_components=self.n_components_impute,
-                k=1,
+                k=None,
                 use_gpu=self.use_gpu,
                 random_state=self.random_state,
                 verbose = self.verbose,
