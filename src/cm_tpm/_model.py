@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from scipy.stats import qmc
 import networkx as nx
+import gc
 
 # TODO:
 #   Check: Optimize latent selection (top-K selection)
@@ -826,6 +827,7 @@ def impute_missing_values_component(
         model,
         num_components=None,
         k=None,
+        max_batch_size=256,
         use_gpu=True,
         random_state=None,
         verbose=0,
@@ -840,6 +842,7 @@ def impute_missing_values_component(
         model: A CM-TPM model to use for data imputation.
         num_components (optional): The number of mixture components.
         k (optional): The number of top components to consider for the mixture likelihood. If None, all components are used.
+        max_batch_size (optional): The maximum batch size for imputation or None if not using batches.
         use_gpu (optional): Whether to use GPU for computation if available.
         random_state (optional): A random seed for reproducibility. 
         verbose (optional): Verbosity level.
@@ -886,12 +889,13 @@ def impute_missing_values_component(
         z_samples = model.z
 
     # Convert the input data to a tensor
-    x_incomplete_tensor = torch.tensor(x_incomplete, dtype=torch.float32, device=device)
-    x_imputed_tensor = x_incomplete_tensor.clone()
+    x_incomplete_tensor = torch.tensor(x_incomplete, dtype=torch.float32, device=device, requires_grad=False)
+    x_imputed_tensor = x_incomplete_tensor.clone().requires_grad_(False)
 
     # Identify rows with missing values
-    missing_row_mask = torch.isnan(x_incomplete_tensor).any(dim=1)  # shape: (batch_size,)
-    x_rows_with_missing = x_incomplete_tensor[missing_row_mask]
+    missing_full_mask = torch.isnan(x_incomplete_tensor).requires_grad_(False)
+    missing_row_mask = torch.isnan(x_incomplete_tensor).any(dim=1).requires_grad_(False)  # shape: (batch_size,)
+    x_rows_with_missing = x_incomplete_tensor[missing_row_mask].requires_grad_(False)
     n_incomplete = x_rows_with_missing.shape[0]
     n_features = x_incomplete.shape[1]
 
@@ -899,63 +903,88 @@ def impute_missing_values_component(
     phi_z = model.phi_net(z_samples)  # shape: (C, 2 * F)
     means, log_vars = torch.chunk(phi_z, 2, dim=-1)
     stds = torch.exp(0.5 * log_vars).clamp(min=1e-3)
+    means_exp = means.unsqueeze(1).detach()                                       # (n_components, 1, input_dim)
+    stds_exp = stds.unsqueeze(1).detach()                                         # (n_components, 1, input_dim)
 
-    # Build mask for missing values
-    missing_mask = torch.isnan(x_rows_with_missing)           # shape: (n_missing_rows, input_dim)
-
-    # Expand dims for broadcasting
-    x_exp = x_rows_with_missing.unsqueeze(0).expand(n_components, -1, -1)  # (n_components, n_missing_rows, input_dim)
-    means_exp = means.unsqueeze(1)                                       # (n_components, 1, input_dim)
-    stds_exp = stds.unsqueeze(1)                                         # (n_components, 1, input_dim)
-
-    # Compute log probabilities
-    diff = (x_exp - means_exp) / stds_exp
     log_2pi = math.log(2 * math.pi)
-    log_probs = -0.5 * (diff ** 2 + 2 * torch.log(stds_exp) + log_2pi)
 
-    # Zero out missing value contributions
-    log_probs[torch.isnan(log_probs)] = 0.0
+    # If we do not use batches, set batch size to the number of rows with missing values
+    if max_batch_size is None or max_batch_size > n_incomplete:
+        iterator = range(1)
+        batch_size = n_incomplete
+    else:   # Set correct batch size
+        batch_size = max_batch_size
+        iterator = tqdm(range(0, n_incomplete, batch_size), disable=(verbose != 1), desc="Imputing")
 
-    # Sum over features → log-likelihoods for (n_components, n_missing_rows)
-    log_likelihoods = log_probs.sum(dim=-1)
+    imputed_batches = []
+    log_likelihood_total = 0.0
 
-    if k is None:       # Use all components for imputation
-        weights = torch.softmax(log_likelihoods, dim=0)  # (n_components, n_missing_rows)
-        weights_expanded = weights.unsqueeze(-1)    # (n_components, n_missing_rows, 1)
-        best_means = (means_exp * weights_expanded).sum(dim=0)  # (n_missing_rows, input_dim)
-    elif k == 1:
-        # Find the best component for each sample
-        best_components = torch.argmax(log_likelihoods, dim=0)  # (n_missing_rows,)
-        best_means = means[best_components]                    # (n_missing_rows, input_dim)
-    else:
-        # Find the k best components for each sample
-        top_k_values, top_k_indices = torch.topk(log_likelihoods, k=k, dim=0)
-        top_k_means = means[top_k_indices]                    # (k, n_missing_rows, input_dim)
-        
-        # Compute the weighted sum of means for the top k components
-        weights = torch.softmax(top_k_values, dim=0)  # (k, n_missing_rows)
-        weights_expanded = weights.unsqueeze(-1)  # (k, n_missing_rows, 1)
-        best_means = (top_k_means * weights_expanded).sum(dim=0)  # (n_missing_rows, input_dim)
-
-    # Fill missing values with the mean from the best component
-    x_rows_imputed = x_rows_with_missing.clone()
-    x_rows_imputed[missing_mask] = best_means[missing_mask]
-
-    # Compute the final log-likelihood of the imputed data for logging
     with torch.no_grad():
-        final_log_likelihood = model(x_rows_imputed, z_samples, w, n_components=n_components).item()
+        for i in iterator:
+            # Get the current batch
+            x_batch = x_rows_with_missing[i:i+batch_size].requires_grad_(False) 
+            # Build mask for missing values
+            missing_mask = torch.isnan(x_batch).requires_grad_(False)           # shape: (batch_size, input_dim)
 
-    # Insert imputed rows back into the full tensor
-    x_imputed_tensor[missing_row_mask] = x_rows_imputed
+            # Expand dims for broadcasting
+            x_exp = x_batch.unsqueeze(0).expand(n_components, -1, -1).requires_grad_(False)  # (n_components, batch_size, input_dim)
+            
+            # Compute log probabilities
+            diff = (x_exp - means_exp) / stds_exp
+            log_probs = -0.5 * (diff ** 2 + 2 * torch.log(stds_exp) + log_2pi)
+
+            # Zero out missing value contributions
+            log_probs[torch.isnan(log_probs)] = 0.0
+
+            # Sum over features → log-likelihoods for (n_components, n_missing_rows)
+            log_likelihoods = log_probs.sum(dim=-1)
+
+            if k is None:       # Use all components for imputation
+                weights = torch.softmax(log_likelihoods, dim=0)  # (n_components, n_missing_rows)
+                weights_expanded = weights.unsqueeze(-1)    # (n_components, n_missing_rows, 1)
+                best_means = (means_exp * weights_expanded).sum(dim=0)  # (n_missing_rows, input_dim)
+            elif k == 1:
+                # Find the best component for each sample
+                best_components = torch.argmax(log_likelihoods, dim=0)  # (n_missing_rows,)
+                best_means = means[best_components]                    # (n_missing_rows, input_dim)
+            else:
+                # Find the k best components for each sample
+                top_k_values, top_k_indices = torch.topk(log_likelihoods, k=k, dim=0)
+                top_k_means = means[top_k_indices]                    # (k, n_missing_rows, input_dim)
+                
+                # Compute the weighted sum of means for the top k components
+                weights = torch.softmax(top_k_values, dim=0)  # (k, n_missing_rows)
+                weights_expanded = weights.unsqueeze(-1)  # (k, n_missing_rows, 1)
+                best_means = (top_k_means * weights_expanded).sum(dim=0)  # (n_missing_rows, input_dim)
+
+            # Fill missing values with the mean from the best component(s)
+            batch_imputed = x_batch.clone()
+            batch_imputed[missing_mask] = best_means[missing_mask]
+            imputed_batches.append(batch_imputed)
+
+            # Compute the final log-likelihood of the imputed data for logging
+            with torch.no_grad():
+                log_likelihood_total += model(batch_imputed, z_samples, w, n_components=n_components).item()
+
+            del x_batch, missing_mask, x_exp, diff, log_probs, log_likelihoods, best_means, batch_imputed
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        # Insert imputed rows back into the full tensor
+        x_rows_imputed = torch.cat(imputed_batches, dim=0)
+        x_imputed_tensor[missing_row_mask] = x_rows_imputed
+
+        # Compute average log-likelihood over the batches
+        avg_log_likelihood = log_likelihood_total / (n_incomplete / batch_size)
 
     if verbose > 0:
         print(f"Finished imputing data.")
-        print(f"Successfully imputed {missing_mask.sum().item()} missing values across {n_incomplete} samples.")
-        print(f"Final imputed data log-likelihood: {final_log_likelihood}")
+        print(f"Successfully imputed {missing_full_mask.sum().item()} missing values across {n_incomplete} samples.")
+        print(f"Final imputed data log-likelihood: {avg_log_likelihood}")
     if verbose > 1:    
         print(f"Total imputation time: {time.time() - start_time:.2f}s")
 
-    return x_imputed_tensor.detach().cpu().numpy(), final_log_likelihood  # Return the imputed data and the log-likelihood
+    return x_imputed_tensor.detach().cpu().numpy(), avg_log_likelihood  # Return the imputed data and the log-likelihood
 
 def set_random_seed(seed):
     """Ensure reproducibility by setting random seeds for all libraries."""

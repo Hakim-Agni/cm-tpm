@@ -31,7 +31,8 @@ class TestClass:
             batch_norm=True,
             dropout_rate=0.3,
             max_iter=100,
-            batch_size=16,
+            batch_size_train=16,
+            batch_size_impute=8,
             tol=1e-3,
             patience=8,
             lr=0.01,
@@ -59,7 +60,8 @@ class TestClass:
         assert imputer.batch_norm
         assert imputer.dropout_rate == 0.3
         assert imputer.max_iter == 100
-        assert imputer.batch_size == 16
+        assert imputer.batch_size_train == 16
+        assert imputer.batch_size_impute == 8
         assert imputer.tol == 1e-3
         assert imputer.patience == 8
         assert imputer.lr == 0.01
@@ -113,7 +115,8 @@ class TestSettings():
             batch_norm=True,
             dropout_rate=0.3,
             max_iter=100,
-            batch_size=16,
+            batch_size_train=16,
+            batch_size_impute=8,
             tol=1e-3,
             patience=8,
             lr=0.01,
@@ -141,7 +144,8 @@ class TestSettings():
         assert imputer.batch_norm
         assert imputer.dropout_rate == 0.3
         assert imputer.max_iter == 100
-        assert imputer.batch_size == 16
+        assert imputer.batch_size_train == 16
+        assert imputer.batch_size_impute == 8
         assert imputer.tol == 1e-3
         assert imputer.patience == 8
         assert imputer.lr == 0.01
@@ -174,7 +178,6 @@ class TestSettings():
         assert imputer.batch_norm == False
         assert imputer.dropout_rate == 0.0
         assert imputer.max_iter == 100
-        assert imputer.batch_size is None
         assert imputer.tol == 1e-4
         assert imputer.patience == 10
         assert imputer.lr == 0.001
@@ -200,7 +203,6 @@ class TestSettings():
         assert imputer.batch_norm == True
         assert imputer.dropout_rate == 0.1
         assert imputer.max_iter == 100
-        assert imputer.batch_size is None
         assert imputer.tol == 1e-4
         assert imputer.patience == 10
         assert imputer.lr == 0.001
@@ -226,7 +228,6 @@ class TestSettings():
         assert imputer.batch_norm == True
         assert imputer.dropout_rate == 0.1
         assert imputer.max_iter == 200
-        assert imputer.batch_size is None
         assert imputer.tol == 1e-4
         assert imputer.patience == 10
         assert imputer.lr == 0.001
@@ -549,7 +550,8 @@ class TestParams():
             batch_norm=True,
             dropout_rate=0.3,
             max_iter=100,
-            batch_size=16,
+            batch_size_train=16,
+            batch_size_impute=8,
             tol=1e-3,
             patience=8,
             lr=0.01,
@@ -581,7 +583,8 @@ class TestParams():
         assert params["batch_norm"] == True
         assert params["dropout_rate"] == 0.3
         assert params["max_iter"] == 100
-        assert params["batch_size"] == 16
+        assert params["batch_size_train"] == 16
+        assert params["batch_size_impute"] == 8
         assert params["tol"] == 1e-3
         assert params["patience"] == 8
         assert params["lr"] == 0.01
@@ -611,7 +614,8 @@ class TestParams():
             batch_norm=False,
             dropout_rate=0.5,
             max_iter=200,
-            batch_size=64,
+            batch_size_train=64,
+            batch_size_impute=32,
             tol=1e-4,
             patience=5,
             lr=0.001,
@@ -638,7 +642,8 @@ class TestParams():
         assert self.imputer.batch_norm == False
         assert self.imputer.dropout_rate == 0.5
         assert self.imputer.max_iter == 200
-        assert self.imputer.batch_size == 64
+        assert self.imputer.batch_size_train == 64
+        assert self.imputer.batch_size_impute == 32
         assert self.imputer.tol == 1e-4
         assert self.imputer.patience == 5
         assert self.imputer.lr == 0.001

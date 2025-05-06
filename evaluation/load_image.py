@@ -69,8 +69,8 @@ elif dataset == "fashion":
     )
 
     # Limit the size if needed (e.g., for speed)
-    images = [img for img, label in list(fashion_mnist)[:5000]]  # First 2000 samples
-    data_np = np.stack([img.squeeze().numpy().flatten() * 255 for img in images])  # Scale to 0-255
+    images = [img for img, label in list(fashion_mnist)[:5000]]  # First 5000 samples
+    data_np = np.stack([img.squeeze().numpy().flatten() * 15 for img in images])  # Scale to 0-255
 
     data = pd.DataFrame(data_np)
 
@@ -96,7 +96,8 @@ test_data = test_data
 test_data_missing = test_data_missing
 
 model = CMImputer(
-    settings="balanced",
+    settings="custom",
+    batch_size=1024,
     random_state=0,
     verbose=1,
 )

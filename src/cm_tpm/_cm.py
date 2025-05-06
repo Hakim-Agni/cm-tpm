@@ -25,11 +25,11 @@ class CMImputer:
         - precise: Highest quality, slowest. Use this option when accuracy matters most.
     missing_values: float, string, int, list, optional (default=np.nan)
         The placeholder(s) for missing values in the input data, all instances of missing_values will be imputed.
-    n_components_train: int, optional (default=8)
+    n_components_train: int, optional (default=256)
         Number of components to use in the mixture model during training.
-    n_components_impute: int, optional (default=None)
+    n_components_impute: int, optional (default=2048)
         Number of components to use in the mixture model during imputation. If none, the same number of components as used during training.
-    latent_dim: int, optional (default=16)
+    latent_dim: int, optional (default=4)
         Dimensionality of the latent variable.
     top_k: int, optional (default=None)
         The number of components to use for efficient learning. If None, all components are used.
@@ -47,27 +47,29 @@ class CMImputer:
         Maximum depth of the probabilistic circuits.
     custom_net: nn.Sequential, optional (default=None)
         A custom neural network to use in the model.
-    hidden_layers: int, optional (default=2)
+    hidden_layers: int, optional (default=4)
         The number of hidden layers in the neural network.
-    neuron_per_layer: int or list of ints, optional (default=64)
+    neuron_per_layer: int or list of ints, optional (default=512)
         The number of neuron in each layer in the neural network.
-    activation: str, optional (default="ReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU", "Identity
+    activation: str, optional (default="LeakyReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU", "Identity
         The activation function used in the neural network.
-    batch_norm: bool, optional (default=False)
+    batch_norm: bool, optional (default=True)
         Whether to use batch normalization in the neural network.
-    dropout_rate: float, optional (default=0.0)
+    dropout_rate: float, optional (default=0.1)
         The dropout rate used in the neural network.
     max_iter: int, optional (default=100)
         Maximum number of iterations to perform.
-    batches: int or None, optional (default=32)
-        The number of batches to use for training. If None, the entire dataset is used.
+    batch_size_train: int or None, optional (default=1024)
+        The batch size to use for training. If None, the entire dataset is used.
+    batch_size_impute: int or None, optional (default=256)
+        The batch size to use for imputing. If None, the entire dataset is used.
     tol: float, optional (default=1e-4)
         Tolerance for the convergence criterion.
-    patience: int, optional (default=5)
+    patience: int, optional (default=10)
         Number of iterations to wait if no improvement and then stop the training.
     lr:  float, optional (default=0.001)
         The learning rate for the optimizer.
-    weight_decay: float, optional (default=1e-5)
+    weight_decay: float, optional (default=0.01)
         The weight decay (L2 penalty) for the optimizer.
     use_gpu: bool, optional (default=True)
         Whether to use GPU for training and imputation if available. If False, CPU is used.
@@ -137,7 +139,8 @@ class CMImputer:
             batch_norm: bool = True,
             dropout_rate: float = 0.1,
             max_iter: int = 100,
-            batch_size: int | None = None,
+            batch_size_train: int | None = 1024,
+            batch_size_impute: int | None = 256,
             tol: float = 1e-4,
             patience: int = 10,
             lr: float = 0.001,
@@ -154,6 +157,8 @@ class CMImputer:
         # Parameters not related to settings
         self.missing_values = missing_values
         self.ordinal_features = ordinal_features
+        self.batch_size_train = batch_size_train
+        self.batch_size_impute = batch_size_impute
         self.use_gpu = use_gpu
         self.random_state = random_state
         self.verbose = verbose
@@ -179,7 +184,8 @@ class CMImputer:
             self.dropout_rate = dropout_rate
             self.max_depth = max_depth
             self.max_iter = max_iter
-            self.batch_size = batch_size
+            self.batch_size_train = batch_size_train
+            self.batch_size_impute = batch_size_impute
             self.tol = tol
             self.patience = patience
             self.lr = lr
@@ -248,7 +254,7 @@ class CMImputer:
             batch_norm=self.batch_norm,
             dropout_rate=self.dropout_rate,
             epochs=self.max_iter,
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_train,
             tol=self.tol, 
             patience=self.patience,
             lr=self.lr,
@@ -398,7 +404,8 @@ class CMImputer:
             "batch_norm": self.batch_norm,
             "dropout_rate": self.dropout_rate,
             "max_iter": self.max_iter,
-            "batch_size": self.batch_size,
+            "batch_size_train": self.batch_size_train,
+            "batch_size_impute": self.batch_size_impute,
             "tol": self.tol,
             "patience": self.patience,
             "lr": self.lr,
@@ -475,7 +482,6 @@ class CMImputer:
                 "batch_norm": False,
                 "dropout_rate": 0.0,
                 "max_iter": 100,
-                "batch_size": None,
                 "tol": 1e-4,
                 "patience": 10,
                 "lr": 0.001,
@@ -497,7 +503,6 @@ class CMImputer:
                 "batch_norm": True,
                 "dropout_rate": 0.1,
                 "max_iter": 100,
-                "batch_size": None,
                 "tol": 1e-4,
                 "patience": 10,
                 "lr": 0.001,
@@ -519,7 +524,6 @@ class CMImputer:
                 "batch_norm": True,
                 "dropout_rate": 0.1,
                 "max_iter": 200,
-                "batch_size": None,
                 "tol": 1e-4,
                 "patience": 10,
                 "lr": 0.001,
@@ -647,6 +651,7 @@ class CMImputer:
                 num_components=self.n_components_impute,
                 # epochs=self.max_iter,
                 # lr=self.lr,
+                max_batch_size=self.batch_size_impute,
                 use_gpu=self.use_gpu,
                 random_state=self.random_state,
                 verbose = self.verbose,
@@ -657,6 +662,7 @@ class CMImputer:
                 self.model,
                 num_components=self.n_components_impute,
                 k=None,
+                max_batch_size=self.batch_size_impute,
                 use_gpu=self.use_gpu,
                 random_state=self.random_state,
                 verbose = self.verbose,

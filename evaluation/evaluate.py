@@ -44,8 +44,8 @@ datasets = {
 
 # Imputer Settings
 use_cm_imputer = True
-use_knn_imputer = True
-use_simple_imputer = True
+use_knn_imputer = False
+use_simple_imputer = False
 imputers = {
     "cm_imputer": use_cm_imputer,
     "knn_imputer": use_knn_imputer,
@@ -86,8 +86,8 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             fashion_mnist = torchvision.datasets.FashionMNIST(
                 root="/data", train=True, download=True, transform=torchvision.transforms.ToTensor()
             )
-            images = [img for img, label in list(fashion_mnist)[:5000]]  # First 2000 samples
-            data_np = np.stack([img.squeeze().numpy().flatten() * 255 for img in images])  # Scale to 0-255
+            images = [img for img, label in list(fashion_mnist)[:5000]]  # First 5000 samples
+            data_np = np.stack([img.squeeze().numpy().flatten() for img in images])
             data = pd.DataFrame(data_np)
             data = data[:5000]  # Reduce amount of samples
             os.makedirs("evaluation/data/fashion", exist_ok=True)
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     elif settings == 3:
         # "Custom"
         cm_imputer = CMImputer(
-            batch_size=1024,
+            batch_size_train=1024,
             random_state=random_state,
             verbose=1,
         )
