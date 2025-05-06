@@ -251,8 +251,19 @@ if __name__ == "__main__":
 
     elif settings == 3:
         # "Custom"
+        net = nn.Sequential(
+            nn.Conv2d(1, 16, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(32, 1568)
+        )
         cm_imputer = CMImputer(
-            batch_size_train=1024,
+            settings="custom",
+            #custom_net=net,
             random_state=random_state,
             verbose=1,
         )

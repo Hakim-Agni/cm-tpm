@@ -325,7 +325,7 @@ class PhiNet(nn.Module):
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
-            if net[0].in_features != latent_dim:
+            if not isinstance(net[0], nn.Conv2d) and net[0].in_features != latent_dim:
                 raise ValueError(f"Invalid input net. The first layer should have {latent_dim} input features, but is has {net[0].in_features} input features.")
             if net[-1].out_features != out_dim:
                 raise ValueError(f"Invalid input net. The final layer should have {out_dim} output features, but is has {net[-1].out_features} output features.")
@@ -384,8 +384,11 @@ class PhiNet(nn.Module):
         Returns: 
             phi(z): The pc parameters obtained by running z throuh the neural network, of shape (num_components, pc_param_dim)
         """
-        if z.shape[1] != self.net[0].in_features:
+        if isinstance(self.net[0], nn.Conv2d):
+            z = z.view(z.shape[0], 1, int(z.shape[1]/2), 2)
+        elif z.shape[1] != self.net[0].in_features:
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
+        
         return self.net(z)
 
 def generate_rqmc_samples(num_samples, latent_dim, random_state=None, device="cpu"):
