@@ -1,13 +1,16 @@
+import os
 import math
 import time
+import json
 import numpy as np
 import pandas as pd
+import torch
 import torch.nn as nn
 import warnings
-from ._model import train_cm_tpm, impute_missing_values_exact, impute_missing_values_component
+from ._model import CM_TPM, train_cm_tpm, impute_missing_values_exact, impute_missing_values_component
 from ._helpers import (
     _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
-    _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
+    _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding, _convert_json, _convert_numpy
 )
 
 class CMImputer:
@@ -90,8 +93,6 @@ class CMImputer:
         Number of features in the input data.
     feature_names_in_: list of str
         Names of the input features.
-    components_: list
-        List of trained components in the mixture model.
     log_likelihood_: float
         Log likelihood of the data under the model.
     training_likelihoods_: list of floats
@@ -195,7 +196,6 @@ class CMImputer:
         self.is_fitted_ = False
         self.n_features_in_ = None
         self.feature_names_in_ = None
-        self.components_ = None
         self.log_likelihood_ = None
         self.training_likelihoods_ = None
         self.imputing_likelihoods_ = None
@@ -207,13 +207,14 @@ class CMImputer:
         self.bin_encoding_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
-    def fit(self, X: str | np.ndarray | pd.DataFrame | list, sep=",", decimal=".") -> "CMImputer":
+    def fit(self, X: str | np.ndarray | pd.DataFrame | list, save_model_path: str = None, sep=",", decimal=".") -> "CMImputer":
         """
         Fit the imputation model to the input dataset
 
         Parameters:
             X (array-like or str): Input data with missing values.
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
+            save_model_path (str, optional): Location to save the fitted model. If None, the model is not saved.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
                 
@@ -264,17 +265,23 @@ class CMImputer:
             verbose=self.verbose,
             )
 
+        # Set fitted flag to true
         self.is_fitted_ = True
+
+        # If a save path is provided, save the model to that location
+        if save_model_path is not None:
+            self.save_model(save_model_path)
+
         return self
-    
-    def transform(self, X: str | np.ndarray | pd.DataFrame | list, save_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
+
+    def transform(self, X: str | np.ndarray | pd.DataFrame | list, save_output_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
         Impute missing values in the dataset.
 
         Parameters:
             X (array-like or str): Data with missing values.
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
-            save_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
+            save_output_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
             return_format (str, optional): Format of returned data. One of:
@@ -322,33 +329,67 @@ class CMImputer:
         else:  # auto
             result = _restore_format(X_imputed, original_format, columns)
         
-        # If save_path is set, save the imputed data to a file
-        if save_path or file_in:
+        # If save_output_path is set, save the imputed data to a file
+        if save_output_path or file_in:
             df = pd.DataFrame(result, columns=columns)
-            if not save_path:
-                save_path = file_in[:file_in.rfind(".")] + "_imputed" + file_in[file_in.rfind("."):]
-            if save_path.endswith(".csv"):
-                df.to_csv(save_path, index=False)
-            elif save_path.endswith(".xlsx"):
-                df.to_excel(save_path, index=False, engine="openpyxl")
-            elif save_path.endswith(".parquet"):
-                df.to_parquet(save_path)
-            elif save_path.endswith(".feather"):
-                df.to_feather(save_path)
+            if not save_output_path:
+                save_output_path = file_in[:file_in.rfind(".")] + "_imputed" + file_in[file_in.rfind("."):]
+            if save_output_path.endswith(".csv"):
+                df.to_csv(save_output_path, index=False)
+            elif save_output_path.endswith(".xlsx"):
+                df.to_excel(save_output_path, index=False, engine="openpyxl")
+            elif save_output_path.endswith(".parquet"):
+                df.to_parquet(save_output_path)
+            elif save_output_path.endswith(".feather"):
+                df.to_feather(save_output_path)
             else:
                 raise ValueError("Unsupported file format for saving.")
 
         # Return the imputed data
         return result
     
-    def fit_transform(self, X: str | np.ndarray | pd.DataFrame | list, save_path:str = None, sep=",", decimal=".", return_format: str = "auto"):
+    @classmethod
+    def transform_from_file(cls, X: str | np.ndarray | pd.DataFrame | list, load_model_path: str, save_output_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
+        """
+        Impute missing values in the dataset.
+
+        Parameters:
+            X (array-like or str): Data with missing values.
+                - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
+            load_model_path (str, optional): If provided, loads the model from a file.
+            save_output_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
+            sep (str, optional): Delimiter for CSV files.
+            decimal (str, optional): Decimal separator for CSV files.
+            return_format (str, optional): Format of returned data. One of:
+                - "auto": returns same type as input
+                - "ndarray": always returns a NumPy array
+                - "dataframe": always returns a pandas DataFrame
+            
+        Returns:
+            X_imputed (array-like, same type as X): Dataset with missing values replaced. If X is a filepath, X imputed will be a NumPy array.
+
+        Raises:
+            ValueError: If the model is not yet fitted.
+            ValueError: If an unknown file format is provided as a save path.
+            ValueError: If a model load path is not specified.
+        """
+        if load_model_path is None:
+            raise ValueError(
+                "No model path provided. Either pass a valid `load_model_path`, or create an instance of CMImputer and call `.transform()`."
+                )
+
+        # Load the model and perform the transform
+        cls = cls.load_model(load_model_path)
+        return cls.transform(X=X, save_output_path=save_output_path, sep=sep, decimal=decimal, return_format=return_format)
+    
+    def fit_transform(self, X: str | np.ndarray | pd.DataFrame | list, save_model_path: str = None, save_output_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
         Fit the model and then transform the data.
 
         Parameters:
             X (array-like or str): Data with missing values.
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
-            save_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
+            save_output_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
             return_format (str, optional): Output format: "auto", "ndarray", or "dataframe".
@@ -356,7 +397,116 @@ class CMImputer:
         Returns:
             X_imputed (array-like, same type as X): Dataset with missing values replaced. If X is a filepath, X imputed will be a NumPy array.
         """
-        return self.fit(X, sep=sep, decimal=decimal).transform(X, save_path=save_path, sep=sep, decimal=decimal, return_format=return_format)
+        return self.fit(X, save_model_path=save_model_path, sep=sep, decimal=decimal).transform(X, save_output_path=save_output_path, sep=sep, decimal=decimal, return_format=return_format)
+    
+    def save_model(self, path: str):
+        """
+        Save the trained model to a specified location.
+        
+        Parameters:
+            path (str): The location to store the saved model.
+
+        Returns:
+            None.
+        """
+        if not self.is_fitted_:  # Check if the model is fitted
+            raise ValueError("The model has not been fitted yet. Please call the fit method first.")
+        
+        os.makedirs(path, exist_ok=True)    # Create the file path
+
+        # Save the model weights
+        torch.save(self.model.state_dict(), os.path.join(path, "model.pt"))
+
+        # Save hyperparameters from the model
+        parameters = self.get_params()
+        attributes = {
+            "n_features_in_": _convert_json(self.n_features_in_),
+            "feature_names_in_": _convert_json(self.feature_names_in_),
+            "log_likelihood_": _convert_json(self.log_likelihood_),
+            "training_likelihoods_": _convert_json(self.training_likelihoods_),
+            "imputing_likelihoods_": _convert_json(self.imputing_likelihoods_),
+            "min_vals_": _convert_json(self.min_vals_),
+            "max_vals_": _convert_json(self.max_vals_),
+            "binary_info_": _convert_json(self.binary_info_),
+            "integer_info_": _convert_json(self.integer_info_),
+            "encoding_info_": _convert_json(self.encoding_info_),
+            "bin_encoding_info_": _convert_json(self.bin_encoding_info_),
+        }
+        metadata = {
+            "parameters": parameters,
+            "attributes": attributes,
+        }
+        with open(os.path.join(path, "config.json"), "w") as f:
+            json.dump(metadata, f)
+
+        print(f"Model has been succesfully saved at '{path}'.")
+
+    @classmethod
+    def load_model(cls, path: str):
+        """
+        Load a trained model from a specified location.
+
+        Parameters:
+            path (str): The location to where the trained model is stored.
+
+        Returns:
+            A fitted CMImputer instance.
+
+        Raises:
+            FileNotFoundError: If the file location does not conatin model files.
+        """
+        # Check if the file location has a model
+        if not os.path.exists(os.path.join(path, "config.json")) or not os.path.exists(os.path.join(path, "model.pt")):
+            raise FileNotFoundError(f"No model files found at: '{path}'.")
+
+        # Load the parameters for the model
+        with open(os.path.join(path, "config.json"), "r") as f:
+            metadata = json.load(f)
+        parameters = metadata["parameters"]
+        attributes = metadata["attributes"]
+
+        # Create a new CMImputer instance with the same parameters
+        cm_instance = cls(**parameters)
+        cm_instance.n_features_in_ = attributes["n_features_in_"]
+        cm_instance.feature_names_in_ = attributes["feature_names_in_"]
+        cm_instance.training_likelihoods_ = attributes["training_likelihoods_"]
+        cm_instance.imputing_likelihoods_ = attributes["imputing_likelihoods_"]
+        cm_instance.min_vals_ = _convert_numpy(attributes["min_vals_"])
+        cm_instance.max_vals_ = _convert_numpy(attributes["max_vals_"])
+        cm_instance.binary_info_ = _convert_numpy(attributes["binary_info_"])
+        cm_instance.integer_info_ = _convert_numpy(attributes["integer_info_"])
+        cm_instance.encoding_info_ = _convert_numpy(tuple(attributes["encoding_info_"]))
+        cm_instance.bin_encoding_info_ = _convert_numpy(attributes["bin_encoding_info_"])
+        cm_instance.random_state_ = np.random.RandomState(cm_instance.random_state) if cm_instance.random_state is not None else np.random
+
+        # Set fitted flag to true
+        cm_instance.is_fitted_ = True
+
+        # Build model structure without training
+        cm_instance.model = CM_TPM(cm_instance.pc_type, 
+                                   cm_instance.n_features_in_, 
+                                   cm_instance.latent_dim, 
+                                   cm_instance.n_components_train, 
+                                   net=cm_instance.custom_net, 
+                                   custom_layers=[
+                                       cm_instance.hidden_layers, 
+                                       cm_instance.neurons_per_layer, 
+                                       cm_instance.activation, 
+                                       cm_instance.batch_norm, 
+                                       cm_instance.dropout_rate,
+                                       ], 
+                                    random_state=cm_instance.random_state)
+        
+        # Set model trained flag to true
+        cm_instance.model._is_trained = True
+
+        # Load the trained weights
+        state_dict = torch.load(os.path.join(path, "model.pt"))
+        cm_instance.model.load_state_dict(state_dict)
+
+        print(f"Succesfully loaded model from '{path}'.")
+
+        return cm_instance
     
     def get_feature_names_out(self, input_features=None):
         """

@@ -305,3 +305,29 @@ def _restore_binary_encoding(X: np.ndarray, info: dict, X_prob: np.ndarray) -> n
         return restored
     except (ValueError, TypeError):
         return restored
+    
+def _convert_json(obj):
+    """Convert non-serializable objects for JSON."""
+    if isinstance(obj, tuple):
+        obj_list = []
+        for object in obj:
+            obj_list.append(_convert_json(object))
+        return tuple(obj_list)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.int32, np.int64)):
+        return int(obj)
+    if isinstance(obj, (np.float32, np.float64)):
+        return float(obj)
+    return obj
+
+def _convert_numpy(obj):
+    """Convert JSON lists to numpy objects."""
+    if isinstance(obj, tuple):
+        obj_list = []
+        for object in obj:
+            obj_list.append(_convert_numpy(object))
+        return tuple(obj_list)
+    if isinstance(obj, list):
+        return np.asarray(obj)
+    return obj

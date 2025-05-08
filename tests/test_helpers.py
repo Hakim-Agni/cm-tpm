@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from cm_tpm._helpers import (
     _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
-    _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding
+    _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding, _convert_json, _convert_numpy
 )
 
 class TestLoadFiletypes:
@@ -424,3 +424,45 @@ class TestRestoreBinary():
         assert np.array_equal(X_decoded[:, 0], X_encoded[:, 0])
         assert np.array_equal(X_decoded[:, 2], X_encoded[:, 4])
         assert np.array_equal(X_decoded[:, 1], np.array([1., 4., 3.]))
+
+class TestConvertJSON():
+    def test_convert_single_value(self):
+        """Test converting sinlge values to JSON format."""
+        x1 = 5
+        x2 = 0.5
+        x3 = "string"
+        assert x1 == _convert_json(x1)
+        assert x2 == _convert_json(x2)
+        assert x3 == _convert_json(x3)
+
+    def test_convert_list(self):
+        """Test converting a list to JSON format."""
+        x = [1, 2, 3, 4]
+        assert x == _convert_json(x)
+
+    def test_convert_np_array(self):
+        """Test converting a numpy array to JSON format."""
+        x = np.array([1, 2, 3, 4])
+        assert _convert_json(x) == [1, 2, 3, 4]
+
+    def test_convert_tuple(self):
+        """Test converting a tuple to JSON format."""
+        x = (15, np.array([5, 6, 7]))
+        assert _convert_json(x) == (15, [5, 6, 7])
+
+class TestConvertNumpy():
+    def test_convert_list(self):
+        """Test converting a list to a numpy array."""
+        x = [1, 2, 3, 4]
+        assert np.array_equal(_convert_numpy(x), np.array([1, 2, 3, 4]))
+
+    def test_convert_np_array(self):
+        """Test converting a numpy array to a numpy array."""
+        x = np.array([1, 2, 3, 4])
+        assert np.array_equal(x, _convert_numpy(x))
+
+    def test_convert_tuple(self):
+        """Test converting a tuple to numpy format."""
+        x = (15, [5, 6, 7])
+        assert _convert_numpy(x)[0] == 15
+        assert np.array_equal(_convert_numpy(x)[1], np.array([5, 6, 7]))

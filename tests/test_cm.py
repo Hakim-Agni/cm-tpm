@@ -78,7 +78,6 @@ class TestClass:
         assert not imputer.is_fitted_
         assert imputer.n_features_in_ is None
         assert imputer.feature_names_in_ is None
-        assert imputer.components_ is None
         assert imputer.log_likelihood_ is None
         assert imputer.training_likelihoods_ is None
         assert imputer.imputing_likelihoods_ is None
@@ -304,6 +303,13 @@ class TestFit():
         except TypeError as e:
             assert str(e) == "Unsupported data type: int. Expected NumPy ndarray, pandas DataFrame or list."
 
+    def test_save_fitted_model(self):
+        """Test saving a model after fitting."""
+        X = np.array([[1, 2, 3], [4, 5, 6]])
+        imputer = self.imputer.fit(X, save_model_path="tests/saved_models/test_model_fit/")
+        assert os.path.exists("tests/saved_models/test_model_fit/model.pt")
+        assert os.path.exists("tests/saved_models/test_model_fit/config.json")
+
 class TestTransform():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -383,7 +389,7 @@ class TestTransform():
             os.remove("tests/data/test_data_save_path_file.parquet")
         imputer = self.imputer.fit("tests/data/test_data.parquet")
         with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: 'nan'?"):
-            X_imputed = imputer.transform("tests/data/test_data.parquet", save_path="tests/data/test_data_save_path_file.parquet")
+            X_imputed = imputer.transform("tests/data/test_data.parquet", save_output_path="tests/data/test_data_save_path_file.parquet")
             assert isinstance(X_imputed, np.ndarray)
             assert X_imputed.shape == (10, 3)
             assert os.path.exists("tests/data/test_data_save_path_file.parquet")
@@ -395,7 +401,7 @@ class TestTransform():
         X = np.array([[1, 2, 3], [4, 5, 6]])
         imputer = self.imputer.fit(X)
         with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: 'nan'?"):
-            X_imputed = imputer.transform(X, save_path="tests/data/test_data_save_path_data.feather")
+            X_imputed = imputer.transform(X, save_output_path="tests/data/test_data_save_path_data.feather")
             assert isinstance(X_imputed, np.ndarray)
             assert X_imputed.shape == (2, 3)
             assert os.path.exists("tests/data/test_data_save_path_data.feather")
@@ -504,6 +510,34 @@ class TestTransform():
         assert X_imputed[0, 0] >= 1
         assert X_imputed[0, 0] <= 7
 
+class TestTransformFromFile():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        imputer = CMImputer(n_components_train=4, n_components_impute=8)
+        imputer.fit(X, save_model_path="tests/saved_models/test_model_transform/")
+
+    def test_transform_from_file(self):
+        """Test transform function from a model loaded from a file."""
+        X_missing = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
+        X_imputed = CMImputer.transform_from_file(X_missing, load_model_path="tests/saved_models/test_model_transform/")
+        assert X_imputed.shape[0] == 3
+        assert X_imputed.shape[1] == 3
+        assert not np.isnan(X_imputed).any()
+
+    def test_transform_from_file_none(self):
+        """Test transform function from a model loaded from no file."""
+        X_missing = np.array([[1., 2., np.nan], [4., 5., 6.], [7., 8., 9.]])
+        try:
+            X_imputed = CMImputer.transform_from_file(X_missing, load_model_path=None)
+            assert False
+        except ValueError as e:
+            assert str(e) == "No model path provided. Either pass a valid `load_model_path`, or create an instance of CMImputer and call `.transform()`."
 
 class TestFitTransform():
     @pytest.fixture(autouse=True)
@@ -527,6 +561,71 @@ class TestFitTransform():
         assert X_imputed.shape[0] == 3
         assert X_imputed.shape[1] == 3
         assert not np.isnan(X_imputed).any()
+
+class TestSaveModel():
+    def test_save_model_not_fitted(self):
+        """Test saving a model that is not fitted."""
+        imputer = CMImputer()
+        try:
+            imputer.save_model("tests/saved_models/test_model_save/")
+            assert False
+        except ValueError as e:
+            assert str(e) == "The model has not been fitted yet. Please call the fit method first."
+    
+    def test_save_model(self):
+        """Test saving a model that is not fitted."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        imputer = CMImputer(n_components_train=4, n_components_impute=8)
+        imputer.fit(X)
+        imputer.save_model("tests/saved_models/test_model_save/")
+        assert os.path.exists("tests/saved_models/test_model_save/model.pt")
+        assert os.path.exists("tests/saved_models/test_model_save/config.json")
+
+class TestLoadModel():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        imputer = CMImputer(n_components_train=4, 
+                            n_components_impute=8,
+                            latent_dim=8,
+                            batch_size_train=512,)
+        imputer.fit(X, save_model_path="tests/saved_models/test_model_load/")
+
+    def test_load_model_invalid_location(self):
+        """Test loading from a file location where no model files are stored."""
+        try:
+            imputer = CMImputer.load_model("some/path/")
+            assert False
+        except FileNotFoundError as e:
+            assert str(e) == "No model files found at: 'some/path/'."
+
+    def test_load_model(self):
+        """Test loading a model from a file."""
+        imputer = CMImputer.load_model("tests/saved_models/test_model_load/")
+        assert isinstance(imputer, CMImputer)
+        assert imputer.n_components_train == 4
+        assert imputer.n_components_impute == 8
+        assert imputer.latent_dim == 8
+        assert imputer.batch_size_train == 512
+
+        assert imputer.is_fitted_
+        assert imputer.n_features_in_ is not None
+        assert imputer.training_likelihoods_ is not None
+        assert imputer.min_vals_ is not None 
+        assert imputer.max_vals_ is not None
+        assert imputer.binary_info_ is not None
+        assert imputer.integer_info_ is not None
+        assert imputer.encoding_info_ is not None
+        assert imputer.bin_encoding_info_ is not None
 
 class TestParams():
     @pytest.fixture(autouse=True)
