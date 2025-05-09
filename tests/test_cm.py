@@ -78,6 +78,7 @@ class TestClass:
         assert not imputer.is_fitted_
         assert imputer.n_features_in_ is None
         assert imputer.feature_names_in_ is None
+        assert imputer.input_dimension_ is None
         assert imputer.log_likelihood_ is None
         assert imputer.training_likelihoods_ is None
         assert imputer.imputing_likelihoods_ is None
@@ -619,6 +620,7 @@ class TestLoadModel():
 
         assert imputer.is_fitted_
         assert imputer.n_features_in_ is not None
+        assert imputer.input_dimension_ is not None
         assert imputer.training_likelihoods_ is not None
         assert imputer.min_vals_ is not None 
         assert imputer.max_vals_ is not None
@@ -626,6 +628,107 @@ class TestLoadModel():
         assert imputer.integer_info_ is not None
         assert imputer.encoding_info_ is not None
         assert imputer.bin_encoding_info_ is not None
+
+class TestGetFeatureNames():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_model_not_fitted(self):
+        """Test the function on a model that is not fitted."""
+        try:
+            names = self.imputer.get_feature_names_out()
+            assert False
+        except ValueError as e:
+            assert str(e) == "The model has not been fitted yet. Please call the fit method first."
+
+    def test_input_unequal_names(self):
+        """Test inputting feature names unequal to the detected feature names."""
+        data = {
+            'column_1': [1, 2, 3],
+            'column_2': [4, 5, 6],
+        }
+        X = pd.DataFrame(data)
+        self.imputer.fit(X)
+        try:
+            names = self.imputer.get_feature_names_out(input_features=["wrong_name", "also_wrong"])
+            assert False
+        except ValueError as e:
+            assert str(e) == "input_features is not equal to feature_names_in_."
+
+    def test_wrong_input_length(self):
+        """Test inputting an invalid amount of feature names."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X)
+        try:
+            names = self.imputer.get_feature_names_out(input_features=["column_1", "column_2"])
+            assert False
+        except ValueError as e:
+            assert str(e) == "Expected 3 input features, got 2."
+
+    def test_no_n_features_in(self):
+        """Test an instance where n_features_in is not set."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X)
+        self.imputer.n_features_in_ = None
+        try:
+            names = self.imputer.get_feature_names_out()
+            assert False
+        except ValueError as e:
+            assert str(e) == "Unable to generate feature names without n_features_in."
+
+    def test_no_input(self):
+        """Test with no input and with detected names."""
+        data = {
+            'column_1': [1, 2, 3],
+            'column_2': [4, 5, 6],
+        }
+        X = pd.DataFrame(data)
+        self.imputer.fit(X)
+        names = self.imputer.get_feature_names_out()
+        assert np.array_equal(names, np.array(["column_1", "column_2"]))
+
+    def test_input_and_names(self):
+        """Test with input and with detected names."""
+        data = {
+            'column_1': [1, 2, 3],
+            'column_2': [4, 5, 6],
+        }
+        X = pd.DataFrame(data)
+        self.imputer.fit(X)
+        names = self.imputer.get_feature_names_out(input_features=["column_1", "column_2"])
+        assert np.array_equal(names, np.array(["column_1", "column_2"]))
+
+    def test_input_no_names(self):
+        """Test with input but without detected names."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X)
+        names = self.imputer.get_feature_names_out(input_features=["column_1", "column_2", "column_3"])
+        assert np.array_equal(names, np.array(["column_1", "column_2", "column_3"]))
+
+    def test_generate(self):
+        """Test the generating names option when there is no input and no detected names."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X)
+        names = self.imputer.get_feature_names_out()
+        assert np.array_equal(names, np.array(["x0", "x1", "x2"]))
 
 class TestParams():
     @pytest.fixture(autouse=True)
@@ -1010,4 +1113,4 @@ class TestPreprocess():
         assert np.array_equal(integer_mask, np.array([False, False, True]))
         assert np.array_equal(encoding_mask, np.array([True, True, False]))
 
-# TODO: Add tests for _impute, feature names and _apply_preset
+# TODO: Add tests for _impute, _apply_preset

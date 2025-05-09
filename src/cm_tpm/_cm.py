@@ -93,6 +93,8 @@ class CMImputer:
         Number of features in the input data.
     feature_names_in_: list of str
         Names of the input features.
+    input_dimension_: int
+        Number of features in the input data after preprocessing.
     log_likelihood_: float
         Log likelihood of the data under the model.
     training_likelihoods_: list of floats
@@ -196,6 +198,7 @@ class CMImputer:
         self.is_fitted_ = False
         self.n_features_in_ = None
         self.feature_names_in_ = None
+        self.input_dimension_ = None
         self.log_likelihood_ = None
         self.training_likelihoods_ = None
         self.imputing_likelihoods_ = None
@@ -408,6 +411,9 @@ class CMImputer:
 
         Returns:
             None.
+
+        Raises:
+            ValueError: If the model is not yet fitted.
         """
         if not self.is_fitted_:  # Check if the model is fitted
             raise ValueError("The model has not been fitted yet. Please call the fit method first.")
@@ -422,6 +428,7 @@ class CMImputer:
         attributes = {
             "n_features_in_": _convert_json(self.n_features_in_),
             "feature_names_in_": _convert_json(self.feature_names_in_),
+            "input_dimension_": _convert_json(self.input_dimension_),
             "log_likelihood_": _convert_json(self.log_likelihood_),
             "training_likelihoods_": _convert_json(self.training_likelihoods_),
             "imputing_likelihoods_": _convert_json(self.imputing_likelihoods_),
@@ -469,14 +476,21 @@ class CMImputer:
         cm_instance = cls(**parameters)
         cm_instance.n_features_in_ = attributes["n_features_in_"]
         cm_instance.feature_names_in_ = attributes["feature_names_in_"]
+        cm_instance.input_dimension_ = attributes["input_dimension_"]
         cm_instance.training_likelihoods_ = attributes["training_likelihoods_"]
         cm_instance.imputing_likelihoods_ = attributes["imputing_likelihoods_"]
         cm_instance.min_vals_ = _convert_numpy(attributes["min_vals_"])
         cm_instance.max_vals_ = _convert_numpy(attributes["max_vals_"])
         cm_instance.binary_info_ = _convert_numpy(attributes["binary_info_"])
         cm_instance.integer_info_ = _convert_numpy(attributes["integer_info_"])
-        cm_instance.encoding_info_ = _convert_numpy(tuple(attributes["encoding_info_"]))
-        cm_instance.bin_encoding_info_ = _convert_numpy(attributes["bin_encoding_info_"])
+
+        mask, info = _convert_numpy(tuple(attributes["encoding_info_"]))
+        update_info = {}
+        for key in info.keys():
+            update_info[int(key)] = info[key]
+        cm_instance.encoding_info_ = (mask, update_info)
+
+        cm_instance.bin_encoding_info_ = _convert_numpy(tuple(attributes["bin_encoding_info_"]))
         cm_instance.random_state_ = np.random.RandomState(cm_instance.random_state) if cm_instance.random_state is not None else np.random
 
         # Set fitted flag to true
@@ -484,7 +498,7 @@ class CMImputer:
 
         # Build model structure without training
         cm_instance.model = CM_TPM(cm_instance.pc_type, 
-                                   cm_instance.n_features_in_, 
+                                   cm_instance.input_dimension_, 
                                    cm_instance.latent_dim, 
                                    cm_instance.n_components_train, 
                                    net=cm_instance.custom_net, 
@@ -510,24 +524,42 @@ class CMImputer:
     
     def get_feature_names_out(self, input_features=None):
         """
-        Get output feature names for transformation.
+        Get output feature names for transformation. Generates standard output feature names if none exist
 
         Parameters:
             input_features (list of str or None): Optional input feature names. If None, uses feature names seen during fit.
 
         Returns:
             np.ndarray: Array of output feature names.
+
+        Raises:
+            ValueError: If the model is not yet fitted.
+            ValueError: If input_features is not equal to feauture_names_in.
+            ValueError: If the length of input_features is not equal to n_features_in
+            ValueError: If n_features_in is not set.
         """
-        if not hasattr(self, "feature_names_in_"):
-            raise AttributeError("The model has not been fitted yet. Call `fit` before getting feature names.")
+        if not self.is_fitted_:  # Check if the model is fitted
+            raise ValueError("The model has not been fitted yet. Please call the fit method first.")
 
-        if input_features is None:
+        # Check if the provided feature names correspond to the training data.
+        if input_features is not None:
+            if self.feature_names_in_ is not None and not np.array_equal(input_features, self.feature_names_in_):
+                raise ValueError(f"input_features is not equal to feature_names_in_.")
+
+            if self.n_features_in_ is not None and len(input_features) != self.n_features_in_:
+                raise ValueError(f"Expected {self.n_features_in_} input features, got {len(input_features)}.")
+
+            return np.array(input_features, dtype=str)
+        
+        # If feature names were recorded during training, return these names
+        if self.feature_names_in_ is not None:
             return np.array(self.feature_names_in_, dtype=str)
-
-        if len(input_features) != self.n_features_in_:
-            raise ValueError(f"Expected {self.n_features_in_} input features, got {len(input_features)}.")
-
-        return np.array(input_features, dtype=str)
+        
+        if self.n_features_in_ is None:
+            raise ValueError(f"Unable to generate feature names without n_features_in.")
+        
+        # No feature names detected, generate standard feature names (x0, x1, ..., x(n_features_in))
+        return np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=str)
     
     def get_params(self):
         """
@@ -778,6 +810,9 @@ class CMImputer:
             self.min_vals_ = np.where(np.isnan(min_vals), 0.0, min_vals)
             max_vals = np.nanmax(X_transformed, axis=0)
             self.max_vals_ = np.where(np.isnan(max_vals), 1.0, max_vals)
+
+            # Update the input dimension of the data
+            self.input_dimension_ = X_transformed.shape[1]
         
         # Apply min-max scaling
         scale = self.max_vals_ - self.min_vals_
