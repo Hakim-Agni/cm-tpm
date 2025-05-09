@@ -753,6 +753,69 @@ class TestParams():
         assert self.imputer.copy == True
         assert self.imputer.keep_empty_features == True
 
+class TestEvaluate():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer(random_state=42)
+
+    def test_model_not_fitter(self):
+        """Test the evaluate function on a model that is not fitted."""
+        X = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        try:
+            self.imputer.evaluate(X)
+            assert False
+        except ValueError as e:
+            assert str(e) == "The model has not been fitted yet. Please call the fit method first."
+    
+    def test_evaluate_train_data(self):
+        """Test the evaluate function on the train data."""
+        X_train = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X_train)
+        log_likelihood = self.imputer.evaluate(X_train)
+        assert isinstance(log_likelihood, float)
+
+    def test_evaluate_test_data(self):
+        """Test the evaluate function on test data."""
+        X_train = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X_train)
+        X_test = np.array([
+            [9, 8, 7],
+            [3, 2, 1],
+        ])
+        log_likelihood = self.imputer.evaluate(X_test)
+        assert isinstance(log_likelihood, float)
+
+    def test_evaluate_results(self):
+        """Test the results of the evaluate function."""
+        X_train = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ])
+        self.imputer.fit(X_train)
+        X_test = np.array([     # Data very different than training data, likelihood should be lower
+            [0.1, 100, 0.5],
+            [17, 0.5, 152],
+        ])
+        log_likelihood_train = self.imputer.evaluate(X_train)
+        log_likelihood_test = self.imputer.evaluate(X_test)
+        assert isinstance(log_likelihood_train, float)
+        assert isinstance(log_likelihood_test, float)
+        assert log_likelihood_train > log_likelihood_test
+
 class TestConsistency():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -947,4 +1010,4 @@ class TestPreprocess():
         assert np.array_equal(integer_mask, np.array([False, False, True]))
         assert np.array_equal(encoding_mask, np.array([True, True, False]))
 
-# TODO: Add tests for _impute, feature names and evaluate
+# TODO: Add tests for _impute, feature names and _apply_preset

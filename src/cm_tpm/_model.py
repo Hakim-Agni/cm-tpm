@@ -61,7 +61,7 @@ class CM_TPM(nn.Module):
 
         self._is_trained = False
 
-    def forward(self, x, z_samples, w, k=None, n_components=None):
+    def forward(self, x, z_samples=None, w=None, k=None, n_components=None, device=None):
         """
         Compute the mixture likelihood.
 
@@ -77,13 +77,18 @@ class CM_TPM(nn.Module):
         # Set the corrrect amount of components
         num_components = n_components or self.num_components
 
+        # Use RQMC samples for z if not provided
+        if z_samples is None:
+            rng = np.random.default_rng(self.random_state)  # Random number generator for reproducibility
+            z_samples, w = generate_rqmc_samples(num_components, self.latent_dim, random_state=rng.integers(1e9), device=device)
+
         # Error checks
         if x.shape[1] != self.input_dim:
             raise ValueError(f"Invalid input tensor x. Expected shape: ({x.shape[0]}, {self.input_dim}), but got shape: ({x.shape[0]}, {x.shape[1]}).")
         if z_samples.shape[0] != num_components or z_samples.shape[1] != self.latent_dim:
             raise ValueError(f"Invalid input tensor z_samples. Expected shape: ({num_components}, {self.latent_dim}), but got shape: ({z_samples.shape[0]}, {z_samples.shape[1]}).")
 
-        # Use RQMC samples for z if not provided
+        # Choose the optimized z if provided, else use the generated z
         phi_input = self.z if self.z is not None else z_samples
         phi_z = self.phi_net(phi_input)  # Generate parameters for each PC, shape: (num_components, 2 * input_dim)
         
@@ -121,7 +126,6 @@ class CM_TPM(nn.Module):
     def _can_use_fastpath(self):
         """Check if the fast path for factorized PCs can be used."""
         return True
-        #return self.pc_type == "factorized" and self.num_components > 1
 
     def _fast_forward_factorized(self, x, phi_z, w, k=None):
         """

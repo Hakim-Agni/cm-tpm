@@ -597,19 +597,34 @@ class CMImputer:
 
         Returns:
             log_likelihood_ (float): Log likelihood of the data under the trained model.
+
+        Raises:
+            ValueError: If the model is not yet fitted.
         """
+        if not self.is_fitted_:     # Check if the model is fitted
+            raise ValueError("The model has not been fitted yet. Please call the fit method first.")
+        
         # If the input data is a string (filepath), load the data from the file
         if isinstance(X, str):
             X = _load_file(X)
         # Transform the data to a NumPy array
         X, _, _ = _to_numpy(X)
-
-        if not self.is_fitted_:
-            raise ValueError("The model has not been fitted yet. Please call the fit method first.")
         
-        # Evaluate the model using X (One pass through the model?)
-        # TODO
-        return 0.0
+        # Add a dimension to 1-dimensional data
+        if X.ndim == 1:
+            X = np.expand_dims(X, 0)
+
+        # Perform preprocessing on the data
+        X_preprocessed, _, _, _ = self._preprocess_data(X, train=False)
+
+        # Convert training data to tensor
+        device = torch.device("cuda" if self.use_gpu and torch.cuda.is_available() else "cpu")
+        X_tensor = torch.tensor(X_preprocessed, dtype=torch.float32, device=device)  
+
+        # Compute the log likelihood ot the data under the model
+        log_likelihood = self.model(X_tensor, device=device).item()
+
+        return log_likelihood
     
     def _apply_preset_settings(self, settings: str):
         """Applies the chosen settings on the class parameters."""
