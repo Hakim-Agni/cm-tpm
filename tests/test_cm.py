@@ -241,7 +241,7 @@ class TestSettings():
             )
             assert False
         except ValueError as e:
-            assert str(e) == "Unknown settings: 'Yellow'"
+            assert str(e) == "Unknown settings: 'Yellow'."
 
 class TestFit():
     @pytest.fixture(autouse=True)
@@ -919,6 +919,93 @@ class TestEvaluate():
         assert isinstance(log_likelihood_test, float)
         assert log_likelihood_train > log_likelihood_test
 
+class TestApplySettings():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+
+    def test_invalid_settings(self):
+        """Test setting an invalid setting option."""
+        setting = "invalid_setting"
+        try:
+            self.imputer._apply_preset_settings(setting)
+            assert False
+        except ValueError as e:
+            assert str(e) == "Unknown settings: 'invalid_setting'."
+
+    def test_apply_fast(self):
+        """Test applying the fast setting"""
+        setting = "fast"
+        self.imputer._apply_preset_settings(setting)
+        assert self.imputer.n_components_train == 128
+        assert self.imputer.n_components_impute == 2048
+        assert self.imputer.latent_dim == 4
+        assert self.imputer.top_k is None
+        assert self.imputer.lo == False
+        assert self.imputer.pc_type == "factorized"
+        assert self.imputer.imputation_method == "EM"
+        assert self.imputer.max_depth == 5
+        assert self.imputer.custom_net is None
+        assert self.imputer.hidden_layers == 2
+        assert self.imputer.neurons_per_layer == 128
+        assert self.imputer.activation == "LeakyReLU"
+        assert self.imputer.batch_norm == False
+        assert self.imputer.dropout_rate == 0.0
+        assert self.imputer.max_iter == 100
+        assert self.imputer.tol == 1e-4
+        assert self.imputer.patience == 10
+        assert self.imputer.lr == 0.001
+        assert self.imputer.weight_decay == 0.01
+
+    def test_apply_balanced(self):
+        """Test applying the balanced setting"""
+        setting = "balanced"
+        self.imputer._apply_preset_settings(setting)
+        assert self.imputer.n_components_train == 256
+        assert self.imputer.n_components_impute == 2048
+        assert self.imputer.latent_dim == 4
+        assert self.imputer.top_k is None
+        assert self.imputer.lo == False
+        assert self.imputer.pc_type == "factorized"
+        assert self.imputer.imputation_method == "EM"
+        assert self.imputer.max_depth == 5
+        assert self.imputer.custom_net is None
+        assert self.imputer.hidden_layers == 4
+        assert self.imputer.neurons_per_layer == 512
+        assert self.imputer.activation == "LeakyReLU"
+        assert self.imputer.batch_norm == True
+        assert self.imputer.dropout_rate == 0.1
+        assert self.imputer.max_iter == 100
+        assert self.imputer.tol == 1e-4
+        assert self.imputer.patience == 10
+        assert self.imputer.lr == 0.001
+        assert self.imputer.weight_decay == 0.01
+
+    def test_apply_precise(self):
+        """Test applying the precise setting"""
+        setting = "precise"
+        self.imputer._apply_preset_settings(setting)
+        assert self.imputer.n_components_train == 256
+        assert self.imputer.n_components_impute == 1024
+        assert self.imputer.latent_dim == 8
+        assert self.imputer.top_k is None
+        assert self.imputer.lo == False
+        assert self.imputer.pc_type == "factorized"
+        assert self.imputer.imputation_method == "exact"
+        assert self.imputer.max_depth == 5
+        assert self.imputer.custom_net is None
+        assert self.imputer.hidden_layers == 5
+        assert self.imputer.neurons_per_layer == 1024
+        assert self.imputer.activation == "LeakyReLU"
+        assert self.imputer.batch_norm == True
+        assert self.imputer.dropout_rate == 0.1
+        assert self.imputer.max_iter == 200
+        assert self.imputer.tol == 1e-4
+        assert self.imputer.patience == 10
+        assert self.imputer.lr == 0.001
+        assert self.imputer.weight_decay == 0.01
+
 class TestConsistency():
     @pytest.fixture(autouse=True)
     def setup_method(self):
@@ -1113,4 +1200,4 @@ class TestPreprocess():
         assert np.array_equal(integer_mask, np.array([False, False, True]))
         assert np.array_equal(encoding_mask, np.array([True, True, False]))
 
-# TODO: Add tests for _impute, _apply_preset
+# TODO: Add tests for _impute

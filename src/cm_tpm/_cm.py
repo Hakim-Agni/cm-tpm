@@ -158,6 +158,7 @@ class CMImputer:
         self.model = None
 
         # Parameters not related to settings
+        self.settings = settings
         self.missing_values = missing_values
         self.ordinal_features = ordinal_features
         self.batch_size_train = batch_size_train
@@ -210,6 +211,11 @@ class CMImputer:
         self.bin_encoding_info_ = None
         self.random_state_ = np.random.RandomState(self.random_state) if self.random_state is not None else np.random
 
+        # Warn the user when n_components_train or n_components_impute is not a power of 2
+        if (n_components_train & (n_components_train - 1)) != 0 or (n_components_impute & (n_components_impute - 1)) != 0:    # Not a power of 2
+            warnings.warn(f"Randomized Quasi Monte Carlo sampling is best when n_components is a power of 2 (n = 2^k). You provided n_components_train = {n_components_train} and n_components_impute = {n_components_impute}. "
+        "Imputation will proceed, but the accuracy may be reduced.", UserWarning)
+    
     def fit(self, X: str | np.ndarray | pd.DataFrame | list, save_model_path: str = None, sep=",", decimal=".") -> "CMImputer":
         """
         Fit the imputation model to the input dataset
@@ -569,6 +575,7 @@ class CMImputer:
             dict: Parameter names mapped to their values.
         """
         return {
+            "settings": self.settings,
             "missing_values": self.missing_values,
             "n_components_train": self.n_components_train,
             "n_components_impute": self.n_components_impute,
@@ -730,7 +737,7 @@ class CMImputer:
 
         # Check if valid setting is chosen
         if settings_lower not in presets:
-            raise ValueError(f"Unknown settings: '{settings}'")
+            raise ValueError(f"Unknown settings: '{settings}'.")
         
         # Apply the settings
         for param, value in presets[settings_lower].items():
@@ -756,7 +763,7 @@ class CMImputer:
                 # If there are new categorical feature values in the input data, warn the user
                 for val in X_checked[:, i]:
                     if val not in enc_info and val != "nan":
-                        warnings.warn(f"New categorical value detected in column {i}: '{val}'. Treating this value as missing.")
+                        warnings.warn(f"New categorical value detected in column {i}: '{val}'. Treating this value as missing.", UserWarning)
 
                 # Apply the same encoding
                 X_checked[:, i] = [enc_info[val] if val in enc_info else np.nan for val in X_checked[:, i]]
@@ -838,10 +845,10 @@ class CMImputer:
             print(f"Missing data preprocessing time: {time.time() - start_time:.2f}")
 
         if not np.any(np.isnan(X_preprocessed)):
-            warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?")
+            warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?", UserWarning)
 
         if not self.imputation_method in ["EM", "exact"]:
-            warnings.warn(f"Invalid imputation method selected: {self.imputation_method}, defaulting to EM")
+            warnings.warn(f"Invalid imputation method selected: {self.imputation_method}, defaulting to EM", UserWarning)
             self.imputation_method = "EM"
 
         if self.imputation_method == "exact":
@@ -857,11 +864,14 @@ class CMImputer:
                 verbose = self.verbose,
             )
         else:    # Use EM imputation by default
+            # Set 'k' depending on the settings
+            k = 1 if self.settings == "fast" else None
+            
             X_imputed, self.log_likelihood_ = impute_missing_values_component(
                 X_preprocessed, 
                 self.model,
                 num_components=self.n_components_impute,
-                k=None,
+                k=k,
                 max_batch_size=self.batch_size_impute,
                 use_gpu=self.use_gpu,
                 random_state=self.random_state,

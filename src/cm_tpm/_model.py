@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import time
 import math
 from tqdm import tqdm
+import warnings
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -408,11 +409,16 @@ def generate_rqmc_samples(num_samples, latent_dim, random_state=None, device="cp
         z_samples: The sampled values z of shape (num_samples, latent_dim)
         w: The weights for the mixture components
     """
-    sampler = qmc.Sobol(d=latent_dim, scramble=True, seed=random_state)
-    z_samples = sampler.random(n=num_samples)
-    z_samples = torch.tensor(qmc.scale(z_samples, -3, 3), dtype=torch.float32, device=device)  # Scale for Gaussian prior
-    w = torch.full(size=(num_samples,), fill_value=1 / num_samples, dtype=torch.float32, device=device)     # Uniform weights
-    return z_samples, w
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="The balance properties of Sobol' points require n to be a power of 2."
+        )
+        sampler = qmc.Sobol(d=latent_dim, scramble=True, seed=random_state)
+        z_samples = sampler.random(n=num_samples)
+        z_samples = torch.tensor(qmc.scale(z_samples, -3, 3), dtype=torch.float32, device=device)  # Scale for Gaussian prior
+        w = torch.full(size=(num_samples,), fill_value=1 / num_samples, dtype=torch.float32, device=device)     # Uniform weights
+        return z_samples, w
 
 def train_cm_tpm(
         train_data, 
