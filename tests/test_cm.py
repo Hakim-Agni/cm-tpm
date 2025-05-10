@@ -1215,13 +1215,13 @@ class TestImpute():
             assert np.array_equal(X_no_missing, X_imputed)
 
     def test_em_impute(self):
-        """Test the EM imputation method"""
+        """Test the EM imputation method."""
         X_missing = np.array([[1, 2, np.nan]])
         X_imputed = self.imputer._impute(X_missing)
         assert not np.isnan(X_imputed).any()
     
     def test_exact_impute(self):
-        """Test the exact imputation method"""
+        """Test the exact imputation method."""
         self.imputer.imputation_method = "exact"
         X_missing = np.array([[1, 2, np.nan]])
         X_imputed = self.imputer._impute(X_missing)
