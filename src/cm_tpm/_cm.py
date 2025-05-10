@@ -835,7 +835,7 @@ class CMImputer:
         return X_scaled.astype(float), binary_mask, integer_mask, (encoding_mask, encoding_info)
     
     def _impute(self, X: np.ndarray) -> np.ndarray:
-        """Impute missing values in input X"""
+        """Impute missing values in input X."""
         start_time = time.time()
         X_in = X.copy()
         X_nan = _missing_to_nan(X, self.missing_values)

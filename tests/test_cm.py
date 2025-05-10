@@ -1200,4 +1200,29 @@ class TestPreprocess():
         assert np.array_equal(integer_mask, np.array([False, False, True]))
         assert np.array_equal(encoding_mask, np.array([True, True, False]))
 
-# TODO: Add tests for _impute
+class TestImpute():
+    @pytest.fixture(autouse=True)
+    def setup_method(self):
+        """Setup method for the test class."""
+        self.imputer = CMImputer()
+        self.imputer.fit(np.array([[1, 2, 3], [4, 5, 6]]))
+
+    def test_no_missing(self):
+        """Test imputation when there are no missing values."""
+        X_no_missing = np.array([[1, 2, 3]])
+        with pytest.warns(UserWarning, match="No missing values detected in input data, transformation has no effect. Did you set the correct missing value: 'nan'?"):
+            X_imputed = self.imputer._impute(X_no_missing)
+            assert np.array_equal(X_no_missing, X_imputed)
+
+    def test_em_impute(self):
+        """Test the EM imputation method"""
+        X_missing = np.array([[1, 2, np.nan]])
+        X_imputed = self.imputer._impute(X_missing)
+        assert not np.isnan(X_imputed).any()
+    
+    def test_exact_impute(self):
+        """Test the exact imputation method"""
+        self.imputer.imputation_method = "exact"
+        X_missing = np.array([[1, 2, np.nan]])
+        X_imputed = self.imputer._impute(X_missing)
+        assert not np.isnan(X_imputed).any()
