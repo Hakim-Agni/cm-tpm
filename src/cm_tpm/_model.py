@@ -323,10 +323,11 @@ class PhiNet(nn.Module):
         batch_norm (optional): Whether to use batch normalization in the neural network.
         dropout_rate (optional): Dropout rate in the neural network.
     """
-    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0):
+    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0, skip_layers=False):
         super().__init__()
         out_dim = pc_param_dim * 2
         self.out_dim = out_dim
+        self.skip_layers = skip_layers
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
@@ -362,6 +363,11 @@ class PhiNet(nn.Module):
             for i in range(hidden_layers):
                 # Set the input and output dimensions
                 input_dim = latent_dim if i == 0 else neurons_per_layer[i-1]
+                if self.skip_layers and i > 0:   # If we use skiplayers, add the previous layer to the inputs
+                    if i == 1:
+                        input_dim += latent_dim
+                    else:
+                        input_dim += neurons_per_layer[i-2]
                 output_dim = neurons_per_layer[i]
                 layers.append(nn.Linear(input_dim, output_dim))
                 # Add batch normalization if enabled
@@ -374,7 +380,11 @@ class PhiNet(nn.Module):
                     layers.append(nn.Dropout(dropout_rate))
 
             # Create the output layer
-            layers.append(nn.Linear(neurons_per_layer[-1], out_dim))
+            if self.skip_layers and hidden_layers > 1:
+                layers.append(nn.Linear(neurons_per_layer[-2] + neurons_per_layer[-1], out_dim))
+            else:
+                layers.append(nn.Linear(neurons_per_layer[-1], out_dim))
+            print(layers)
 
             # Store the neural network
             self.net = nn.Sequential(*layers)
@@ -394,7 +404,22 @@ class PhiNet(nn.Module):
         elif z.shape[1] != self.net[0].in_features:
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
         
-        return self.net(z)
+        outputs = []
+        x = z
+        h_i = 0
+        for i in range(len(self.net)):
+            if self.skip_layers and isinstance(self.net[i], nn.Linear):
+                outputs.append(x)
+                if h_i == 0:
+                    inp = x
+                else:
+                    inp = torch.cat([outputs[-1], outputs[-2]], dim=1)
+                x = self.net[i](inp)
+                h_i += 1
+            else:
+                x = self.net[i](x)
+        
+        return x
 
 def generate_rqmc_samples(num_samples, latent_dim, random_state=None, device="cpu"):
     """
@@ -1020,48 +1045,38 @@ if __name__ == '__main__':
     # print("Data with missing:", x_incomplete)
     # print("Imputed values:", x_imputed)
 
-    start_time = time.time()
-    all_zeros = np.full((100, 10), 0.89)
-    all_zeros[50, 3] = np.nan
-    all_zeros[10, 2] = np.nan
-    all_zeros[92, 0] = np.nan
-    model, train_likelihoods = train_cm_tpm(all_zeros, 
-                         pc_type="factorized", 
-                         verbose=1, 
-                         epochs=100, 
-                         lr=0.001, 
-                         tol=1e-5,
-                         patience=5,
-                         num_components=256,
-                         num_components_impute=512,
-                         k=None,
-                         lo=True,
-                         batch_size=None,
-                         random_state=0
-                         )
-    imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=1, verbose=1, random_state=0)
-    #imputed, likelihood, impute_likelihoods = impute_missing_values_exact(all_zeros, model, num_components=512, verbose=0, random_state=0)
-    print(imputed[50, 3])
-    print(imputed[10, 2])
-    print(imputed[92, 0])
-    print("Log-Likelihood:", likelihood)
-    print("Imputation time:", time.time() - start_time)
+    # start_time = time.time()
+    # all_zeros = np.full((100, 10), 0.89)
+    # all_zeros[50, 3] = np.nan
+    # all_zeros[10, 2] = np.nan
+    # all_zeros[92, 0] = np.nan
+    # model, train_likelihoods = train_cm_tpm(all_zeros, 
+    #                      pc_type="factorized", 
+    #                      verbose=1, 
+    #                      epochs=100, 
+    #                      lr=0.001, 
+    #                      tol=1e-5,
+    #                      patience=5,
+    #                      num_components=256,
+    #                      num_components_impute=512,
+    #                      k=None,
+    #                      lo=True,
+    #                      batch_size=None,
+    #                      random_state=0
+    #                      )
+    # imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=1, verbose=1, random_state=0)
+    # #imputed, likelihood, impute_likelihoods = impute_missing_values_exact(all_zeros, model, num_components=512, verbose=0, random_state=0)
+    # print(imputed[50, 3])
+    # print(imputed[10, 2])
+    # print(imputed[92, 0])
+    # print("Log-Likelihood:", likelihood)
+    # print("Imputation time:", time.time() - start_time)
 
     # print(train_likelihoods)
     # print(impute_likelihoods)
 
-    # all_zeros = np.full((6, 6), 0.23)
-    # all_zeros[0, 0] = np.nan
-    # model = train_cm_tpm(all_zeros, pc_type="factorized", verbose=2, epochs=150, lr=0.001, num_components=1024)
-    # imputed = impute_missing_values_exact(all_zeros, model, lr=0.01, epochs=100, verbose=1)
-    # print(imputed[0, 0])
+    net = PhiNet(4, 10, hidden_layers=4, neurons_per_layer=[64, 128, 256, 512], skip_layers=True)
+    z = torch.tensor([[0.5, 0.1, 0.4, 0.9]])
 
-
-    # test_x = torch.randn(5, 10)  # Small test batch
-    # test_pc = ChowLiuTreePC(input_dim=10)
-    # test_params = torch.randn(10 * 2)  # Simulated params
-    # test_pc.set_params(test_params)
-
-    # print("Running test forward pass...")
-    # likelihood = test_pc.forward(test_x)
-    # print("Likelihood output:", likelihood)
+    x = net(z)
+    print(x)
