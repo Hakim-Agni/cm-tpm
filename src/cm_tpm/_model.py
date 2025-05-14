@@ -25,7 +25,7 @@ import gc
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, custom_layers=[2, 64, "ReLU", False, 0.0], random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, custom_layers=[2, 64, "ReLU", False, 0.0, False], random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -55,7 +55,7 @@ class CM_TPM(nn.Module):
             np.random.seed(random_state)
 
         # Neural network to generate PC parameters
-        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4])
+        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4], skip_layers=custom_layers[5])
 
         # Create multiple PCs (one per component)
         self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
@@ -384,7 +384,6 @@ class PhiNet(nn.Module):
                 layers.append(nn.Linear(neurons_per_layer[-2] + neurons_per_layer[-1], out_dim))
             else:
                 layers.append(nn.Linear(neurons_per_layer[-1], out_dim))
-            print(layers)
 
             # Store the neural network
             self.net = nn.Sequential(*layers)
@@ -459,6 +458,7 @@ def train_cm_tpm(
         activation="ReLU",
         batch_norm=False,
         dropout_rate=0.0,
+        skip_layers=False,
         epochs=100,
         batch_size=32,
         tol=1e-5,
@@ -508,7 +508,7 @@ def train_cm_tpm(
 
     # Define the model
     model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, 
-                   custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate], random_state=random_state)
+                   custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate, skip_layers], random_state=random_state)
 
     if verbose > 1:
         print(f"Finished building CM-TPM model with {num_components} components.")

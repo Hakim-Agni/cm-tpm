@@ -246,33 +246,10 @@ if __name__ == "__main__":
     for i in range(nr_of_runs):
         rand_state = rng.integers(1e9)
         cm_imputer = CMImputer(
-            missing_values=np.nan,
-            n_components_train=256,
-            n_components_impute=1024,
-            latent_dim=4,
-            top_k=None,
-            lo=False,
-            pc_type="factorized",
-            imputation_method="exact",
-            ordinal_features=None,
-            max_depth=5,
-            custom_net=None,
-            hidden_layers=hidden_layers,
-            neurons_per_layer=neurons_per_layer,
-            activation=activation,
-            batch_norm=batch_norm,
-            dropout_rate=dropout_rate,
-            max_iter=100,
-            batch_size=None,
-            tol=1e-4,
-            patience=10,
-            lr=1e-3,
-            weight_decay=0.01,
-            use_gpu=True,
+            settings="Fast",
+            skip_layers=False,
             random_state=rand_state,
             verbose=0,
-            copy=True,
-            keep_empty_features=True,
         )
 
         score, likelihood = run_evaluation(cm_imputer=cm_imputer, print_results=False)

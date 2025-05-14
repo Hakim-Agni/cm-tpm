@@ -16,14 +16,14 @@ random_state = 42
 
 # Dataset Settings
 # Complete datasets
-diabetes = False                 # Medium sized; numerical and integer
-breast_cancer = False            # Large sized; numerical and binary
-digits = False                   # Very large sized; integer; image
+diabetes = True                 # Medium sized; numerical and integer
+breast_cancer = True            # Large sized; numerical and binary
+digits = True                   # Very large sized; integer; image
 fashion = True                  # Very large sized; numerical, image
-iris = False                     # Small sized; numerical and binary
-linnerud = False                 # Small sized; integer
-mushroom = False                  # Very large sized; categorical and binary
-wine = False                     # Medium sized; numerical and binary
+iris = True                     # Small sized; numerical and binary
+linnerud = True                 # Small sized; integer
+mushroom = True                  # Very large sized; categorical and binary
+wine = True                     # Medium sized; numerical and binary
 
 # Datasets with missing values
 credit = False                     # Large sized; numerical, integer and categorical
@@ -251,21 +251,11 @@ if __name__ == "__main__":
 
     elif settings == 3:
         # "Custom"
-        net = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Linear(32, 1568)
-        )
         cm_imputer = CMImputer(
             settings="custom",
-            #custom_net=net,
+            skip_layers=False,
             random_state=random_state,
-            verbose=1,
+            verbose=0,
         )
 
     else:

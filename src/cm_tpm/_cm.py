@@ -141,6 +141,7 @@ class CMImputer:
             activation: str = "LeakyReLU",
             batch_norm: bool = True,
             dropout_rate: float = 0.1,
+            skip_layers: bool = False,
             max_iter: int = 100,
             batch_size_train: int | None = 1024,
             batch_size_impute: int | None = 256,
@@ -186,6 +187,7 @@ class CMImputer:
             self.activation = activation
             self.batch_norm = batch_norm
             self.dropout_rate = dropout_rate
+            self.skip_layers = skip_layers
             self.max_depth = max_depth
             self.max_iter = max_iter
             self.batch_size_train = batch_size_train
@@ -263,6 +265,7 @@ class CMImputer:
             activation=self.activation,
             batch_norm=self.batch_norm,
             dropout_rate=self.dropout_rate,
+            skip_layers=self.skip_layers,
             epochs=self.max_iter,
             batch_size=self.batch_size_train,
             tol=self.tol, 
@@ -514,6 +517,7 @@ class CMImputer:
                                        cm_instance.activation, 
                                        cm_instance.batch_norm, 
                                        cm_instance.dropout_rate,
+                                       cm_instance.skip_layers,
                                        ], 
                                     random_state=cm_instance.random_state)
         
@@ -592,6 +596,7 @@ class CMImputer:
             "activation": self.activation,
             "batch_norm": self.batch_norm,
             "dropout_rate": self.dropout_rate,
+            "skip_layers": self.skip_layers,
             "max_iter": self.max_iter,
             "batch_size_train": self.batch_size_train,
             "batch_size_impute": self.batch_size_impute,
@@ -685,6 +690,7 @@ class CMImputer:
                 "activation": "LeakyReLU",
                 "batch_norm": False,
                 "dropout_rate": 0.0,
+                "skip_layers": False,
                 "max_iter": 100,
                 "tol": 1e-4,
                 "patience": 10,
@@ -706,6 +712,7 @@ class CMImputer:
                 "activation": "LeakyReLU",
                 "batch_norm": True,
                 "dropout_rate": 0.1,
+                "skip_layers": True,
                 "max_iter": 100,
                 "tol": 1e-4,
                 "patience": 10,
@@ -727,6 +734,7 @@ class CMImputer:
                 "activation": "LeakyReLU",
                 "batch_norm": True,
                 "dropout_rate": 0.1,
+                "skip_layers": True,
                 "max_iter": 200,
                 "tol": 1e-4,
                 "patience": 10,
