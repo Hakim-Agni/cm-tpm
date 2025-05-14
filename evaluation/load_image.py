@@ -1,3 +1,4 @@
+import os
 from sklearn.datasets import load_digits
 import torchvision
 import matplotlib.pyplot as plt
@@ -8,9 +9,9 @@ import pandas as pd
 from cm_tpm import CMImputer
 
 # TODO: Add option for multiple samples
-dataset = "fashion"
+dataset = "digits"
 random_state = 0
-remove = "top"   # "top" or "bottom" or "random"
+remove = "bottom"   # "top" or "bottom" or "random"
 missing_rate = 0.25     # Only for random
 n_outputs = 5
 train_new = False
@@ -107,10 +108,10 @@ model = CMImputer(
     verbose=1,
 )
 
-if train_new:
-    model.fit(train_data, save_model_path=save_str)
-else:
+if not train_new and os.path.exists(save_str):
     model = CMImputer.load_model(save_str)
+else:
+    model.fit(train_data, save_model_path=save_str)
 
 test_samples = test_data_missing.shape[0]
 
