@@ -9,9 +9,11 @@ from cm_tpm import CMImputer
 
 # TODO: Add option for multiple samples
 dataset = "fashion"
-random_state = 42
-remove = "bottom"   # "top" or "bottom" or "random"
+random_state = 0
+remove = "top"   # "top" or "bottom" or "random"
+missing_rate = 0.25     # Only for random
 n_outputs = 5
+train_new = False
 
 # Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
@@ -62,6 +64,8 @@ if dataset == "digits":
     test_data = data[1500:]
 
     image_shape = (8, 8)
+
+    save_str = "evaluation/models/digits/"
 elif dataset == "fashion":
     # Load FashionMNIST (only the data, no labels)
     fashion_mnist = torchvision.datasets.FashionMNIST(
@@ -78,12 +82,14 @@ elif dataset == "fashion":
     test_data = data[4000:]
 
     image_shape = (28, 28)
+
+    save_str = "evaluation/models/fashion/"
 else:
     raise ValueError(f"Unsupported dataset: {dataset}")
 
 if remove == "random":
     # Remove random parts of the image
-    test_data_missing, _ = introduce_missingness(test_data, missing_rate=0.5, random_state=random_state)
+    test_data_missing, _ = introduce_missingness(test_data, missing_rate=missing_rate, random_state=random_state)
 elif remove == "top":
     # Remove the top part of the image
     test_data_missing = test_data.apply(remove_top, axis=1)    
@@ -96,13 +102,15 @@ test_data = test_data
 test_data_missing = test_data_missing
 
 model = CMImputer(
-    settings="custom",
-    batch_size=1024,
+    settings="balanced",
     random_state=0,
     verbose=1,
 )
 
-model.fit(train_data)
+if train_new:
+    model.fit(train_data, save_model_path=save_str)
+else:
+    model = CMImputer.load_model(save_str)
 
 test_samples = test_data_missing.shape[0]
 

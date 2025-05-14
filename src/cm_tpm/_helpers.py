@@ -313,6 +313,8 @@ def _convert_json(obj):
         for object in obj:
             obj_list.append(_convert_json(object))
         return tuple(obj_list)
+    if isinstance(obj, pd.Index):
+        return obj.to_list() 
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.int32, np.int64)):
