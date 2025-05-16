@@ -11,19 +11,19 @@ from ucimlrepo import fetch_ucirepo
 from cm_tpm import CMImputer
 
 # CMImputer Settings
-settings = 3                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is custom
+settings = 3                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is image, 4 is custom
 random_state = 42
 
 # Dataset Settings
 # Complete datasets
 diabetes = True                 # Medium sized; numerical and integer
-breast_cancer = True            # Large sized; numerical and binary
-digits = True                   # Very large sized; integer; image
-fashion = True                  # Very large sized; numerical, image
-iris = True                     # Small sized; numerical and binary
-linnerud = True                 # Small sized; integer
-mushroom = True                  # Very large sized; categorical and binary
-wine = True                     # Medium sized; numerical and binary
+breast_cancer = False            # Large sized; numerical and binary
+digits = False                   # Very large sized; integer; image
+fashion = False                  # Very large sized; numerical, image
+iris = False                     # Small sized; numerical and binary
+linnerud = False                 # Small sized; integer
+mushroom = False                  # Very large sized; categorical and binary
+wine = False                     # Medium sized; numerical and binary
 
 # Datasets with missing values
 credit = False                     # Large sized; numerical, integer and categorical
@@ -250,6 +250,15 @@ if __name__ == "__main__":
         )
 
     elif settings == 3:
+        # "Image"
+        cm_imputer = CMImputer(
+            settings="image",
+            image_dimension=(11, 1),
+            random_state=random_state,
+            verbose=1,
+        )
+
+    elif settings == 4:
         # "Custom"
         cm_imputer = CMImputer(
             settings="custom",

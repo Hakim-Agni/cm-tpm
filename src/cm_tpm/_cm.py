@@ -44,6 +44,8 @@ class CMImputer:
         The imputation method to use during inference.
         - EM: Imputes values by maximizing the expected values, fast method.
         - Exact: Imputed values by finding the optimal values using an optimizer, slow method.
+    image_dimension: tuple of int, optional (default=None), format: (width, height)
+        If a Convolutional Neural Network is used, the image dimension of the input data. If None, the image is assumed to be square.
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
     max_depth: int, optional (default=5)
@@ -133,6 +135,7 @@ class CMImputer:
             lo: bool = False,
             pc_type: str = "factorized",
             imputation_method: str = "EM",
+            image_dimension: tuple | None = None,
             ordinal_features: dict | None = None,
             max_depth: int = 5,
             custom_net: nn.Sequential | None = None,
@@ -161,6 +164,7 @@ class CMImputer:
         # Parameters not related to settings
         self.settings = settings
         self.missing_values = missing_values
+        self.image_dimension = image_dimension
         self.ordinal_features = ordinal_features
         self.batch_size_train = batch_size_train
         self.batch_size_impute = batch_size_impute
@@ -218,7 +222,7 @@ class CMImputer:
             warnings.warn(f"Randomized Quasi Monte Carlo sampling is best when n_components is a power of 2 (n = 2^k). You provided n_components_train = {n_components_train} and n_components_impute = {n_components_impute}. "
         "Imputation will proceed, but the accuracy may be reduced.", UserWarning)
     
-    def fit(self, X: str | np.ndarray | pd.DataFrame | list, save_model_path: str = None, sep=",", decimal=".") -> "CMImputer":
+    def fit(self, X: str | np.ndarray | pd.DataFrame | list, image_dimension: tuple = None, save_model_path: str = None, sep=",", decimal=".") -> "CMImputer":
         """
         Fit the imputation model to the input dataset
 
@@ -250,6 +254,20 @@ class CMImputer:
         if self.verbose > 1: 
             print(f"Training data preprocessing time: {time.time() - start_time_preprocessing:.2f}")
 
+        # Check if the image dimension is provided for image data
+        if self.custom_net is not None and isinstance(self.custom_net[0], nn.ConvTranspose2d):
+            n_features = X_preprocessed.shape[1]
+            if self.image_dimension is None and image_dimension is None:
+                image_w = int(math.sqrt(n_features))
+                image_h = image_w
+                if image_w * image_h != n_features:
+                    raise ValueError(f"Image dimension must be provided for image data. The input data has {n_features} features, which is not a perfect square.")
+                image_dimension = (image_w, image_h)
+            else:
+                image_dimension = image_dimension if image_dimension is not None else self.image_dimension
+                if image_dimension[0] * image_dimension[1] != n_features:
+                    raise ValueError(f"The provided image dimension '{image_dimension}' does not match the number of features: {n_features}.")
+
         # Fit the model using X
         self.model, self.training_likelihoods_ = train_cm_tpm(
             X_preprocessed, 
@@ -260,6 +278,7 @@ class CMImputer:
             k=self.top_k,
             lo = self.lo,
             net=self.custom_net,
+            image_shape=image_dimension,
             hidden_layers=self.hidden_layers,
             neurons_per_layer=self.neurons_per_layer,
             activation=self.activation,
@@ -588,6 +607,7 @@ class CMImputer:
             "lo": self.lo,
             "pc_type": self.pc_type,
             "imputation_method": self.imputation_method,
+            "image_dimension": self.image_dimension,
             "ordinal_features": self.ordinal_features,
             "max_depth": self.max_depth,
             "custom_net": self.custom_net,
@@ -674,6 +694,17 @@ class CMImputer:
         """Applies the chosen settings on the class parameters."""
         # The presets for each setting option
         settings_lower = settings.lower()
+
+        # Default neural network for image data
+        net = nn.Sequential(
+                nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(16, 1, kernel_size=4, stride=2, padding=1),
+                nn.Sigmoid(),
+            )
+            
         presets = {
             "fast": {
                 "n_components_train": 128,
@@ -736,6 +767,28 @@ class CMImputer:
                 "dropout_rate": 0.1,
                 "skip_layers": True,
                 "max_iter": 200,
+                "tol": 1e-4,
+                "patience": 10,
+                "lr": 0.001,
+                "weight_decay": 0.01,
+            },
+            "image": {
+                "n_components_train": 256,
+                "n_components_impute": 2048,
+                "latent_dim": 4,
+                "top_k": None,
+                "lo": False,
+                "pc_type": "factorized",
+                "imputation_method": "EM",
+                "max_depth": 5,
+                "custom_net": net,
+                "hidden_layers": None,
+                "neurons_per_layer": None,
+                "activation": None,
+                "batch_norm": None,
+                "dropout_rate": None,
+                "skip_layers": None,
+                "max_iter": 100,
                 "tol": 1e-4,
                 "patience": 10,
                 "lr": 0.001,

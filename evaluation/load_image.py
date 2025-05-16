@@ -9,12 +9,12 @@ import pandas as pd
 from cm_tpm import CMImputer
 
 # TODO: Add option for multiple samples
-dataset = "digits"
+dataset = "fashion"
 random_state = 0
 remove = "bottom"   # "top" or "bottom" or "random"
 missing_rate = 0.25     # Only for random
 n_outputs = 5
-train_new = False
+train_new = True
 
 # Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
@@ -103,7 +103,7 @@ test_data = test_data
 test_data_missing = test_data_missing
 
 model = CMImputer(
-    settings="balanced",
+    settings="image",
     random_state=0,
     verbose=1,
 )
@@ -111,7 +111,8 @@ model = CMImputer(
 if not train_new and os.path.exists(save_str):
     model = CMImputer.load_model(save_str)
 else:
-    model.fit(train_data, save_model_path=save_str)
+    # model.fit(train_data, save_model_path=save_str)
+    model.fit(train_data)
 
 test_samples = test_data_missing.shape[0]
 

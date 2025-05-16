@@ -246,8 +246,8 @@ if __name__ == "__main__":
     for i in range(nr_of_runs):
         rand_state = rng.integers(1e9)
         cm_imputer = CMImputer(
-            settings="Fast",
-            skip_layers=False,
+            settings="image",
+            image_dimension=(11, 1),
             random_state=rand_state,
             verbose=0,
         )

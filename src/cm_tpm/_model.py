@@ -25,7 +25,7 @@ import gc
 #   Add GPU acceleration
 
 class CM_TPM(nn.Module):
-    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, custom_layers=[2, 64, "ReLU", False, 0.0, False], random_state=None):
+    def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, image_shape=None, custom_layers=[2, 64, "ReLU", False, 0.0, False], random_state=None):
         """
         The CM-TPM class the performs all the steps from the CM-TPM.
 
@@ -55,7 +55,7 @@ class CM_TPM(nn.Module):
             np.random.seed(random_state)
 
         # Neural network to generate PC parameters
-        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4], skip_layers=custom_layers[5])
+        self.phi_net = PhiNet(latent_dim, input_dim, pc_type=pc_type, net=net, image_shape=image_shape, hidden_layers=custom_layers[0], neurons_per_layer=custom_layers[1], activation=custom_layers[2], batch_norm=custom_layers[3], dropout_rate=custom_layers[4], skip_layers=custom_layers[5])
 
         # Create multiple PCs (one per component)
         self.pcs = nn.ModuleList([get_probabilistic_circuit(pc_type, input_dim) for _ in range(num_components)])
@@ -323,17 +323,19 @@ class PhiNet(nn.Module):
         batch_norm (optional): Whether to use batch normalization in the neural network.
         dropout_rate (optional): Dropout rate in the neural network.
     """
-    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0, skip_layers=False):
+    def __init__(self, latent_dim, pc_param_dim, pc_type="factorized", net=None, image_shape=None, hidden_layers=2, neurons_per_layer=64, activation="ReLU", batch_norm=False, dropout_rate=0.0, skip_layers=False):
         super().__init__()
         out_dim = pc_param_dim * 2
         self.out_dim = out_dim
         self.skip_layers = skip_layers
+        self.convnet = False
+        self.image_shape = image_shape
         if net:
             if not isinstance(net, nn.Sequential):
                 raise ValueError(f"Invalid input net. Please provide a Sequential neural network from torch.nn .")
-            if not isinstance(net[0], nn.Conv2d) and net[0].in_features != latent_dim:
-                raise ValueError(f"Invalid input net. The first layer should have {latent_dim} input features, but is has {net[0].in_features} input features.")
-            if net[-1].out_features != out_dim:
+            if isinstance(net[0], nn.ConvTranspose2d):
+                self.convnet = True
+            elif net[-1].out_features != out_dim:
                 raise ValueError(f"Invalid input net. The final layer should have {out_dim} output features, but is has {net[-1].out_features} output features.")
             self.net = net
         else:
@@ -398,8 +400,16 @@ class PhiNet(nn.Module):
         Returns: 
             phi(z): The pc parameters obtained by running z throuh the neural network, of shape (num_components, pc_param_dim)
         """
-        if isinstance(self.net[0], nn.Conv2d):
-            z = z.view(z.shape[0], 1, int(z.shape[1]/2), 2)
+        n_components = z.shape[0]
+        latent_dim = z.shape[1]
+        if self.convnet:
+            if self.image_shape is None:
+                raise ValueError("Image shape must be provided for convolutional networks.")
+            image_w, image_h = self.image_shape
+            init_channels = self.net[0].in_channels
+            fc = nn.Linear(latent_dim, init_channels * image_w * image_h).to(z.device)
+            z = fc(z)
+            z = z.view(n_components, init_channels,image_w, image_h)
         elif z.shape[1] != self.net[0].in_features:
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
         
@@ -417,6 +427,12 @@ class PhiNet(nn.Module):
                 h_i += 1
             else:
                 x = self.net[i](x)
+
+        if self.convnet:
+            x = F.interpolate(x, size=(image_w, image_h), mode='bilinear', align_corners=False)
+            x = x.view(n_components, -1)
+            fc_out = nn.Linear(image_w * image_h, self.out_dim).to(x.device)
+            x = fc_out(x)
         
         return x
 
@@ -453,6 +469,7 @@ def train_cm_tpm(
         k=None,
         lo=False,
         net=None, 
+        image_shape=None,
         hidden_layers=2,
         neurons_per_layer=64,
         activation="ReLU",
@@ -507,7 +524,7 @@ def train_cm_tpm(
     patience = patience if patience is not None else float('inf')
 
     # Define the model
-    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, 
+    model = CM_TPM(pc_type, input_dim, latent_dim, num_components, net=net, image_shape=image_shape, 
                    custom_layers=[hidden_layers, neurons_per_layer, activation, batch_norm, dropout_rate, skip_layers], random_state=random_state)
 
     if verbose > 1:
