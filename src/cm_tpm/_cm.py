@@ -434,6 +434,11 @@ class CMImputer:
 
         # Save hyperparameters from the model
         parameters = self.get_params()
+        if self.custom_net is not None:
+            torch.save(self.custom_net, os.path.join(path, "custom_net.pt"))
+            parameters.pop("custom_net")
+        elif self.custom_net is None and os.path.exists(os.path.join(path, "custom_net.pt")):
+            os.remove(os.path.join(path, "custom_net.pt"))
         attributes = {
             "n_features_in_": _convert_json(self.n_features_in_),
             "feature_names_in_": _convert_json(self.feature_names_in_),
@@ -480,6 +485,10 @@ class CMImputer:
             metadata = json.load(f)
         parameters = metadata["parameters"]
         attributes = metadata["attributes"]
+
+        if os.path.exists(os.path.join(path, "custom_net.pt")):
+            custom_net = torch.load(os.path.join(path, "custom_net.pt"), weights_only=False)
+            parameters["custom_net"] = custom_net
 
         # Create a new CMImputer instance with the same parameters
         cm_instance = cls(**parameters)
