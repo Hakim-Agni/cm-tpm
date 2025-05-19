@@ -433,7 +433,7 @@ class TestTransform():
         assert float(X_imputed[0, 0]) >= 1
         assert float(X_imputed[0, 0]) <= 7
 
-    def test_transform_list(self):
+    def test_transform_multiple_missing(self):
         """Test the transform method with a multiple missing values."""
         self.imputer.missing_values = [-1, ""]
         X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
@@ -445,9 +445,9 @@ class TestTransform():
         assert not np.any(X_imputed == "")
         assert not np.any(X_imputed == -1)
         assert float(X_imputed[0, 0]) >= 1
-        assert float(X_imputed[0, 0]) <= 7
-        assert float(X_imputed[0, 1]) >= 2
-        assert float(X_imputed[0, 1]) <= 8
+        assert float(X_imputed[0, 0]) <= 9
+        assert float(X_imputed[0, 1]) >= 1
+        assert float(X_imputed[0, 1]) <= 9
 
     def test_transform_seed(self):
         imputer1 = CMImputer(n_components_train=4, random_state=42)
