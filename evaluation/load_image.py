@@ -6,39 +6,53 @@ from matplotlib import colors
 import math
 import numpy as np
 import pandas as pd
+from sklearn.impute import KNNImputer, SimpleImputer
 from cm_tpm import CMImputer
 
 # TODO: Add option for multiple samples
-dataset = "digits"
-random_state = 0
-remove = "bottom"   # "top" or "bottom" or "random"
-missing_rate = 0.25     # Only for random
-n_outputs = 5
-train_new = False
+dataset = "digits"     # "digits" or "fashion"
+random_state = 42
+remove = "top"         # "top", "bottom", "left", "right", or "random"
+missing_rate = 0.25     # Missing rate for the images
+n_outputs = 5           # The number of output images to show
+train_new = False       # Whether to train a new model or use a saved model
 
 # Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
+    assert 0 < missing_rate <= 1, "The missing rate must be between 0 and 1."
     rng = np.random.RandomState(random_state)  # Ensures reproducibility
     mask = rng.rand(*data.shape) < missing_rate  # Create mask for missing values
     data_missing = data.mask(mask)  # Apply mask
     return data_missing, mask
 
-# Funtion to remove the bottom part of the image
-def remove_bottom(data):
-    data = data.copy()
+# Function to remove a specific part of the image (top, bottom, right or left)
+def remove_side(data, image_shape, side="bottom", missing_rate=0.5):
+    data = data.copy().to_numpy()
+    w, h = image_shape      # Get the image shape
     num_cols = data.shape[0]
-    halfway = math.floor(num_cols / 2)
-    data.iloc[halfway:] = np.nan  # Set the right half to NaN
-    return data
+    assert num_cols == w * h, "Mismatch between sample length and shape."
+    assert 0 < missing_rate <= 1, "The missing rate must be between 0 and 1."
 
-# Funtion to remove the top part of the image
-def remove_top(data):
-    data = data.copy()
-    num_cols = data.shape[0]
-    halfway = math.floor(num_cols / 2)
-    data.iloc[:halfway] = np.nan  # Set the left half to NaN
-    return data
+    # Reshape as 2d array
+    data_2d = data.reshape(w, h).copy()
+    # Compute the amount of columns to remove
+    cols_to_mask = int(w * missing_rate)
 
+    if cols_to_mask == 0:
+        return data     # Nothing to remove
+    
+    # Remove the selected side from the array
+    if side == "bottom":
+        data_2d[-cols_to_mask:, :] = np.nan
+    elif side == "top":
+        data_2d[:cols_to_mask, :] = np.nan
+    elif side == "left":
+        data_2d[:, :cols_to_mask] = np.nan
+    elif side == "right":
+        data_2d[:, -cols_to_mask:] = np.nan
+
+    # Return a flattened array
+    return pd.Series(data_2d.flatten())
 
 def show_image(image_data, ax, title, image_shape):
     # Convert the 1D array into an 8x8 2D array
@@ -91,13 +105,10 @@ else:
 if remove == "random":
     # Remove random parts of the image
     test_data_missing, _ = introduce_missingness(test_data, missing_rate=missing_rate, random_state=random_state)
-elif remove == "top":
-    # Remove the top part of the image
-    test_data_missing = test_data.apply(remove_top, axis=1)    
-else: # Default to bottom
-    # Remove the bottom part of the image
-    test_data_missing = test_data.apply(remove_bottom, axis=1)
-
+else:
+    assert remove in ["top", "bottom", "left", "right"], "Side to remove must be 'top', 'bottom', 'left', 'right', or 'random'."
+    # Remove the selected side of the image
+    test_data_missing = test_data.apply(lambda x: remove_side(x, image_shape, side=remove, missing_rate=missing_rate), axis=1)
 
 test_data = test_data
 test_data_missing = test_data_missing
@@ -107,6 +118,8 @@ model = CMImputer(
     random_state=0,
     verbose=1,
 )
+# model = KNNImputer()
+# model = SimpleImputer()
 
 if not train_new and os.path.exists(save_str):
     model = CMImputer.load_model(save_str)
@@ -124,7 +137,7 @@ for i in range(n_outputs):
     index = np.random.randint(low=0, high=test_samples)
 
     test_sample = test_data_missing.iloc[index].to_numpy()
-    imputed_sample = model.transform(test_sample)
+    imputed_sample = model.transform([test_sample])
 
     if n_outputs == 1:
         show_image(test_data.iloc[index], axes[0], "Full image", image_shape)
