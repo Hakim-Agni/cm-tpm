@@ -406,10 +406,12 @@ class PhiNet(nn.Module):
             if self.image_shape is None:
                 raise ValueError("Image shape must be provided for convolutional networks.")
             image_w, image_h = self.image_shape
+            init_w = max(2, image_w // 4)
+            init_h = max(2, image_h // 4)
             init_channels = self.net[0].in_channels
-            fc = nn.Linear(latent_dim, init_channels * image_w * image_h).to(z.device)
+            fc = nn.Linear(latent_dim, init_channels * init_w * init_h).to(z.device)
             z = fc(z)
-            z = z.view(n_components, init_channels,image_w, image_h)
+            z = z.view(n_components, init_channels, init_w, init_h)
         elif z.shape[1] != self.net[0].in_features:
             raise ValueError(f"Invalid input to the neural network. Expected shape for z: ({z.shape[0]}, {self.net[0].in_features}), but got shape: ({z.shape[0]}, {z.shape[1]}).")
         
@@ -430,6 +432,8 @@ class PhiNet(nn.Module):
 
         if self.convnet:
             x = F.interpolate(x, size=(image_w, image_h), mode='bilinear', align_corners=False)
+            # x = nn.Conv2d(1, 1, 3, padding=1).to(x.device)(x)  # Apply a dummy conv layer to ensure the output shape is correct
+            # x = nn.Sigmoid()(x)
             x = x.view(n_components, -1)
             fc_out = nn.Linear(image_w * image_h, self.out_dim).to(x.device)
             x = fc_out(x)

@@ -11,15 +11,15 @@ from ucimlrepo import fetch_ucirepo
 from cm_tpm import CMImputer
 
 # CMImputer Settings
-settings = 3                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is image, 4 is custom
+settings = 4                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is image, 4 is custom
 random_state = 42
 
 # Dataset Settings
 # Complete datasets
-diabetes = True                 # Medium sized; numerical and integer
+diabetes = False                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
 digits = False                   # Very large sized; integer; image
-fashion = False                  # Very large sized; numerical, image
+fashion = True                  # Very large sized; numerical, image
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
 mushroom = False                  # Very large sized; categorical and binary
@@ -80,6 +80,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             path = "evaluation/data/breast_cancer/breast_cancer_"
         elif dataset_name == "digits":
             data = load_digits(as_frame=True).frame
+            data = data.drop("target", axis=1)  # Drop target column
             os.makedirs("evaluation/data/digits", exist_ok=True)
             path = "evaluation/data/digits/digits_"
         elif dataset_name == "fashion":
@@ -260,11 +261,23 @@ if __name__ == "__main__":
 
     elif settings == 4:
         # "Custom"
+        net = nn.Sequential(
+                # nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+                # nn.ReLU(),
+                nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(16, 1, kernel_size=4, stride=2, padding=1),
+                nn.Sigmoid(),
+        )
+        #dims = (11, 1)
+
         cm_imputer = CMImputer(
             settings="custom",
-            skip_layers=False,
+            latent_dim=16,
+            custom_net=net,
+            #image_dimension=dims,
             random_state=random_state,
-            verbose=0,
+            verbose=1,
         )
 
     else:

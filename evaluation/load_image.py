@@ -9,7 +9,7 @@ import pandas as pd
 from cm_tpm import CMImputer
 
 # TODO: Add option for multiple samples
-dataset = "fashion"
+dataset = "fashion"  # "digits" or "fashion"
 random_state = 0
 remove = "bottom"   # "top" or "bottom" or "random"
 missing_rate = 0.25     # Only for random
