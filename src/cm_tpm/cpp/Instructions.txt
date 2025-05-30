@@ -1,0 +1,35 @@
+If you want to add and compile C++ code in the project. Follow these steps:
+
+1.  Add the C++ code in a cpp file in this folder. For example, add a file 'add.cpp' such that it is stored in 'src/cm_tpm/cpp/add.cpp'.
+    Example of code for 'add.cpp':
+        #include <pybind11/pybind11.h>
+
+        // Define the add function
+        int add(int x, int y) {
+                return x + y;
+        }
+
+        // Create Python bindings
+        PYBIND11_MODULE(_add, m) {
+            m.def("add", &add, "A function that adds two numbers");
+        }
+
+2.  Add the following information in setup.py in the project root:
+        Extension(
+        	"cm_tpm.cpp._add",  # Output module name
+        	["src/cm_tpm/cpp/add.cpp"],  # Source file
+        	include_dirs=[pybind11.get_include()],
+        	language="c++",
+    	),
+
+3.  Compile the C++ extension. You can do this by running the folling command in the project root:
+        python setup.py build_ext --inplace
+
+    A new file should appear in the cpp folder. In this example case, it is named:
+        _add.cp310-win_amd64.pyd
+
+4.  You are now ready to use the compiled C++ code in your Python file. In this example case, you can import the whole file using:
+        import cm_tpm._add as add
+   
+    Or a single function from the C++ code using:
+        from cm_tpm._add import add
