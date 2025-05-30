@@ -5,24 +5,11 @@ from tqdm import tqdm
 import warnings
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import torch.distributions as dist
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from scipy.stats import qmc
-import networkx as nx
 import gc
-
-# TODO:
-#   Check: Optimize latent selection (top-K selection)
-#   Check: Implement latent optimization for fine-tuning integration points
-#   Allow custom Optimizers?
-#   Improve Neural Network PhiNet
-#   Choose optimal standard hyperparameters
-#   Add PC structure(s) -> PCs, CLTs, ...       (also parameter for max depth?)
-#   Do some testing with accuracy/log likelihood etc.
-#   Add GPU acceleration
 
 class CM_TPM(nn.Module):
     def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, custom_layers=[2, 64, "ReLU", False, 0.0, False], random_state=None):
@@ -1029,54 +1016,3 @@ def set_random_seed(seed):
     np.random.seed(seed)  # NumPy's random generator
     torch.manual_seed(seed)  # PyTorch CPU random generator
     torch.cuda.manual_seed_all(seed)  # If using GPU
-
-# Example Usage
-if __name__ == '__main__':
-    # train_data = np.random.rand(1000, 10)
-    # train_data = np.random.uniform(low=-1, high=1, size=(1000, 10))
-    # train_data[999, 9] = np.nan
-    # model = train_cm_tpm(train_data, pc_type="spn", random_state=None, missing_strategy="mean", epochs=10, verbose=1)
-
-    # x_incomplete = train_data[:3].copy()
-    # x_incomplete[0, 0] = np.nan
-    # x_incomplete[2, 9] = np.nan
-    # x_imputed = impute_missing_values(x_incomplete, model, random_state=None, verbose=1)
-    # print("Original Data:", train_data[:3])
-    # print("Data with missing:", x_incomplete)
-    # print("Imputed values:", x_imputed)
-
-    # start_time = time.time()
-    # all_zeros = np.full((100, 10), 0.89)
-    # all_zeros[50, 3] = np.nan
-    # all_zeros[10, 2] = np.nan
-    # all_zeros[92, 0] = np.nan
-    # model, train_likelihoods = train_cm_tpm(all_zeros, 
-    #                      pc_type="factorized", 
-    #                      verbose=1, 
-    #                      epochs=100, 
-    #                      lr=0.001, 
-    #                      tol=1e-5,
-    #                      patience=5,
-    #                      num_components=256,
-    #                      num_components_impute=512,
-    #                      k=None,
-    #                      lo=True,
-    #                      batch_size=None,
-    #                      random_state=0
-    #                      )
-    # imputed, likelihood = impute_missing_values_component(all_zeros, model, num_components=512, k=1, verbose=1, random_state=0)
-    # #imputed, likelihood, impute_likelihoods = impute_missing_values_exact(all_zeros, model, num_components=512, verbose=0, random_state=0)
-    # print(imputed[50, 3])
-    # print(imputed[10, 2])
-    # print(imputed[92, 0])
-    # print("Log-Likelihood:", likelihood)
-    # print("Imputation time:", time.time() - start_time)
-
-    # print(train_likelihoods)
-    # print(impute_likelihoods)
-
-    net = PhiNet(4, 10, hidden_layers=4, neurons_per_layer=[64, 128, 256, 512], skip_layers=True)
-    z = torch.tensor([[0.5, 0.1, 0.4, 0.9]])
-
-    x = net(z)
-    print(x)

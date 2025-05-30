@@ -1,5 +1,4 @@
 import os
-import math
 import time
 import json
 import numpy as np
@@ -22,7 +21,7 @@ class CMImputer:
     ----------
     settings: string, optional (default="custom"), allowed: "custom", "fast", "balanced", "precise"
         The hyperparameter settings to use for the model.
-        - custom: allows custom hyperparameters by setting them manually.
+        - custom: Allows custom hyperparameters by setting them manually.
         - fast: Quick imputation, acceptable quality. Use this option when speed is most important.
         - balanced: Trade-off between speed and accuracy. Good for general use. Default parameters use the balanced option.
         - precise: Highest quality, slowest. Use this option when accuracy matters most.
@@ -38,12 +37,12 @@ class CMImputer:
         The number of components to use for efficient learning. If None, all components are used.
     lo: bool, optional (default=False)
         Whether to use latent optimization after training.
-    pc_type: str, optional (default="factorized"), allowed: "factorized", "spn", "clt"
-        The type of PC to use in the model.
+    pc_type: str, optional (default="factorized"), allowed: "factorized"
+        The type of PC to use in the model. Currently only "factorized" is supported.
     imputation_method: str, optional (default="EM") allowed: "EM", "exact"
         The imputation method to use during inference.
-        - EM: Imputes values by maximizing the expected values, fast method.
-        - Exact: Imputed values by finding the optimal values using an optimizer, slow method.
+        - EM: Imputes values by maximizing the expected values, faster method.
+        - Exact: Imputed values by finding the optimal values using an optimizer, more accurate method.
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
     max_depth: int, optional (default=5)
@@ -53,7 +52,7 @@ class CMImputer:
     hidden_layers: int, optional (default=4)
         The number of hidden layers in the neural network.
     neuron_per_layer: int or list of ints, optional (default=512)
-        The number of neuron in each layer in the neural network.
+        The number of neurons in each layer in the neural network.
     activation: str, optional (default="LeakyReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU", "Identity
         The activation function used in the neural network.
     batch_norm: bool, optional (default=True)
@@ -116,11 +115,23 @@ class CMImputer:
 
     References
     ----------
-    ...
+    * `Alvara Correia, Gennaro Gala, Erik Quaeghebeur, Cassio de Campos and Robert Peharz, 
+      (2023). Continuous Mixtures of Tractable Probabilistic Models. Proceedings of the
+      AAAI Conference on Artificial Intelligence, Vol. 37, No. 6, Pages 7244-7252.
+      <https://doi.org/10.48550/arXiv.2209.10584>`
 
     Examples
     --------
-    ...
+    >>> from cm_tpm import CMImputer
+    >>> import numpy as np
+    >>> X = [[1, 2, np.nan], [4, 5, 6], [np.nan, 8, 9]]
+    >>> imputer = CMImputer(random_state=0)
+    >>> imputer.fit_transform(X)
+    array([[1., 2., 3.],
+           [4., 5., 6.],
+           [1., 8., 9.]])
+    
+    For more detailed examples, please refer to the documentation.
     """
     def __init__(
             self,
@@ -223,8 +234,8 @@ class CMImputer:
         Fit the imputation model to the input dataset
 
         Parameters:
-            X (array-like or str): Input data with missing values.
-                - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
+            X (array-like or str): Input data with or without missing values.
+                - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquet, Feather)
             save_model_path (str, optional): Location to save the fitted model. If None, the model is not saved.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
@@ -314,7 +325,8 @@ class CMImputer:
         
         file_in = None      # Variable to store the input file path
         
-        if isinstance(X, str):      # If the input data is a string (filepath), load the data from the file
+        # If the input data is a string (filepath), load the data from the file
+        if isinstance(X, str):      
             file_in = X
             X = _load_file(X, sep=sep, decimal=decimal)
 
@@ -363,12 +375,12 @@ class CMImputer:
     @classmethod
     def transform_from_file(cls, X: str | np.ndarray | pd.DataFrame | list, load_model_path: str, save_output_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
-        Impute missing values in the dataset.
+        Impute missing values in the dataset using a CMImputer loaded from a file.
 
         Parameters:
             X (array-like or str): Data with missing values.
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
-            load_model_path (str, optional): If provided, loads the model from a file.
+            load_model_path (str): If provided, loads the model from a file.
             save_output_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
@@ -468,7 +480,7 @@ class CMImputer:
         Load a trained model from a specified location.
 
         Parameters:
-            path (str): The location to where the trained model is stored.
+            path (str): The location where the trained model is stored.
 
         Returns:
             A fitted CMImputer instance.
@@ -645,7 +657,7 @@ class CMImputer:
         Evaluate how well the model explains the data.
 
         Parameters:
-            X (array-like or str): Data with missing values.
+            X (array-like or str): Data with or without missing values.
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
 
         Returns:

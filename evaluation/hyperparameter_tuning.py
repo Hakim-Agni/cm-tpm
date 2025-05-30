@@ -10,6 +10,15 @@ from ucimlrepo import fetch_ucirepo
 import matplotlib.pyplot as plt
 from cm_tpm import CMImputer
 
+# Set a custom cm_imputer for hyperparameter tuning
+cm_imputer = CMImputer(
+            settings="custom",
+            # Add other hyperparameters as needed
+        )
+nr_of_runs = 5
+random_state = 42
+missing_rate = 0.1
+show_plots = False       # Whether to show plots of log-likelihoods during training or not
 
 # Dataset Settings
 # Complete datasets
@@ -21,9 +30,10 @@ linnerud = False                 # Small sized; integer
 mushroom = False                  # Very large sized; categorical and binary
 wine = False                     # Medium sized; numerical and binary
 
-# Datasets with missing values
-credit = False                     # Large sized; numerical, integer and categorical
-titanic = False                   # Large sized; numerical, categorical and binary
+# Imputer Settings
+use_cm_imputer = True
+use_knn_imputer = False
+use_simple_imputer = False
 
 datasets = {
     "diabetes": diabetes,
@@ -33,14 +43,8 @@ datasets = {
     "linnerud": linnerud,
     "mushroom": mushroom,
     "wine": wine,
-    "credit": credit,
-    "titanic": titanic,
     }
 
-# Imputer Settings
-use_cm_imputer = True
-use_knn_imputer = False
-use_simple_imputer = False
 imputers = {
     "cm_imputer": use_cm_imputer,
     "knn_imputer": use_knn_imputer,
@@ -90,38 +94,18 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             categorical = True
             mushroom = fetch_ucirepo(id=73)
             data = pd.DataFrame(mushroom.data.features, columns=mushroom.feature_names)
-            # Fix column with missing values (stalk-root)
-            #data["stalk-root"] = data["stalk-root"].astype("string")
-            #data = data.drop(columns=["stalk-root"])
             os.makedirs("evaluation/data/mushroom", exist_ok=True)
             path = "evaluation/data/mushroom/mushroom_"
         elif dataset_name == "wine":
             data = load_wine(as_frame=True).frame
             os.makedirs("evaluation/data/wine", exist_ok=True)
             path = "evaluation/data/wine/wine_"
-        elif dataset_name == "credit":
-            categorical = True
-            missing = True
-            credit = fetch_ucirepo(id=27)
-            data = pd.DataFrame(credit.data.features, columns=credit.feature_names)
-            data_missing = data.copy()
-            os.makedirs("evaluation/data/credit", exist_ok=True)
-            path = "evaluation/data/credit/credit_"
-        elif dataset_name == "titanic":
-            categorical = True
-            missing = True
-            data = pd.read_csv("evaluation/data/titanic/titanic_complete.csv")
-            data_missing = data.copy()
-            path = "evaluation/data/titanic/titanic_"
 
         data.to_csv(path + "complete.csv", index=False)
 
         # Introduce 10% missing values
         if not missing:
-            data_missing, mask = introduce_missingness(data, missing_rate=0.1)
-
-        # Display missing value summary
-        # print(data_missing.isnull().sum())
+            data_missing, mask = introduce_missingness(data, missing_rate=missing_rate, random_state=random_state)
 
         # Save to CSV for testing
         data_missing.to_csv(path + "with_missing.csv", index=False)
@@ -224,16 +208,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
 
 
 if __name__ == "__main__":
-    # CMImputer Settings
-    hidden_layers = 5
-    neurons_per_layer = 1024
-    activation = "LeakyReLU"
-    batch_norm = True
-    dropout_rate = 0.1
-
-    random_state = None
     rng = np.random.default_rng(random_state) 
-    nr_of_runs = 5
 
     maes = {}
     accs = {}
@@ -242,15 +217,10 @@ if __name__ == "__main__":
     ll_train = {}
     ll_inference = {}
 
-    # Run once with each random state
+    # Run a number of times
     for i in range(nr_of_runs):
         rand_state = rng.integers(1e9)
-        cm_imputer = CMImputer(
-            settings="Fast",
-            skip_layers=False,
-            random_state=rand_state,
-            verbose=0,
-        )
+        cm_imputer.set_params(random_state=rand_state)
 
         score, likelihood = run_evaluation(cm_imputer=cm_imputer, print_results=False)
 
@@ -285,42 +255,43 @@ if __name__ == "__main__":
             continue
         print(f"Dataset: {dataset_name}")
         print(f"\tMean Absolute Error (MAE): {np.mean(maes[dataset_name]):.4f}")
-        print(maes[dataset_name])
+        print(f"\tExact MAEs for each run: {maes[dataset_name]}")
         #print(f"\tAccuracy: {np.mean(accs[dataset_name]):.4f}")
         print(f"\tTraining Time: {np.mean(tt[dataset_name]):.4f} seconds")
         print(f"\tImputation Time: {np.mean(ti[dataset_name]):.4f} seconds")
 
     # Plot likelihood results
-    n_datasets = sum(datasets.values())
-    if n_datasets > 1:
-        fig, axes = plt.subplots(n_datasets, 2, sharex=True, sharey=False, figsize=(9, 4 * n_datasets))
-        mult_data = True
-        n_rows = n_datasets
-    else:
-        fig, axes = plt.subplots(nr_of_runs, 2, sharex=True, sharey=False, figsize=(9, 4 * nr_of_runs))
-        mult_data = False
-        n_rows = nr_of_runs
-
-    index = 0
-    for name, i in ll_train.keys():
-        if mult_data and i > 0:
-            print(mult_data)
-            continue
-
-        if n_rows == 1:
-            axes[0].plot(ll_train[name, i])
-            axes[0].set_title(name + " - training")
-            axes[1].plot(ll_inference[name, i])
-            axes[1].set_title(name + " - inference")
+    if show_plots:
+        n_datasets = sum(datasets.values())
+        if n_datasets > 1:
+            fig, axes = plt.subplots(n_datasets, 2, sharex=True, sharey=False, figsize=(9, 4 * n_datasets))
+            mult_data = True
+            n_rows = n_datasets
         else:
-            axes[index, 0].plot(ll_train[name, i])
-            axes[index, 0].set_title(name + " - training - run " + str(i))
-            axes[index, 1].plot(ll_inference[name, i])
-            axes[index, 1].set_title(name + " - inference - run " + str(i))
+            fig, axes = plt.subplots(nr_of_runs, 2, sharex=True, sharey=False, figsize=(9, 4 * nr_of_runs))
+            mult_data = False
+            n_rows = nr_of_runs
 
-            index += 1
+        index = 0
+        for name, i in ll_train.keys():
+            if mult_data and i > 0:
+                print(mult_data)
+                continue
 
-    fig.supxlabel('Epoch')
-    fig.supylabel('Log-likelihood')
+            if n_rows == 1:
+                axes[0].plot(ll_train[name, i])
+                axes[0].set_title(name + " - training")
+                axes[1].plot(ll_inference[name, i])
+                axes[1].set_title(name + " - inference")
+            else:
+                axes[index, 0].plot(ll_train[name, i])
+                axes[index, 0].set_title(name + " - training - run " + str(i))
+                axes[index, 1].plot(ll_inference[name, i])
+                axes[index, 1].set_title(name + " - inference - run " + str(i))
 
-    plt.show()
+                index += 1
+
+        fig.supxlabel('Epoch')
+        fig.supylabel('Log-likelihood')
+
+        plt.show()

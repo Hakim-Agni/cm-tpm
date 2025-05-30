@@ -2,20 +2,19 @@ import os
 from sklearn.datasets import load_digits
 import torchvision
 import matplotlib.pyplot as plt
-from matplotlib import colors
-import math
 import numpy as np
 import pandas as pd
 from sklearn.impute import KNNImputer, SimpleImputer
 from cm_tpm import CMImputer
 
-# TODO: Add option for multiple samples
-dataset = "digits"     # "digits" or "fashion"
+# Configurations
+dataset = "digits"      # "digits" or "fashion"
 random_state = 42
-remove = "top"         # "top", "bottom", "left", "right", or "random"
-missing_rate = 0.25     # Missing rate for the images
+remove = "bottom"          # "top", "bottom", "left", "right", or "random"
+missing_rate = 0.5     # Missing rate for the images
 n_outputs = 5           # The number of output images to show
-train_new = False       # Whether to train a new model or use a saved model
+train_new = False       # Whether to train a new model or use a saved model (if available)
+imputer = "cm"          # "cm", "knn", or "simple"
 
 # Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
@@ -110,21 +109,28 @@ else:
     # Remove the selected side of the image
     test_data_missing = test_data.apply(lambda x: remove_side(x, image_shape, side=remove, missing_rate=missing_rate), axis=1)
 
-test_data = test_data
-test_data_missing = test_data_missing
+# test_data = test_data
+# test_data_missing = test_data_missing
 
-model = CMImputer(
-    settings="balanced",
-    random_state=0,
-    verbose=1,
-)
-# model = KNNImputer()
-# model = SimpleImputer()
-
-if not train_new and os.path.exists(save_str):
-    model = CMImputer.load_model(save_str)
+if imputer == "cm":
+    model = CMImputer(
+        settings="balanced",
+        random_state=random_state,
+        verbose=1,
+    )
+elif imputer == "knn":
+    model = KNNImputer()
+elif imputer == "simple":
+    model = SimpleImputer()
 else:
+    raise ValueError(f"Unsupported imputer type: {imputer}")
+
+if imputer == "cm" and not train_new and os.path.exists(save_str):
+    model = CMImputer.load_model(save_str)
+elif imputer == "cm":
     model.fit(train_data, save_model_path=save_str)
+else:
+    model.fit(train_data)
 
 test_samples = test_data_missing.shape[0]
 

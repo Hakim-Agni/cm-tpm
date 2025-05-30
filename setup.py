@@ -8,24 +8,9 @@ ext_modules = [
         include_dirs=[pybind11.get_include()],
         language="c++",
     ),
-    Extension(
-        "cm_tpm.cpp._multiply",  # Output module name
-        ["src/cm_tpm/cpp/multiply.cpp"],  # Source file
-        include_dirs=[pybind11.get_include()],
-        language="c++",
-    ),
-    Extension(
-        "cm_tpm.cpp._subtract",  # Output module name
-        ["src/cm_tpm/cpp/subtract.cpp"],  # Source file
-        include_dirs=[pybind11.get_include()],
-        language="c++",
-    ),
-    Extension(
-        "cm_tpm.cpp._divide",  # Output module name
-        ["src/cm_tpm/cpp/divide.cpp"],  # Source file
-        include_dirs=[pybind11.get_include()],
-        language="c++",
-    ),
+
+    # Additional extension modules can be added here
+    
 ]
 
 setup(

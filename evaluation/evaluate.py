@@ -13,21 +13,24 @@ from cm_tpm import CMImputer
 # CMImputer Settings
 settings = 3                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is custom
 random_state = 42
+verbose = 0                     # Verbosity level for CMImputer
+missing_rate = 0.1              # Rate of missing values to introduce
 
 # Dataset Settings
 # Complete datasets
 diabetes = True                 # Medium sized; numerical and integer
-breast_cancer = True            # Large sized; numerical and binary
-digits = True                   # Very large sized; integer; image
-fashion = True                  # Very large sized; numerical, image
-iris = True                     # Small sized; numerical and binary
-linnerud = True                 # Small sized; integer
-mushroom = True                  # Very large sized; categorical and binary
-wine = True                     # Medium sized; numerical and binary
+breast_cancer = False            # Large sized; numerical and binary
+digits = False                   # Very large sized; integer; image
+fashion = False                  # Very large sized; numerical, image
+iris = False                     # Small sized; numerical and binary
+linnerud = False                 # Small sized; integer
+mushroom = False                  # Very large sized; categorical and binary
+wine = False                     # Medium sized; numerical and binary
 
-# Datasets with missing values
-credit = False                     # Large sized; numerical, integer and categorical
-titanic = False                   # Large sized; numerical, categorical and binary
+# Imputer Settings
+use_cm_imputer = True
+use_knn_imputer = False
+use_simple_imputer = False
 
 datasets = {
     "diabetes": diabetes,
@@ -38,14 +41,8 @@ datasets = {
     "linnerud": linnerud,
     "mushroom": mushroom,
     "wine": wine,
-    "credit": credit,
-    "titanic": titanic,
     }
 
-# Imputer Settings
-use_cm_imputer = True
-use_knn_imputer = False
-use_simple_imputer = False
 imputers = {
     "cm_imputer": use_cm_imputer,
     "knn_imputer": use_knn_imputer,
@@ -104,38 +101,18 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             categorical = True
             mushroom = fetch_ucirepo(id=73)
             data = pd.DataFrame(mushroom.data.features, columns=mushroom.feature_names)
-            # Fix column with missing values (stalk-root)
-            #data["stalk-root"] = data["stalk-root"].astype("string")
-            #data = data.drop(columns=["stalk-root"])
             os.makedirs("evaluation/data/mushroom", exist_ok=True)
             path = "evaluation/data/mushroom/mushroom_"
         elif dataset_name == "wine":
             data = load_wine(as_frame=True).frame
             os.makedirs("evaluation/data/wine", exist_ok=True)
             path = "evaluation/data/wine/wine_"
-        elif dataset_name == "credit":
-            categorical = True
-            missing = True
-            credit = fetch_ucirepo(id=27)
-            data = pd.DataFrame(credit.data.features, columns=credit.feature_names)
-            data_missing = data.copy()
-            os.makedirs("evaluation/data/credit", exist_ok=True)
-            path = "evaluation/data/credit/credit_"
-        elif dataset_name == "titanic":
-            categorical = True
-            missing = True
-            data = pd.read_csv("evaluation/data/titanic/titanic_complete.csv")
-            data_missing = data.copy()
-            path = "evaluation/data/titanic/titanic_"
 
         data.to_csv(path + "complete.csv", index=False)
 
-        # Introduce 10% missing values
+        # Introduce missing values
         if not missing:
-            data_missing, mask = introduce_missingness(data, missing_rate=0.1)
-
-        # Display missing value summary
-        # print(data_missing.isnull().sum())
+            data_missing, mask = introduce_missingness(data, missing_rate=missing_rate, random_state=random_state)
 
         # Save to CSV for testing
         data_missing.to_csv(path + "with_missing.csv", index=False)
@@ -147,6 +124,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             if not use_imputer:
                 continue
             if imputer_name != "cm_imputer" and categorical:
+                print(f"Skipping {imputer_name} for {dataset_name} dataset as it is categorical.")
                 continue
 
             if imputer_name == "cm_imputer":
@@ -169,7 +147,6 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             impute_time = time.time()
             if imputer_name != "cm_imputer":
                 data_imputed = pd.DataFrame(data_imputed)
-            #end_time = time.time()
 
             # Save the imputed dataset (only for CM Imputer)
             if imputer_name == "cm_imputer":
@@ -238,7 +215,7 @@ if __name__ == "__main__":
         cm_imputer = CMImputer(
             settings="precise",
             random_state=random_state,
-            verbose=1,
+            verbose=verbose,
         )
 
     elif settings == 2:
@@ -246,16 +223,15 @@ if __name__ == "__main__":
         cm_imputer = CMImputer(
             setting="fast",
             random_state=random_state,
-            verbose=1,
+            verbose=verbose,
         )
 
     elif settings == 3:
         # "Custom"
         cm_imputer = CMImputer(
             settings="custom",
-            skip_layers=False,
             random_state=random_state,
-            verbose=0,
+            verbose=verbose,
         )
 
     else:
@@ -263,7 +239,7 @@ if __name__ == "__main__":
         cm_imputer = CMImputer(
             settings="balanced",
             random_state=random_state,
-            verbose=1,
+            verbose=verbose,
         )
 
     run_evaluation(cm_imputer=cm_imputer, print_results=True)

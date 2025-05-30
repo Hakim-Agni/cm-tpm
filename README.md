@@ -32,6 +32,11 @@ You can check the latest source code with the command:
 git clone https://github.com/Hakim-Agni/cm-tpm.git
 ```
 
+If you want to run the code locally without installing, make sure you install the requirements for this package. To do this, run the following command in the project root:
+```
+pip install -r 'requirements.txt'
+```
+
 ### Testing
 After installation, you can launch the test suite from outside the source directory (this requires ``pytest`` to be installed):
 ```
@@ -39,7 +44,13 @@ pytest tests
 ```
 
 
-<!-- Documentation
--------------
-The full documentation of this package can be found: -->
+Help and Support
+----------------
+### Documentation
+The full documentation of this package will be published soon.
+
+### Communication
+If you have any questions regarding this package, feel free to reach out via on of the following platforms:
+
+- **GitHub Discussions**: Support added soon.
 
