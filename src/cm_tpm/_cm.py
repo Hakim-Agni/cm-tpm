@@ -361,10 +361,34 @@ class CMImputer:
             if save_output_path.endswith(".csv"):
                 df.to_csv(save_output_path, index=False)
             elif save_output_path.endswith(".xlsx"):
+                # Ensure 'openpyxl' or is installed for saving Excel files
+                try:
+                    import openpyxl
+                except ImportError as e:
+                    raise ImportError(
+                        "Saving '.xlsx' files requires 'openpyxl'. "
+                        "Install it via `pip install cm-tpm[excel]`."
+                    ) from e
                 df.to_excel(save_output_path, index=False, engine="openpyxl")
             elif save_output_path.endswith(".parquet"):
+                # Ensure 'pyarrow' or is installed for saving Parquet files
+                try:
+                    import pyarrow
+                except ImportError as e:
+                    raise ImportError(
+                        "Saving '.parquet' files requires 'pyarrow'. "
+                        "Install it via `pip install cm-tpm[parquet]`."
+                    ) from e
                 df.to_parquet(save_output_path)
             elif save_output_path.endswith(".feather"):
+                # Ensure 'pyarrow' or is installed for saving Feather files
+                try:
+                    import pyarrow
+                except ImportError as e:
+                    raise ImportError(
+                        "Saving '.feather' files requires 'pyarrow'. "
+                        "Install it via `pip install cm-tpm[parquet]`."
+                    ) from e
                 df.to_feather(save_output_path)
             else:
                 raise ValueError("Unsupported file format for saving.")

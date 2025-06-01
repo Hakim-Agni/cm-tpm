@@ -386,6 +386,11 @@ class TestTransform():
 
     def test_transform_save_path_from_file(self):
         """Test saving the imputed data from a file to a file."""
+        try:
+            import pyarrow
+        except ImportError:
+            pytest.skip("pyarrow is not installed, skipping test_transform_save_path_from_file.")
+            
         if os.path.isfile("tests/data/test_data_save_path_file.parquet"):
             os.remove("tests/data/test_data_save_path_file.parquet")
         imputer = self.imputer.fit("tests/data/test_data.parquet")
@@ -397,6 +402,11 @@ class TestTransform():
 
     def test_transform_save_path_from_data(self):
         """Test saving the imputed data to a file."""
+        try:
+            import pyarrow
+        except ImportError:
+            pytest.skip("pyarrow is not installed, skipping test_transform_save_path_from_data.")
+
         if os.path.isfile("tests/data/test_data_save_path_data.feather"):
             os.remove("tests/data/test_data_save_path_data.feather")
         X = np.array([[1, 2, 3], [4, 5, 6]])

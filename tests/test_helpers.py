@@ -16,6 +16,11 @@ class TestLoadFiletypes:
 
     def test_load_xlsx_file(self):
         """Test loading a XLSX file."""
+        try:
+            import openpyxl
+        except ImportError:
+            pytest.skip("openpyxl is not installed, skipping XLSX file test.")
+
         df = _load_file("tests/data/test_data.xlsx")
         assert df.shape == (10, 3)
         assert df.columns.tolist() == ["A", "B", "C"]
@@ -23,6 +28,11 @@ class TestLoadFiletypes:
 
     def test_load_parquet_file(self):
         """Test loading a Parquet file."""
+        try:
+            import pyarrow
+        except ImportError:
+            pytest.skip("pyarrow is not installed, skipping Parquet file test.")
+
         df = _load_file("tests/data/test_data.parquet")
         assert df.shape == (10, 3)
         assert df.columns.tolist() == ["A", "B", "C"]
@@ -30,6 +40,11 @@ class TestLoadFiletypes:
 
     def test_load_feather_file(self):
         """Test loading a Feather file."""
+        try:
+            import pyarrow
+        except ImportError:
+            pytest.skip("pyarrow is not installed, skipping Feather file test.")
+
         df = _load_file("tests/data/test_data.feather")
         assert df.shape == (10, 3)
         assert df.columns.tolist() == ["A", "B", "C"]

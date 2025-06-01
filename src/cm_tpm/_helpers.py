@@ -20,10 +20,34 @@ def _load_file(filepath: str, sep: str = ",", decimal: str = ".") -> pd.DataFram
     if filepath.endswith('.csv'):
         return pd.read_csv(filepath, sep=sep, decimal=decimal)
     elif filepath.endswith('.xlsx'):
+        # Ensure 'openpyxl' or is installed for reading Excel files
+        try:
+            import openpyxl
+        except ImportError as e:
+            raise ImportError(
+                "Reading '.xlsx' files requires 'openpyxl'. "
+                "Install it via `pip install cm-tpm[excel]`."
+            ) from e
         return pd.read_excel(filepath, engine="openpyxl")
     elif filepath.endswith('.parquet'):
+        # Ensure 'pyarrow' or is installed for reading Parquet files
+        try:
+            import pyarrow
+        except ImportError as e:
+            raise ImportError(
+                "Reading '.parquet' files requires 'pyarrow'. "
+                "Install it via `pip install cm-tpm[parquet]`."
+            ) from e
         return pd.read_parquet(filepath)
     elif filepath.endswith('.feather'):
+        # Ensure 'pyarrow' or is installed for reading Feather files
+        try:
+            import pyarrow
+        except ImportError as e:
+            raise ImportError(
+                "Reading '.feather' files requires 'pyarrow'. "
+                "Install it via `pip install cm-tpm[feather]`."
+            ) from e
         return pd.read_feather(filepath)
     else:
         raise ValueError("Unsupported file format. Please provide a CSV, Excel, Parquet, or Feather file.")

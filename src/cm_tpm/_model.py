@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import time
 import math
-from tqdm import tqdm
 import warnings
 import torch
 import torch.nn as nn
@@ -10,6 +9,12 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from scipy.stats import qmc
 import gc
+
+try:
+    from tqdm import tqdm
+    use_tqdm = True
+except ImportError as e:
+    use_tqdm = False
 
 class CM_TPM(nn.Module):
     def __init__(self, pc_type, input_dim, latent_dim, num_components, net=None, custom_layers=[2, 64, "ReLU", False, 0.0, False], random_state=None):
@@ -537,7 +542,17 @@ def train_cm_tpm(
     else:   # No batches
         train_loader = [torch.unsqueeze(x_tensor, 0)]   # Add batch dimension
 
-    for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Training"):
+    # Set correct iterator for epochs
+    if verbose == 1:
+        if use_tqdm:
+            iterator = tqdm(range(epochs), disable=not verbose == 1, desc="Training")
+        else:   # If tqdm is not installed, use a simple range iterator
+            warnings.warn("Training progress bar will not be shown. To show progress bar, install 'tqdm' via `pip install cm-tpm[tqdm]`", UserWarning)
+            iterator = range(epochs)
+    else:   # No progress bar
+        iterator = range(epochs)
+
+    for epoch in iterator:
         start_time_epoch = time.time()
 
         total_loss = 0.0       # Keep track of the total loss for the epoch
@@ -660,7 +675,18 @@ def latent_optimization(
     start_time = time.time()        # Keep track of training time
 
     model.eval()       # Set model to evaluation mode
-    for epoch in tqdm(range(epochs), disable=not verbose == 1, desc="Latent Optimization"):
+
+    # Set correct iterator for epochs
+    if verbose == 1:
+        if use_tqdm:
+            iterator = tqdm(range(epochs), disable=not verbose == 1, desc="Latent Optimization")
+        else:   # If tqdm is not installed, use a simple range iterator
+            warnings.warn("Latent optimization progress bar will not be shown. To show progress bar, install 'tqdm' via `pip install cm-tpm[tqdm]`", UserWarning)
+            iterator = range(epochs)
+    else:   # No progress bar
+        iterator = range(epochs)
+
+    for epoch in iterator:
         start_time_epoch = time.time()
 
         optimizer.zero_grad()       # Reset gradients
@@ -786,7 +812,16 @@ def impute_missing_values_exact(
         batch_size = total_nan_rows
     else:   # Set correct batch size
         batch_size = max_batch_size
-        iterator = tqdm(range(0, total_nan_rows, batch_size), disable=(verbose != 1), desc="Imputing")
+
+        # Set correct iterator for epochs
+        if verbose == 1:
+            if use_tqdm:
+                iterator = tqdm(range(0, total_nan_rows, batch_size), disable=(verbose != 1), desc="Imputing")
+            else:   # If tqdm is not installed, use a simple range iterator
+                warnings.warn("Imputation progress bar will not be shown. To show progress bar, install 'tqdm' via `pip install cm-tpm[tqdm]`", UserWarning)
+                iterator = range(0, total_nan_rows, batch_size)
+        else:   # No progress bar
+            iterator = range(0, total_nan_rows, batch_size)
 
     likelihoods = []    # Store the likelihoods during imputation
     final_likelihoods = []       # Store the final likelihoods for each batch
@@ -809,8 +844,18 @@ def impute_missing_values_exact(
 
         optimizer = optim.Adam([x_vals], lr=lr)  # Set optimizer
 
+        # Set correct iterator for epochs
+        if verbose == 1:
+            if use_tqdm:
+                iterator = tqdm(range(epochs), disable=(batch_size != total_nan_rows or verbose != 1), desc="Imputation Epoch")
+            else:   # If tqdm is not installed, use a simple range iterator
+                warnings.warn("Imputation epoch progress bar will not be shown. To show progress bar, install 'tqdm' via `pip install cm-tpm[tqdm]`", UserWarning)
+                iterator = range(epochs)
+        else:   # No progress bar
+            iterator = range(epochs)
+
         # Optimize the missing values
-        for epoch in tqdm(range(epochs), disable=(batch_size != total_nan_rows or verbose != 1), desc="Imputation Epoch"):
+        for epoch in iterator:
             optimizer.zero_grad()
             x_batch_imputed = x_fixed.masked_scatter(~batch_mask, x_vals)
             loss = -model(x_batch_imputed, z_samples, w, n_components=n_components)
@@ -939,7 +984,16 @@ def impute_missing_values_component(
         batch_size = n_incomplete
     else:   # Set correct batch size
         batch_size = max_batch_size
-        iterator = tqdm(range(0, n_incomplete, batch_size), disable=(verbose != 1), desc="Imputing")
+
+        # Set correct iterator for epochs
+        if verbose == 1:
+            if use_tqdm:
+                iterator = tqdm(range(0, n_incomplete, batch_size), disable=(verbose != 1), desc="Imputing")
+            else:   # If tqdm is not installed, use a simple range iterator
+                warnings.warn("Imputation progress bar will not be shown. To show progress bar, install 'tqdm' via `pip install cm-tpm[tqdm]`", UserWarning)
+                iterator = range(0, n_incomplete, batch_size)
+        else:   # No progress bar
+            iterator = range(0, n_incomplete, batch_size)
 
     imputed_batches = []
     log_likelihood_total = 0.0
