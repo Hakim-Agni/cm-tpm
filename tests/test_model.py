@@ -520,7 +520,7 @@ class TestModelResult():
 
     def test_cm_factorized_constant(self):
         """Test imputing data filled with a constant."""
-        constant = np.random.rand()
+        constant = 0.42
         p = 0.1
         all_const = np.full((100, 10), constant)
         all_const[43, 8] = np.nan
