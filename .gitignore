@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .tox/
+tox.ini
 /dist
 /build
 /src/cm_tpm.egg-info
