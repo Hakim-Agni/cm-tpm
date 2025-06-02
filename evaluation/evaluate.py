@@ -11,20 +11,20 @@ from ucimlrepo import fetch_ucirepo
 from cm_tpm import CMImputer
 
 # CMImputer Settings
-settings = 3                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is custom
+settings = 1                    # 0 is high fidelity, 1 is medium, 2 is fast, 3 is custom
 random_state = 42
 verbose = 0                     # Verbosity level for CMImputer
 missing_rate = 0.1              # Rate of missing values to introduce
 
 # Dataset Settings
 # Complete datasets
-diabetes = True                 # Medium sized; numerical and integer
+diabetes = False                 # Medium sized; numerical and integer
 breast_cancer = False            # Large sized; numerical and binary
 digits = False                   # Very large sized; integer; image
 fashion = False                  # Very large sized; numerical, image
 iris = False                     # Small sized; numerical and binary
 linnerud = False                 # Small sized; integer
-mushroom = False                  # Very large sized; categorical and binary
+mushroom = True                  # Very large sized; categorical and binary
 wine = False                     # Medium sized; numerical and binary
 
 # Imputer Settings
@@ -69,14 +69,17 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
         if dataset_name == "diabetes":
             # Load dataset as a pandas DataFrame
             data = load_diabetes(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/diabetes", exist_ok=True)  # Create directory if it doesn't exist
             path = "evaluation/data/diabetes/diabetes_"
         elif dataset_name == "breast_cancer":
             data = load_breast_cancer(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/breast_cancer", exist_ok=True)  # Create directory if it doesn't exist
             path = "evaluation/data/breast_cancer/breast_cancer_"
         elif dataset_name == "digits":
             data = load_digits(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/digits", exist_ok=True)
             path = "evaluation/data/digits/digits_"
         elif dataset_name == "fashion":
@@ -91,6 +94,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             path = "evaluation/data/fashion/fashion_"
         elif dataset_name == "iris":
             data = load_iris(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/iris", exist_ok=True)
             path = "evaluation/data/iris/iris_"
         elif dataset_name == "linnerud":
@@ -105,6 +109,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             path = "evaluation/data/mushroom/mushroom_"
         elif dataset_name == "wine":
             data = load_wine(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/wine", exist_ok=True)
             path = "evaluation/data/wine/wine_"
 

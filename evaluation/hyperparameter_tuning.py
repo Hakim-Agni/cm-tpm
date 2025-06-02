@@ -72,18 +72,22 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
         if dataset_name == "diabetes":
             # Load dataset as a pandas DataFrame
             data = load_diabetes(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/diabetes", exist_ok=True)  # Create directory if it doesn't exist
             path = "evaluation/data/diabetes/diabetes_"
         elif dataset_name == "breast_cancer":
             data = load_breast_cancer(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/breast_cancer", exist_ok=True)  # Create directory if it doesn't exist
             path = "evaluation/data/breast_cancer/breast_cancer_"
         elif dataset_name == "digits":
             data = load_digits(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/digits", exist_ok=True)
             path = "evaluation/data/digits/digits_"
         elif dataset_name == "iris":
             data = load_iris(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/iris", exist_ok=True)
             path = "evaluation/data/iris/iris_"
         elif dataset_name == "linnerud":
@@ -98,6 +102,7 @@ def run_evaluation(cm_imputer=CMImputer(), print_results=True):
             path = "evaluation/data/mushroom/mushroom_"
         elif dataset_name == "wine":
             data = load_wine(as_frame=True).frame
+            data = data.drop(['target'], axis=1)
             os.makedirs("evaluation/data/wine", exist_ok=True)
             path = "evaluation/data/wine/wine_"
 
