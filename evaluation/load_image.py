@@ -1,5 +1,6 @@
 import os
 from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
 import torchvision
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,12 +10,12 @@ from cm_tpm import CMImputer
 
 # Configurations
 dataset = "digits"      # "digits" or "fashion"
-random_state = 42
-remove = "bottom"          # "top", "bottom", "left", "right", or "random"
+random_state = 0
+remove = "left"          # "top", "bottom", "left", "right", or "random"
 missing_rate = 0.5     # Missing rate for the images
 n_outputs = 5           # The number of output images to show
 train_new = False       # Whether to train a new model or use a saved model (if available)
-imputer = "cm"          # "cm", "knn", or "simple"
+imputer = "all"          # "cm", "knn", or "simple", or "all" to compare all methods
 
 # Function to introduce random missingness in the dataset
 def introduce_missingness(data, missing_rate=0.1, random_state=42):
@@ -63,7 +64,7 @@ def show_image(image_data, ax, title, image_shape):
     # Create a custom colormap: grayscale for values, red for NaNs
     cmap = plt.cm.gray_r
     cmap = cmap.copy()
-    cmap.set_bad(color='red')  # color for NaNs
+    cmap.set_bad(color='blue')  # color for NaNs
 
     # Plot
     ax.imshow(masked_array, cmap=cmap, vmin=0, vmax=15)
@@ -74,8 +75,7 @@ if dataset == "digits":
     data = pd.DataFrame(load_digits(as_frame=True).frame)
     data = data.drop("target", axis=1)
 
-    train_data = data[:1500]
-    test_data = data[1500:]
+    train_data, test_data = train_test_split(data, test_size=0.2, shuffle=True, random_state=random_state)
 
     image_shape = (8, 8)
 
@@ -92,8 +92,7 @@ elif dataset == "fashion":
 
     data = pd.DataFrame(data_np)
 
-    train_data = data[:4000]
-    test_data = data[4000:]
+    train_data, test_data = train_test_split(data, test_size=0.2, shuffle=True, random_state=random_state)
 
     image_shape = (28, 28)
 
@@ -112,30 +111,43 @@ else:
 # test_data = test_data
 # test_data_missing = test_data_missing
 
-if imputer == "cm":
+if imputer == "cm" or imputer == "all":
+    imputer_name = "CM-TPM"
     model = CMImputer(
         settings="balanced",
         random_state=random_state,
         verbose=1,
     )
 elif imputer == "knn":
+    imputer_name = "KNN"
     model = KNNImputer()
 elif imputer == "simple":
+    imputer_name = "Mean"
     model = SimpleImputer()
 else:
     raise ValueError(f"Unsupported imputer type: {imputer}")
 
-if imputer == "cm" and not train_new and os.path.exists(save_str):
+if (imputer == "cm" or imputer == "all") and not train_new and os.path.exists(save_str):
     model = CMImputer.load_model(save_str)
-elif imputer == "cm":
+elif imputer == "cm" or imputer == "all":
     model.fit(train_data, save_model_path=save_str)
 else:
     model.fit(train_data)
 
+# If all methods are used, also train KNN and SimpleImputer
+if imputer == "all":
+    model2 = KNNImputer()
+    model2.fit(train_data)
+    model3 = SimpleImputer()
+    model3.fit(train_data)
+
 test_samples = test_data_missing.shape[0]
 
 # Create the figure and axes
-fig, axes = plt.subplots(n_outputs, 3, figsize=(9, 4*n_outputs + 2))
+if imputer == "all":
+    fig, axes = plt.subplots(n_outputs, 5, figsize=(15, 4*n_outputs + 2))
+else:
+    fig, axes = plt.subplots(n_outputs, 3, figsize=(9, 4*n_outputs + 2))
 
 rng = np.random.default_rng(random_state)
 for i in range(n_outputs):
@@ -145,13 +157,23 @@ for i in range(n_outputs):
     test_sample = test_data_missing.iloc[index].to_numpy()
     imputed_sample = model.transform([test_sample])
 
+    if imputer == "all":
+        imputed_sample2 = model2.transform([test_sample])
+        imputed_sample3 = model3.transform([test_sample])
+
     if n_outputs == 1:
         show_image(test_data.iloc[index], axes[0], "Full image", image_shape)
         show_image(test_sample, axes[1], "Image with missing", image_shape)
-        show_image(imputed_sample, axes[2], "Imputed image", image_shape)
+        show_image(imputed_sample, axes[2], "Imputed image ("+imputer_name+")", image_shape)
+        if imputer == "all":
+            show_image(imputed_sample2, axes[3], "Imputed image (KNN)", image_shape)
+            show_image(imputed_sample3, axes[4], "Imputed image (Mean)", image_shape)
     else:
         show_image(test_data.iloc[index], axes[i][0], "Full image", image_shape)
         show_image(test_sample, axes[i][1], "Image with missing", image_shape)
-        show_image(imputed_sample, axes[i][2], "Imputed image", image_shape)
+        show_image(imputed_sample, axes[i][2], "Imputed image ("+imputer_name+")", image_shape)
+        if imputer == "all":
+            show_image(imputed_sample2, axes[i][3], "Imputed image (KNN)", image_shape)
+            show_image(imputed_sample3, axes[i][4], "Imputed image (Mean)", image_shape)
 
 plt.show()
