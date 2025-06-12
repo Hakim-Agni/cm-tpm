@@ -14,3 +14,4 @@ tests/data/test_data_save_path_file.parquet
 /tests/saved_models
 /evaluation/models
 /docs
+tox.ini

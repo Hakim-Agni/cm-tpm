@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import warnings
-from ._model import CM_TPM, train_cm_tpm, impute_missing_values_exact, impute_missing_values_component
+from ._model import CM_TPM, train_cm_tpm, impute_missing_values_optimization, impute_missing_values_component
 from ._helpers import (
     _load_file, _to_numpy, _restore_format, _missing_to_nan, _all_numeric, is_valid_integer,
     _integer_encoding, _restore_encoding, _binary_encoding, _restore_binary_encoding, _convert_json, _convert_numpy
@@ -39,10 +39,10 @@ class CMImputer:
         Whether to use latent optimization after training.
     pc_type: str, optional (default="factorized"), allowed: "factorized"
         The type of PC to use in the model. Currently only "factorized" is supported.
-    imputation_method: str, optional (default="EM") allowed: "EM", "exact"
+    imputation_method: str, optional (default="expectation") allowed: "expectation", "optimization"
         The imputation method to use during inference.
-        - EM: Imputes values by maximizing the expected values, faster method.
-        - Exact: Imputed values by finding the optimal values using an optimizer, more accurate method.
+        - expectation: Imputes values by maximizing the expected values, faster method.
+        - optimization: Imputed values by finding the optimal values using an optimizer, more accurate method.
     ordinal_features: dict, optional (default=None)
         A dictionaty containing information on which features have ordinal data and how the values are mapped.
     max_depth: int, optional (default=5)
@@ -143,7 +143,7 @@ class CMImputer:
             top_k: int | None = None,
             lo: bool = False,
             pc_type: str = "factorized",
-            imputation_method: str = "EM",
+            imputation_method: str = "expectation",
             ordinal_features: dict | None = None,
             max_depth: int = 5,
             custom_net: nn.Sequential | None = None,
@@ -727,7 +727,7 @@ class CMImputer:
                 "top_k": None,
                 "lo": False,
                 "pc_type": "factorized",
-                "imputation_method": "EM",
+                "imputation_method": "expectation",
                 "max_depth": 5,
                 "custom_net": None,
                 "hidden_layers": 2,
@@ -749,7 +749,7 @@ class CMImputer:
                 "top_k": None,
                 "lo": False,
                 "pc_type": "factorized",
-                "imputation_method": "EM",
+                "imputation_method": "expectation",
                 "max_depth": 5,
                 "custom_net": None,
                 "hidden_layers": 4,
@@ -771,7 +771,7 @@ class CMImputer:
                 "top_k": None,
                 "lo": False,
                 "pc_type": "factorized",
-                "imputation_method": "exact",
+                "imputation_method": "optimization",
                 "max_depth": 5,
                 "custom_net": None,
                 "hidden_layers": 5,
@@ -900,12 +900,12 @@ class CMImputer:
         if not np.any(np.isnan(X_preprocessed)):
             warnings.warn(f"No missing values detected in input data, transformation has no effect. Did you set the correct missing value: '{self.missing_values}'?", UserWarning)
 
-        if not self.imputation_method in ["EM", "exact"]:
-            warnings.warn(f"Invalid imputation method selected: {self.imputation_method}, defaulting to EM", UserWarning)
-            self.imputation_method = "EM"
+        if not self.imputation_method in ["expectation", "optimization"]:
+            warnings.warn(f"Invalid imputation method selected: {self.imputation_method}, defaulting to 'expectation'", UserWarning)
+            self.imputation_method = "expectation"
 
-        if self.imputation_method == "exact":
-            X_imputed, self.log_likelihood_, self.imputing_likelihoods_ = impute_missing_values_exact(
+        if self.imputation_method == "optimization":
+            X_imputed, self.log_likelihood_, self.imputing_likelihoods_ = impute_missing_values_optimization(
                 X_preprocessed, 
                 self.model,
                 num_components=self.n_components_impute,
@@ -916,7 +916,7 @@ class CMImputer:
                 random_state=self.random_state,
                 verbose = self.verbose,
             )
-        else:    # Use EM imputation by default
+        else:    # Use expectation imputation by default
             # Set 'k' depending on the settings
             k = 1 if self.settings == "fast" else None
             
