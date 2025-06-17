@@ -21,7 +21,7 @@ class TestClass:
             top_k=10,
             lo=True,
             pc_type="spn",
-            imputation_method="exact",
+            imputation_method="optimization",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -50,7 +50,7 @@ class TestClass:
         assert imputer.top_k == 10
         assert imputer.lo
         assert imputer.pc_type == "spn"
-        assert imputer.imputation_method == "exact"
+        assert imputer.imputation_method == "optimization"
         assert imputer.ordinal_features is None
         assert imputer.max_depth == 3
         assert imputer.custom_net is None
@@ -105,7 +105,7 @@ class TestSettings():
             top_k=10,
             lo=True,
             pc_type="spn",
-            imputation_method="exact",
+            imputation_method="optimization",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -134,7 +134,7 @@ class TestSettings():
         assert imputer.top_k == 10
         assert imputer.lo
         assert imputer.pc_type == "spn"
-        assert imputer.imputation_method == "exact"
+        assert imputer.imputation_method == "optimization"
         assert imputer.ordinal_features is None
         assert imputer.max_depth == 3
         assert imputer.custom_net is None
@@ -169,7 +169,7 @@ class TestSettings():
         assert imputer.top_k is None
         assert imputer.lo == False
         assert imputer.pc_type == "factorized"
-        assert imputer.imputation_method == "EM"
+        assert imputer.imputation_method == "expectation"
         assert imputer.max_depth == 5
         assert imputer.custom_net is None
         assert imputer.hidden_layers == 2
@@ -194,7 +194,7 @@ class TestSettings():
         assert imputer.top_k is None
         assert imputer.lo == False
         assert imputer.pc_type == "factorized"
-        assert imputer.imputation_method == "EM"
+        assert imputer.imputation_method == "expectation"
         assert imputer.max_depth == 5
         assert imputer.custom_net is None
         assert imputer.hidden_layers == 4
@@ -219,7 +219,7 @@ class TestSettings():
         assert imputer.top_k is None
         assert imputer.lo == False
         assert imputer.pc_type == "factorized"
-        assert imputer.imputation_method == "exact"
+        assert imputer.imputation_method == "optimization"
         assert imputer.max_depth == 5
         assert imputer.custom_net is None
         assert imputer.hidden_layers == 5
@@ -508,9 +508,9 @@ class TestTransform():
             assert X_imputed[0, 3] == "Extremely High"
             assert X_imputed[1, 3] == "High" or X_imputed[1, 3] == "Medium" or X_imputed[1, 3] == "Low"
 
-    def test_transform_exact(self):
-        """Tests the exact imputation method"""
-        self.imputer.imputation_method = "exact"
+    def test_transform_optimization(self):
+        """Tests the optimization imputation method"""
+        self.imputer.imputation_method = "optimization"
         X = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
         imputer = self.imputer.fit(X)
         X_missing = np.array([[np.nan, 2., 3.], [4., 5., 6.]])
@@ -752,7 +752,7 @@ class TestParams():
             top_k=10,
             lo=True,
             pc_type="spn",
-            imputation_method="exact",
+            imputation_method="optimization",
             ordinal_features=None,
             max_depth=3,
             custom_net=None,
@@ -785,7 +785,7 @@ class TestParams():
         assert params["top_k"] == 10
         assert params["lo"] == True
         assert params["pc_type"] == "spn"
-        assert params["imputation_method"] == "exact"
+        assert params["imputation_method"] == "optimization"
         assert params["ordinal_features"] is None
         assert params["max_depth"] == 3
         assert params["custom_net"] is None
@@ -817,7 +817,7 @@ class TestParams():
             top_k=None,
             lo=False,
             pc_type="clt",
-            imputation_method="EM",
+            imputation_method="expectation",
             ordinal_features={0: {"Low": 0, "Medium": 1, "High": 2}},
             max_depth=5,
             hidden_layers=2,
@@ -845,7 +845,7 @@ class TestParams():
         assert self.imputer.top_k is None
         assert self.imputer.lo == False
         assert self.imputer.pc_type == "clt"
-        assert self.imputer.imputation_method == "EM"
+        assert self.imputer.imputation_method == "expectation"
         assert self.imputer.ordinal_features == {0: {"Low": 0, "Medium": 1, "High": 2}}
         assert self.imputer.max_depth == 5
         assert self.imputer.hidden_layers == 2
@@ -954,7 +954,7 @@ class TestApplySettings():
         assert self.imputer.top_k is None
         assert self.imputer.lo == False
         assert self.imputer.pc_type == "factorized"
-        assert self.imputer.imputation_method == "EM"
+        assert self.imputer.imputation_method == "expectation"
         assert self.imputer.max_depth == 5
         assert self.imputer.custom_net is None
         assert self.imputer.hidden_layers == 2
@@ -978,7 +978,7 @@ class TestApplySettings():
         assert self.imputer.top_k is None
         assert self.imputer.lo == False
         assert self.imputer.pc_type == "factorized"
-        assert self.imputer.imputation_method == "EM"
+        assert self.imputer.imputation_method == "expectation"
         assert self.imputer.max_depth == 5
         assert self.imputer.custom_net is None
         assert self.imputer.hidden_layers == 4
@@ -1002,7 +1002,7 @@ class TestApplySettings():
         assert self.imputer.top_k is None
         assert self.imputer.lo == False
         assert self.imputer.pc_type == "factorized"
-        assert self.imputer.imputation_method == "exact"
+        assert self.imputer.imputation_method == "optimization"
         assert self.imputer.max_depth == 5
         assert self.imputer.custom_net is None
         assert self.imputer.hidden_layers == 5
@@ -1224,15 +1224,15 @@ class TestImpute():
             X_imputed = self.imputer._impute(X_no_missing)
             assert np.array_equal(X_no_missing, X_imputed)
 
-    def test_em_impute(self):
-        """Test the EM imputation method."""
+    def test_expectation_impute(self):
+        """Test the expectation imputation method."""
         X_missing = np.array([[1, 2, np.nan]])
         X_imputed = self.imputer._impute(X_missing)
         assert not np.isnan(X_imputed).any()
     
-    def test_exact_impute(self):
-        """Test the exact imputation method."""
-        self.imputer.imputation_method = "exact"
+    def test_optimization_impute(self):
+        """Test the optimization imputation method."""
+        self.imputer.imputation_method = "optimization"
         X_missing = np.array([[1, 2, np.nan]])
         X_imputed = self.imputer._impute(X_missing)
         assert not np.isnan(X_imputed).any()

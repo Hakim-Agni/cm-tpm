@@ -726,7 +726,7 @@ def latent_optimization(
     return best_z  # Return optimized z_samples
 
 
-def impute_missing_values_exact(
+def impute_missing_values_optimization(
         x_incomplete, 
         model,
         num_components=None,

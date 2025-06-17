@@ -1,7 +1,7 @@
 import pytest
 from cm_tpm._model import CM_TPM, FactorizedPC, SPN, ChowLiuTreePC
 from cm_tpm._model import PhiNet
-from cm_tpm._model import get_probabilistic_circuit, generate_rqmc_samples, train_cm_tpm, impute_missing_values_exact, impute_missing_values_component
+from cm_tpm._model import get_probabilistic_circuit, generate_rqmc_samples, train_cm_tpm, impute_missing_values_optimization, impute_missing_values_component
 import numpy as np
 import torch
 import torch.nn as nn
@@ -351,7 +351,7 @@ class TestTrainCM_TPM():
         model, _ = train_cm_tpm(train_data=train_data, lo=True, epochs=5)
         assert isinstance(model, CM_TPM)
 
-class TestImputeExact():
+class TestImputeOptimization():
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup method for the test class."""
@@ -364,7 +364,7 @@ class TestImputeExact():
         data_incomplete[4, 6] = np.nan
         data_incomplete[25, 1] = np.nan
         data_incomplete[0, 7] = np.nan
-        data_imputed, _, _ = impute_missing_values_exact(data_incomplete, self.model, epochs=5)
+        data_imputed, _, _ = impute_missing_values_optimization(data_incomplete, self.model, epochs=5)
         assert isinstance(data_imputed, np.ndarray)
         assert data_imputed.shape == data_incomplete.shape
         assert data_imputed[4, 6] != np.nan
@@ -379,7 +379,7 @@ class TestImputeExact():
         data_incomplete[25, 1] = np.nan
         data_incomplete[0, 7] = np.nan
         model, _ = train_cm_tpm(train_data=self.train_data, lo=True, epochs=5)
-        data_imputed, _, _ = impute_missing_values_exact(data_incomplete, model, epochs=5)
+        data_imputed, _, _ = impute_missing_values_optimization(data_incomplete, model, epochs=5)
         assert isinstance(data_imputed, np.ndarray)
         assert data_imputed.shape == data_incomplete.shape
         assert data_imputed[4, 6] != np.nan
@@ -390,7 +390,7 @@ class TestImputeExact():
     def test_impute_data_no_missing(self):
         """Test imputing data with no missing values."""
         data_incomplete = np.random.rand(30, 10)
-        data_imputed, _, _ = impute_missing_values_exact(data_incomplete, self.model)
+        data_imputed, _, _ = impute_missing_values_optimization(data_incomplete, self.model)
         assert data_imputed.shape == data_incomplete.shape
         assert np.array_equal(data_incomplete, data_imputed)
 
@@ -399,7 +399,7 @@ class TestImputeExact():
         data_incomplete = np.random.rand(50, 5)
         data_incomplete[0, 0] = np.nan
         try:
-            data_imputed, _, _ = impute_missing_values_exact(data_incomplete, self.model)
+            data_imputed, _, _ = impute_missing_values_optimization(data_incomplete, self.model)
             assert False
         except ValueError as e:
             assert str(e) == "The missing data does not have the same number of features as the training data. Expected features: 10, but got features: 5."
@@ -410,7 +410,7 @@ class TestImputeExact():
         data_incomplete = np.random.rand(50, 10)
         data_incomplete[0, 0] = np.nan
         try:
-            data_imputed, _, _ = impute_missing_values_exact(data_incomplete, model)
+            data_imputed, _, _ = impute_missing_values_optimization(data_incomplete, model)
             assert False
         except ValueError as e:
             assert str(e) == "The model has not been fitted yet. Please call the fit method first."
@@ -514,7 +514,7 @@ class TestModelResult():
         all_zeros = np.zeros((100, 10))
         all_zeros[0, 0] = np.nan
         model, _ = train_cm_tpm(all_zeros, random_state=42)
-        imputed, log_likelihood, _ = impute_missing_values_exact(all_zeros, model, random_state=42)
+        imputed, log_likelihood, _ = impute_missing_values_optimization(all_zeros, model, random_state=42)
         assert imputed[0, 0] < p
         assert log_likelihood > 0
 
@@ -527,7 +527,7 @@ class TestModelResult():
         all_const[10, 2] = np.nan
         all_const[84, 0] = np.nan
         model, _ = train_cm_tpm(all_const, random_state=42)
-        imputed, log_likelihood, _ = impute_missing_values_exact(all_const, model, num_components=1024, random_state=42)
+        imputed, log_likelihood, _ = impute_missing_values_optimization(all_const, model, num_components=1024, random_state=42)
         assert imputed[43, 8] < constant + p and imputed[43, 8] > constant - p
         assert imputed[10, 2] < constant + p and imputed[10, 2] > constant - p
         assert imputed[84, 0] < constant + p and imputed[84, 0] > constant - p
