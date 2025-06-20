@@ -14,23 +14,22 @@ from ._helpers import (
 
 class CMImputer:
     """
-    Imputation for completing missing values using Continuous Mixtures of 
-    Tractable Probabilistic Models.
+    Imputation for completing missing values using Continuous Mixtures of Tractable Probabilistic Models.
 
     Parameters
     ----------
     settings: string, optional (default="custom"), allowed: "custom", "fast", "balanced", "precise"
         The hyperparameter settings to use for the model.
         - custom: Allows custom hyperparameters by setting them manually.
-        - fast: Quick imputation, acceptable quality. Use this option when speed is most important.
-        - balanced: Trade-off between speed and accuracy. Good for general use. Default parameters use the balanced option.
-        - precise: Highest quality, slowest. Use this option when accuracy matters most.
+        - "fast": Prioritizes speed over accuracy. Use when speed is most important.
+        - "balanced": Balances accuracy and speed. The default parameter settings. Suitable for general use.
+        - "precise": Focuses on accuracy, with less regard to speed. Use when accuracy matters the most.
     missing_values: float, string, int, list, optional (default=np.nan)
         The placeholder(s) for missing values in the input data, all instances of missing_values will be imputed.
     n_components_train: int, optional (default=256)
-        Number of components to use in the mixture model during training.
+        Number of components to use in the mixture model during training. Values that are a power of 2 are preferred.
     n_components_impute: int, optional (default=2048)
-        Number of components to use in the mixture model during imputation. If none, the same number of components as used during training.
+        Number of components to use in the mixture model during imputation. If None, it uses the same number of components as used during training.
     latent_dim: int, optional (default=4)
         Dimensionality of the latent variable.
     top_k: int, optional (default=None)
@@ -41,26 +40,28 @@ class CMImputer:
         The type of PC to use in the model. Currently only "factorized" is supported.
     imputation_method: str, optional (default="expectation") allowed: "expectation", "optimization"
         The imputation method to use during inference.
-        - expectation: Imputes values by maximizing the expected values, faster method.
-        - optimization: Imputed values by finding the optimal values using an optimizer, more accurate method.
+        - "expectation": Imputes values by maximizing the expected values. Faster method.
+        - "optimization": Imputed values by finding the optimal values using an optimizer. More accurate method.
     ordinal_features: dict, optional (default=None)
-        A dictionaty containing information on which features have ordinal data and how the values are mapped.
+        A dictionary containing information on which features have ordinal data and how the values are ordered.
     max_depth: int, optional (default=5)
-        Maximum depth of the probabilistic circuits.
+        Maximum depth of the PCs, if applicable. Currently not used.
     custom_net: nn.Sequential, optional (default=None)
         A custom neural network to use in the model.
     hidden_layers: int, optional (default=4)
-        The number of hidden layers in the neural network.
+        The number of hidden layers to use in the neural network. Only used if custom_net=None.
     neuron_per_layer: int or list of ints, optional (default=512)
-        The number of neurons in each layer in the neural network.
-    activation: str, optional (default="LeakyReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU", "Identity
-        The activation function used in the neural network.
+        The number of neurons in each layer of the neural network. Only used if custom_net=None.
+    activation: str, optional (default="LeakyReLU"), allowed: "ReLU", "Tanh", "Sigmoid", "LeakyReLU", "Identity"
+        The activation function to use in the neural network. Only used if custom_net=None.
     batch_norm: bool, optional (default=True)
-        Whether to use batch normalization in the neural network.
+        Whether to use batch normalization in the neural network. Only used if custom_net=None.
     dropout_rate: float, optional (default=0.1)
-        The dropout rate used in the neural network.
+        The dropout rate to use in the neural network. Only used if custom_net=None.
+    skip_layers: bool, optional (default=True)
+        Whether to use skip layers in the neural network.
     max_iter: int, optional (default=100)
-        Maximum number of iterations to perform.
+        Maximum number of iterations to perform during training.
     batch_size_train: int or None, optional (default=1024)
         The batch size to use for training. If None, the entire dataset is used.
     batch_size_impute: int or None, optional (default=256)
@@ -78,7 +79,7 @@ class CMImputer:
     random_state: int, RandomState instance or None, optional (default=None)
         Random seed for reproducibility.
     verbose: int, optional (default=0)
-        Verbosity level, controls the debug messages.
+        Verbosity level, controls debug messages.
     copy: bool, optional (default=True)
         Whether to copy the input data or modify it in place.
     keep_empty_features: bool, optional (default=False)
@@ -93,17 +94,17 @@ class CMImputer:
     feature_names_in_: list of str
         Names of the input features.
     input_dimension_: int
-        Number of features in the input data after preprocessing.
+        Number of features in the input data after pre-processing.
     log_likelihood_: float
-        Log likelihood of the data under the model.
+        Log-likelihood of the data under the model.
     training_likelihoods_: list of floats
-        List of recorded log likelihoods during training.
+        List of recorded log-likelihoods during training.
     imputing_likelihoods_: list of floats
-        List of recorded log likelihoods during imputation.
-    mean_: float
-        The mean value for each feature observed during training.
-    std_: float
-        The standard deviation for each feature observed during training.
+        List of recorded log-likelihoods during imputation.
+    mean_: list of floats
+        The means value for each feature observed during training.
+    std_: list of floats
+        The standard deviations for each feature observed during training.
     binary_info_: list
         The information about binary features observed during training.
     integer_info_: list
@@ -131,7 +132,7 @@ class CMImputer:
            [4., 5., 6.],
            [1., 8., 9.]])
     
-    For more detailed examples, please refer to the documentation.
+    For more detailed examples, please refer to the documentation <https://github.com/Hakim-Agni/cm-tpm/wiki>.
     """
     def __init__(
             self,
@@ -152,7 +153,7 @@ class CMImputer:
             activation: str = "LeakyReLU",
             batch_norm: bool = True,
             dropout_rate: float = 0.1,
-            skip_layers: bool = False,
+            skip_layers: bool = True,
             max_iter: int = 100,
             batch_size_train: int | None = 1024,
             batch_size_impute: int | None = 256,
@@ -299,7 +300,7 @@ class CMImputer:
 
     def transform(self, X: str | np.ndarray | pd.DataFrame | list, save_output_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
-        Impute missing values in the dataset.
+        Imputes all missing values in the dataset.
 
         Parameters:
             X (array-like or str): Data with missing values.
@@ -332,6 +333,10 @@ class CMImputer:
 
         # Transform the data to a NumPy array
         X_np, original_format, columns = _to_numpy(X)
+        
+        # Update column names if applicable
+        if columns is None:
+            columns = self.feature_names_in_
 
         # Add a dimension to 1-dimensional data
         if X_np.ndim == 1:
@@ -420,6 +425,7 @@ class CMImputer:
             ValueError: If the model is not yet fitted.
             ValueError: If an unknown file format is provided as a save path.
             ValueError: If a model load path is not specified.
+            FileNotFoundError: If the file location does not conatin model files.
         """
         if load_model_path is None:
             raise ValueError(
@@ -432,11 +438,12 @@ class CMImputer:
     
     def fit_transform(self, X: str | np.ndarray | pd.DataFrame | list, save_model_path: str = None, save_output_path: str = None, sep=",", decimal=".", return_format: str = "auto"):
         """
-        Fit the model and then transform the data.
+        Fits the model and then transform the data.
 
         Parameters:
             X (array-like or str): Data with missing values.
                 - Allowed: np.ndarray, pd.DataFrame, list of lists, or a file path (CSV, XLSX, Parquest, Feather)
+            save_model_path (str, optional): Location to save the fitted model. If None, the model is not saved.
             save_output_path (str, optional): If provided, saves output to a file. Otherwise, if X is a filepath, save output to 'X + _imputed'.
             sep (str, optional): Delimiter for CSV files.
             decimal (str, optional): Decimal separator for CSV files.
@@ -496,12 +503,12 @@ class CMImputer:
         with open(os.path.join(path, "config.json"), "w") as f:
             json.dump(metadata, f)
 
-        print(f"Model has been succesfully saved at '{path}'.")
+        print(f"Model has been successfully saved at '{path}'.")
 
     @classmethod
     def load_model(cls, path: str):
         """
-        Load a trained model from a specified location.
+        Loads a trained model from a specified location.
 
         Parameters:
             path (str): The location where the trained model is stored.
@@ -573,7 +580,7 @@ class CMImputer:
         state_dict = torch.load(os.path.join(path, "model.pt"))
         cm_instance.model.load_state_dict(state_dict)
 
-        print(f"Succesfully loaded model from '{path}'.")
+        print(f"Successfully loaded model from '{path}'.")
 
         return cm_instance
     
@@ -590,8 +597,8 @@ class CMImputer:
         Raises:
             ValueError: If the model is not yet fitted.
             ValueError: If input_features is not equal to feauture_names_in.
-            ValueError: If the length of input_features is not equal to n_features_in
-            ValueError: If n_features_in is not set.
+            ValueError: If the length of input_features is not equal to n_features_in_
+            ValueError: If n_features_in_ is not set.
         """
         if not self.is_fitted_:  # Check if the model is fitted
             raise ValueError("The model has not been fitted yet. Please call the fit method first.")
@@ -604,6 +611,7 @@ class CMImputer:
             if self.n_features_in_ is not None and len(input_features) != self.n_features_in_:
                 raise ValueError(f"Expected {self.n_features_in_} input features, got {len(input_features)}.")
 
+            self.feature_names_in_ = input_features  # Update feature names
             return np.array(input_features, dtype=str)
         
         # If feature names were recorded during training, return these names
@@ -614,7 +622,9 @@ class CMImputer:
             raise ValueError(f"Unable to generate feature names without n_features_in.")
         
         # No feature names detected, generate standard feature names (x0, x1, ..., x(n_features_in))
-        return np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=str)
+        feature_names = np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=str)
+        self.feature_names_in_ = feature_names  # Store generated feature names
+        return feature_names
     
     def get_params(self):
         """
