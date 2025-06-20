@@ -1,6 +1,6 @@
 **cm-tpm** (Continuous Mixtures of Tractable Probabilistic Models) is a Python package designed for efficient and scalable data imputation using probabilistic circuits. The package provides a flexible and user-friendly API, making it easy to integrate into data preprocessing pipelines. The package is distributed under the MIT licence.
 
-The project was started in 2025 by Hakim Agni under the supervision of Thomas Krak at Eindhoven University of Technology. It implements the data imputation method described in the paper [Continuous Mixtures of Tractable Probabilistic Models](https://arxiv.org/abs/2209.10584), by Alvaro Correia, Gennaro Gala, Erik Quaeghebeur, Cassio de Campos and Robert Peharz.
+The project was started in 2025 by Hakim Agni, under the supervision of Thomas Krak at Eindhoven University of Technology, as part of a Master's Thesis. It implements the data imputation method described in the paper [Continuous Mixtures of Tractable Probabilistic Models](https://arxiv.org/abs/2209.10584), by Alvaro Correia, Gennaro Gala, Erik Quaeghebeur, Cassio de Campos and Robert Peharz.
 
 Installation
 ------------
@@ -72,9 +72,13 @@ pytest tests
 Help and Support
 ----------------
 ### Documentation
-The full documentation will be published soon.
+The documentation supporting this package can be found in the wiki page on GitHub.
+
+- **Full documentation** : https://github.com/Hakim-Agni/cm-tpm/wiki
+- **User Guide** : https://github.com/Hakim-Agni/cm-tpm/wiki/User-Guide
+- **API Documentation** : https://github.com/Hakim-Agni/cm-tpm/wiki/API-documentation
 
 ### Communication
 If you have any questions or feedback, feel free to reach out via:
 
-- **GitHub Discussions**: *(coming soon)*.
+- **GitHub Discussions** : https://github.com/Hakim-Agni/cm-tpm/discussions
