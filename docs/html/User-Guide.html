@@ -1,0 +1,299 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Guide &mdash; cm-tpm 1.0.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1ed6394b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Documentation" href="API-Documentation.html" />
+    <link rel="prev" title="Home" href="Home.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            cm-tpm
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Home.html">Home</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#welcome-to-the-user-guide-of-cm-tpm">Welcome to the User Guide of <strong>cm-tpm</strong>!</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installing-the-package">Installing the Package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#option-1-using-pip-recommended">Option 1: Using pip (recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#option-2-install-from-source">Option 2: Install from source</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-a-gpu">Installing a GPU</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#impute-a-real-world-dataset">Impute a real-world dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-custom-hyperparameters">Using custom hyperparameters</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#frequently-asked-questions">Frequently Asked Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#q-does-cm-tpm-support-categorical-data">Q: Does <strong>cm-tpm</strong> support categorical data?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q-do-i-need-the-pre-process-my-data-before-using-cm-tpm">Q: Do I need the pre-process my data before using <strong>cm-tpm</strong>?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q-is-cm-tpm-compatible-with-scikit-learn-pipelines">Q: Is <strong>cm-tpm</strong> compatible with scikit-learn pipelines?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q-can-i-use-cm-tpm-for-image-data">Q: Can I use <strong>cm-tpm</strong> for image data?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q-does-cm-tpm-support-ordinal-data">Q: Does <strong>cm-tpm</strong> support ordinal data?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="API-Documentation.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">cm-tpm</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">User Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/User-Guide.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="user-guide">
+<h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h1>
+<section id="welcome-to-the-user-guide-of-cm-tpm">
+<h2>Welcome to the User Guide of <strong>cm-tpm</strong>!<a class="headerlink" href="#welcome-to-the-user-guide-of-cm-tpm" title="Link to this heading"></a></h2>
+<p>In this guide, you can find the following:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/wiki/User-Guide#installation">Installation Instructions</a> for the package.</p></li>
+<li><p><a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/wiki/User-Guide#quick-guide">A Quick Guide</a> to using the package.</p></li>
+<li><p><a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/wiki/User-Guide#examples">Some Examples</a> for usage.</p></li>
+<li><p><a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/wiki/User-Guide#frequently_asked_questions">Frequently Asked Questions</a> and answers.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<section id="installing-the-package">
+<h3>Installing the Package<a class="headerlink" href="#installing-the-package" title="Link to this heading"></a></h3>
+<p>You can install the package via pip or clone it directly from GitHub.</p>
+<section id="option-1-using-pip-recommended">
+<h4>Option 1: Using pip (recommended)<a class="headerlink" href="#option-1-using-pip-recommended" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>cm-tpm
+</pre></div>
+</div>
+<p>This command installs the latest version of <strong>cm-tpm</strong>, including all dependencies.<br />
+If you also want to install all optional dependencies, use:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>cm-tpm<span class="o">[</span>all<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="option-2-install-from-source">
+<h4>Option 2: Install from source<a class="headerlink" href="#option-2-install-from-source" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Hakim-Agni/cm-tpm.git
+<span class="nb">cd</span><span class="w"> </span>cm-tpm
+pip<span class="w"> </span>install<span class="w"> </span>.
+</pre></div>
+</div>
+<p>Once installed locally, you can install all requirements using:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;requirements.txt&#39;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="installing-a-gpu">
+<h3>Installing a GPU<a class="headerlink" href="#installing-a-gpu" title="Link to this heading"></a></h3>
+<p>To install PyTorch with GPU (CUDA) support, follow the instructions at: https://pytorch.org/get-started/locally/.<br />
+For example, install CUDA 12.6 using:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>torchvision<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cu126
+</pre></div>
+</div>
+<p>To verify whether CUDA has been installed correctly, run the following in Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>If installed correctly, the output will show <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p>The most basic way to use <strong>cm-tpm</strong> looks like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This example shows how to initialze a <em>CMImputer</em>, train it on a dataset, and impute missing values.</p>
+<p>It is also possible to use different data for training and imputation. For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with and without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Impute missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Here, <em>X_train</em> is used for training a model, and the trained model is used to impute missing values in <em>X_missing</em>.</p>
+</section>
+<hr class="docutils" />
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<section id="impute-a-real-world-dataset">
+<h3>Impute a real-world dataset<a class="headerlink" href="#impute-a-real-world-dataset" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_diabetes</span>
+
+<span class="c1"># Load the real-world data</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">load_diabetes</span><span class="p">(</span><span class="n">return_X_y</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Function to introduce missingness in the dataset</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">introduce_missingness</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">missing_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">random_state</span><span class="p">)</span>  <span class="c1"># Ensures reproducibility</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">missing_rate</span>  <span class="c1"># Create mask for missing values</span>
+    <span class="n">data_missing</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> 
+    <span class="n">data_missing</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>  <span class="c1"># Apply mask</span>
+    <span class="k">return</span> <span class="n">data_missing</span><span class="p">,</span> <span class="n">mask</span>
+
+<span class="c1"># Add missing values</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">introduce_missingness</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="using-custom-hyperparameters">
+<h3>Using custom hyperparameters<a class="headerlink" href="#using-custom-hyperparameters" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">n_components_train</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">n_components_impute</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>These include just a few hyperparameters, the full list is found in the <a class="reference internal" href="API-Documentation.html"><span class="doc std std-doc">API Documentation</span></a>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="frequently-asked-questions">
+<h2>Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this heading"></a></h2>
+<section id="q-does-cm-tpm-support-categorical-data">
+<h3>Q: Does <strong>cm-tpm</strong> support categorical data?<a class="headerlink" href="#q-does-cm-tpm-support-categorical-data" title="Link to this heading"></a></h3>
+<p>A: Yes, <strong>cm-tpm</strong> supports categorical data by automatically encoding categorical features in the data. Naturally, the encoded features are reverted back to their original after imputation.</p>
+</section>
+<section id="q-do-i-need-the-pre-process-my-data-before-using-cm-tpm">
+<h3>Q: Do I need the pre-process my data before using <strong>cm-tpm</strong>?<a class="headerlink" href="#q-do-i-need-the-pre-process-my-data-before-using-cm-tpm" title="Link to this heading"></a></h3>
+<p>A: No, all relevant pre-processing steps are automatically performed. These include encoding categorical data and scaling numerical data.</p>
+</section>
+<section id="q-is-cm-tpm-compatible-with-scikit-learn-pipelines">
+<h3>Q: Is <strong>cm-tpm</strong> compatible with scikit-learn pipelines?<a class="headerlink" href="#q-is-cm-tpm-compatible-with-scikit-learn-pipelines" title="Link to this heading"></a></h3>
+<p>A: Yes, <strong>cm-tpm</strong> follows sklearn’s API with <code class="docutils literal notranslate"><span class="pre">fit</span></code>, <code class="docutils literal notranslate"><span class="pre">transform</span></code>, and <code class="docutils literal notranslate"><span class="pre">fit_transform</span></code> methods.</p>
+</section>
+<section id="q-can-i-use-cm-tpm-for-image-data">
+<h3>Q: Can I use <strong>cm-tpm</strong> for image data?<a class="headerlink" href="#q-can-i-use-cm-tpm-for-image-data" title="Link to this heading"></a></h3>
+<p>A: Yes, <strong>cm-tpm</strong> works on all 2-dimensional datasets, this also includes image data.</p>
+</section>
+<section id="q-does-cm-tpm-support-ordinal-data">
+<h3>Q: Does <strong>cm-tpm</strong> support ordinal data?<a class="headerlink" href="#q-does-cm-tpm-support-ordinal-data" title="Link to this heading"></a></h3>
+<p>A: Partially. <strong>cm-tpm</strong> can support ordinal data if the user explicitly specifies which features are ordinal and provides their ordering. This can be done via the <code class="docutils literal notranslate"><span class="pre">ordinal_features</span></code> parameter in <em>CMImputer</em>. See the <a class="reference internal" href="API-Documentation.html"><span class="doc std std-doc">API Documentation</span></a> for details.</p>
+<hr class="docutils" />
+<p>For other questions, please reach out via <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/discussions">GitHub Discussions</a>.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Home.html" class="btn btn-neutral float-left" title="Home" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="API-Documentation.html" class="btn btn-neutral float-right" title="API Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Hakim Agni.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

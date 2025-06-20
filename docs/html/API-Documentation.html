@@ -1,0 +1,1475 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Documentation &mdash; cm-tpm 1.0.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1ed6394b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Changelog" href="Changelog.html" />
+    <link rel="prev" title="User Guide" href="User-Guide.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            cm-tpm
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Home.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="User-Guide.html">User Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#welcome-to-the-api-documentation-of-cm-tpm">Welcome to the API documentation of <strong>cm-tpm</strong>!</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api-overview">API Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#features">Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#cmimputer">CMImputer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parameters">Parameters:</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#attributes">Attributes:</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#references">References:</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basic-example">Basic Example:</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#methods">Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fit-x-save-model-path-none-sep-decimal"><code class="docutils literal notranslate"><span class="pre">fit(X,</span> <span class="pre">save_model_path=None,</span> <span class="pre">sep=',',</span> <span class="pre">decimal='.')</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#transform-x-save-output-path-none-sep-decimal-return-format-auto"><code class="docutils literal notranslate"><span class="pre">transform(X,</span> <span class="pre">save_output_path=None,</span> <span class="pre">sep=',',</span> <span class="pre">decimal='.',</span> <span class="pre">return_format='auto')</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fit-transform-x-save-model-path-none-save-output-path-none-sep-decimal-return-format-auto"><code class="docutils literal notranslate"><span class="pre">fit_transform(X,</span> <span class="pre">save_model_path=None,</span> <span class="pre">save_output_path=None,</span> <span class="pre">sep=',',</span> <span class="pre">decimal='.',</span> <span class="pre">return_format='auto')</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#save-model-path"><code class="docutils literal notranslate"><span class="pre">save_model(path)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#load-model-path"><code class="docutils literal notranslate"><span class="pre">load_model(path)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#transform-from-file-x-load-model-path"><code class="docutils literal notranslate"><span class="pre">transform_from_file(X,</span> <span class="pre">load_model_path,</span> <span class="pre">)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get-feature-names-out-input-features-none"><code class="docutils literal notranslate"><span class="pre">get_feature_names_out(input_features=None)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get-params"><code class="docutils literal notranslate"><span class="pre">get_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#set-params-params"><code class="docutils literal notranslate"><span class="pre">set_params(**params)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluate-x"><code class="docutils literal notranslate"><span class="pre">evaluate(X)</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#core-functionality">Core Functionality</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fit-and-transform-usage">Fit and Transform Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fit-transform-usage">Fit_transform Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#categorical-data">Categorical Data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#hyperparameters">Hyperparameters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fast-settings">Fast Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#balanced-settings">Balanced Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#precise-settings">Precise Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#custom-settings">Custom Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#getting-hyperparameters">Getting Hyperparameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#setting-hyperparameters-after-initialing">Setting Hyperparameters (after initialing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#setting-a-custom-neural-network">Setting a Custom Neural Network</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#related-to-data">Related to Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#multiple-missing-value-types">Multiple Missing Value Types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ordinal-data">Ordinal Data</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#csv-files">CSV Files</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#xlsx-files">XLSX Files</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parquet-files">Parquet Files</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#feather-files">Feather Files</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#outputting-to-a-file">Outputting to a File</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#model-saving-and-loading">Model Saving and Loading</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#saving-a-trained-model">Saving a Trained Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#saving-directly-using-fit">Saving Directly using <code class="docutils literal notranslate"><span class="pre">fit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#loading-a-trained-model">Loading a Trained Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#loading-and-using-a-trained-model-directly-using-transform-from-file">Loading and Using a Trained Model Directly using <code class="docutils literal notranslate"><span class="pre">transform_from_file</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluation">Evaluation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#evaluating-the-model-fit">Evaluating the Model Fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#evaluation-imputation-quality-using-log-likelihood">Evaluation Imputation Quality (using log-likelihood)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#debugging">Debugging</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#verbose-settings">Verbose settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#verbose-example">Verbose Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#plotting-log-likelihoods-throughout-training">Plotting Log-Likelihoods throughout Training</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#miscellaneous">Miscellaneous</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#setting-feature-names">Setting Feature Names</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">cm-tpm</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/API-Documentation.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-documentation">
+<h1>API Documentation<a class="headerlink" href="#api-documentation" title="Link to this heading"></a></h1>
+<section id="welcome-to-the-api-documentation-of-cm-tpm">
+<h2>Welcome to the API documentation of <strong>cm-tpm</strong>!<a class="headerlink" href="#welcome-to-the-api-documentation-of-cm-tpm" title="Link to this heading"></a></h2>
+<p>This document contains the following:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#api-overview"><span class="xref myst">An API Overview</span></a> of the package.</p></li>
+<li><p><a class="reference internal" href="#cmimputer"><span class="xref myst">The CMImputer Class</span></a>, including a full list of parameters.</p></li>
+<li><p><a class="reference internal" href="#methods"><span class="xref myst">All Methods/Functions</span></a> that can be called.</p></li>
+<li><p><a class="reference internal" href="#examples"><span class="xref myst">Several Examples</span></a> showcasing various features of the package.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="api-overview">
+<h2>API Overview<a class="headerlink" href="#api-overview" title="Link to this heading"></a></h2>
+<p>The main entry point is the <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> class. This class is used for all functionalities of the package.</p>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> class offers the following core features:</p>
+<ul class="simple">
+<li><p>Fitting a CM-TPM</p></li>
+<li><p>Performing imputation on missing data using a trained CM-TPM</p></li>
+<li><p>Scikit-learn compatible</p></li>
+<li><p>Various configurable hyperparameters</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">CMImpter</span></code> class also included several additional features:</p>
+<ul class="simple">
+<li><p>Automatic pre-processing, including support for categorical and ordinal data</p></li>
+<li><p>Saving and loading CM-TPMs</p></li>
+<li><p>Support for common datatypes (ndarrays, pandas dataframes, Python lists) and common file types (csv, xlsx, parquet, feather)</p></li>
+<li><p>Built-in evaluation functions</p></li>
+<li><p>Debugging options</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="cmimputer">
+<h2>CMImputer<a class="headerlink" href="#cmimputer" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">cm_tpm</span><span class="o">.</span><span class="n">CMImputer</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="s1">&#39;custom&#39;</span><span class="p">,</span> <span class="n">missing_values</span><span class="o">=</span><span class="n">nan</span><span class="p">,</span> <span class="n">n_components_train</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">n_components_impute</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">latent_dim</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lo</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+ <span class="n">pc_type</span><span class="o">=</span><span class="s1">&#39;factorized&#39;</span><span class="p">,</span> <span class="n">imputation_method</span><span class="o">=</span><span class="s1">&#39;expectation&#39;</span><span class="p">,</span> <span class="n">ordinal_features</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">custom_net</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hidden_layers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">neurons_per_layer</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> 
+ <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;LeakyReLU&#39;</span><span class="p">,</span> <span class="n">batch_norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">skip_layers</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">batch_size_train</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">batch_size_impute</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> 
+ <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">use_gpu</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">keep_empty_features</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p align="right"><a href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L15">[source code]</a></p>
+<p>Imputation for completing missing values using Continuous Mixtures of Tractable Probabilistic Models (CM-TPM), a framework created by <a class="reference external" href="https://arxiv.org/abs/2209.10584">Correia et al. (2023)</a>.</p>
+<p>A CM-TPM is trained using input data, which involves learning the parameters of a neural network that outputs TPM structures and parameters. The trained CM-TPM is used to impute missing values by either optimizing the missing values or by using the properties of the TPM components.</p>
+<p>For more details, please refer to the original article or the thesis (link coming soon) corresponding to this package.</p>
+<section id="parameters">
+<h3>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>settings</strong> : <em>{‘custom’, ‘fast’, ‘balanced’, ‘precise’}, default=’custom’</em><br />
+  The hyperparameters settings to use for the model.<br />
+  - ‘custom’ : Allows custom hyperparameters by setting them manually.<br />
+  - ‘fast’ : Prioritizes speed over accuracy. Use when speed is most important.<br />
+  - ‘balanced’ : Balances accuracy and speed. The default parameter settings. Suitable for general use.<br />
+  - ‘precise’ : Focuses on accuracy, with less regard to speed. Use when accuracy matters the most.</p></li>
+<li><p><strong>missing_values</strong> : <em>int, float, str, np.nan or list, default=np.nan</em><br />
+  The placeholder(s) for missing values in the input data. All instances of <strong>missing_values</strong> will be imputed.</p></li>
+<li><p><strong>n_components_train</strong> : <em>int, default=256</em><br />
+  Number of components to use in the mixture model during training. Values that are a power of 2 are preferred.</p></li>
+<li><p><strong>n_components_impute</strong> : <em>int or None, default=2048</em><br />
+  Number of components to use in the mixture model during imputation. Values that are a power of 2 are preferred.<br />
+  If None, it uses the same number of components as used during training.</p></li>
+<li><p><strong>latent_dim</strong> : <em>int, default=4</em><br />
+  Dimensionality of the latent variable.</p></li>
+<li><p><strong>top_k</strong> : <em>int or None, default=None</em><br />
+  The number of components to use for efficient learning. If None, all components are used.</p></li>
+<li><p><strong>lo</strong> : <em>bool, default=False</em><br />
+  Whether to use latent optimization after training.</p></li>
+<li><p><strong>pc_type</strong> : <em>{‘factorized’}, default=’factorized’</em><br />
+  The type of PC to use in the model. Currently, only ‘factorized’ is supported.</p></li>
+<li><p><strong>imputation_method</strong> : <em>{‘expectation’, ‘optimization’}, default=’expectation’</em><br />
+  The imputation method to use during inferece.<br />
+  - ‘expectation’ : Imputes values by maximizing the expected values. Faster method.<br />
+  - ‘optimization’ : Imputes values by finding the optimal values using an optimizer. More accurate method.</p></li>
+<li><p><strong>ordinal_features</strong> : <em>dict or None, default=None</em><br />
+  A dictionary containing information on which features have ordinal data and how the values are ordered.</p></li>
+<li><p><strong>max_depth</strong> : <em>int, default=5</em><br />
+  Maximum depth of the PC, if applicable. Currently not used.</p></li>
+<li><p><strong>custom_net</strong> : <em>nn.Sequential or None, default=None</em><br />
+  A custom neural network to use in the model.</p></li>
+<li><p><strong>hidden_layers</strong> : <em>int, default=4</em><br />
+  The number of hidden layers to use in the neural network. Only used if <strong>custom_net</strong>=None.</p></li>
+<li><p><strong>neurons_per_layer</strong> : <em>int or list of ints, default=512</em><br />
+  The number of neurons in each layer in the neural network. Only used if <strong>custom_net</strong>=None.</p></li>
+<li><p><strong>activation</strong> : <em>{‘ReLU’, ‘LeakyReLU’, ‘Tanh’, ‘Sigmoid’, ‘Identity’}, default=’LeakyReLU’</em><br />
+  The activation function to use in the neural network. Only used if <strong>custom_net</strong>=None.</p></li>
+<li><p><strong>batch_norm</strong> : <em>bool, default=True</em><br />
+  Whether to use batch normalization in the neural network. Only used if <strong>custom_net</strong>=None.</p></li>
+<li><p><strong>dropout_rate</strong> : <em>float, default=0.1</em><br />
+  The dropout rate to use in the neural network. Only used if <strong>custom_net</strong>=None.</p></li>
+<li><p><strong>skip_layers</strong> : <em>bool, default=True</em><br />
+  Whether to use skip layers in the neural network.</p></li>
+<li><p><strong>max_iter</strong> : <em>int, default=100</em><br />
+  Maximum number of iteration to perform during training.</p></li>
+<li><p><strong>batch_size_train</strong> : <em>int or None, default=1024</em><br />
+  The batch size to use for training. If None, the entire dataset is used.</p></li>
+<li><p><strong>batch_size_impute</strong> : <em>int or None, default=256</em><br />
+  The batch size to use for imputing. If None, the entire dataset is used.</p></li>
+<li><p><strong>tol</strong> : <em>float, default=1e-4</em><br />
+  Tolerance for the convergence criterion.</p></li>
+<li><p><strong>patience</strong> : <em>int, default=10</em><br />
+  Number of iterations to wait if no improvement and then stop the training.</p></li>
+<li><p><strong>lr</strong> : <em>float, default=0.001</em><br />
+  The learning rate for the optimizer.</p></li>
+<li><p><strong>weight_decay</strong> : <em>flaot, default=0.01</em><br />
+  The weight decay (L2 penalty) for the optimizer.</p></li>
+<li><p><strong>use_gpu</strong> : <em>bool, default=True</em><br />
+  Whether to use GPU for training and imputation if available. If False, CPU is used.</p></li>
+<li><p><strong>random_state</strong> : <em>int, RandomState instance or None, default=None</em><br />
+  Random seed for reproducibility.</p></li>
+<li><p><strong>verbose</strong> : <em>int, default=0</em><br />
+  Verbosity level, controls debug messages.</p></li>
+<li><p><strong>copy</strong> : <em>bool, default=True</em><br />
+  Whether to copy the input data or modify it in place.</p></li>
+<li><p><strong>keep_empty_features</strong> : <em>bool, default=False</em><br />
+  Whether to keep features that only have missing values in the imputed dataset.</p></li>
+</ul>
+</section>
+<section id="attributes">
+<h3>Attributes:<a class="headerlink" href="#attributes" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>is_fitted_</strong>: <em>bool</em><br />
+  Whether the model is fitted.</p></li>
+<li><p><strong>n_features_in_</strong>: <em>int</em><br />
+  The number of features in the input data.</p></li>
+<li><p><strong>feature_names_in_</strong>: <em>list of str</em><br />
+  Names of the input features.</p></li>
+<li><p><strong>input_dimension</strong>: <em>int</em><br />
+  The number of features in the input data after pre-processing.</p></li>
+<li><p><strong>log_likelihood_</strong>: <em>float</em><br />
+  Log-likelihood of the data under the model.</p></li>
+<li><p><strong>training_likelihoods_</strong>: <em>list of floats</em><br />
+  List of recorded log-likelihoods during training.</p></li>
+<li><p><strong>imputing_likelihoods_</strong>: <em>list of floats</em><br />
+  List of recorded log-likelihoods during imputation.</p></li>
+<li><p><strong>mean_</strong>: <em>list of floats</em><br />
+  The mean values for each feature observed during training.</p></li>
+<li><p><strong>std_</strong>: <em>list of floats</em><br />
+  The standard deviations for each feature observed during training.</p></li>
+<li><p><strong>binary_info_</strong>: <em>list</em><br />
+  The information about binary features observed during training.</p></li>
+<li><p><strong>integer_info_</strong>: <em>list</em><br />
+  The information about integer features observed during training.</p></li>
+<li><p><strong>categorical_info_</strong>: <em>list</em><br />
+  The information about categorical features observed during training.</p></li>
+<li><p><strong>random_state_</strong>: <em>RandomState instance</em><br />
+  RandomState that is generated from a seed or a random number generator.</p></li>
+</ul>
+</section>
+<section id="references">
+<h3>References:<a class="headerlink" href="#references" title="Link to this heading"></a></h3>
+<p><a class="reference external" href="https://arxiv.org/abs/2209.10584">Alvara Correia, Gennaro Gala, Erik Quaeghebeur, Cassio de Campos and Robert Peharz, (2023). Continuous Mixtures of Tractable Probabilistic Models. Proceedings of the AAAI Conference on Artificial Intelligence, Vol. 37, No. 6, Pages 7244-7252.</a></p>
+</section>
+<section id="basic-example">
+<h3>Basic Example:<a class="headerlink" href="#basic-example" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="go">array([[1., 2., 3.],</span>
+<span class="go">       [4., 5., 6.],</span>
+<span class="go">       [1., 8., 9.]])</span>
+</pre></div>
+</div>
+<p>For more detailed examples, see <a class="reference internal" href="#examples"><span class="xref myst">several examples</span></a> in this document.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h2>
+<section id="fit-x-save-model-path-none-sep-decimal">
+<h3><code class="docutils literal notranslate"><span class="pre">fit(X,</span> <span class="pre">save_model_path=None,</span> <span class="pre">sep=',',</span> <span class="pre">decimal='.')</span></code><a class="headerlink" href="#fit-x-save-model-path-none-sep-decimal" title="Link to this heading"></a></h3>
+<p>  Fits the imputer on <em>X</em>. In other words, this functions trains a CM-TPM using training data <em>X</em>.        <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L233">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>X</strong> : <em>array-like of shape (n_samples, n_features) or a filepath (csv, xlsx, parquet, or feather)</em><br />
+      Input data with 2 dimensions used to train the model.<br />
+    - <strong>save_model_path</strong> : <em>str or None, default=None</em><br />
+      File location to save the trained model. If None, the model is not saved to a file.<br />
+    - <strong>sep</strong> : <em>str, default=’,’</em><br />
+      Delimiter for csv files.<br />
+    - <strong>decimal</strong> : <em>str, default=’.’</em><br />
+      Decimal seperator for csv files.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>self</strong> : <em>object</em><br />
+      The fitted <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ImportError</strong> : If one of {xlsx, parquet, feather} files is used without the required dependency.</p>
+<p><br></br></p>
+</section>
+<section id="transform-x-save-output-path-none-sep-decimal-return-format-auto">
+<h3><code class="docutils literal notranslate"><span class="pre">transform(X,</span> <span class="pre">save_output_path=None,</span> <span class="pre">sep=',',</span> <span class="pre">decimal='.',</span> <span class="pre">return_format='auto')</span></code><a class="headerlink" href="#transform-x-save-output-path-none-sep-decimal-return-format-auto" title="Link to this heading"></a></h3>
+<p>  Imputes all missing values in the input dataset.                             <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L301">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>X</strong> : <em>array-like of shape (n_samples, n_features) or a filepath (csv, xlsx, parquet, or feather)</em><br />
+      Input data with 2 dimensions, the missing values in this data are imputed.<br />
+    - <strong>save_output_path</strong> : <em>str or None, default=None</em><br />
+      If a file location is provided, saves the output data to a file in that location.<br />
+      If this parameter is not set and <strong>X</strong> is a file location, the output is saved to ‘<strong>X</strong> + _imputed’.<br />
+      Otherwise, the output is not saved to a file.<br />
+    - <strong>sep</strong> : <em>str, default=’,’</em><br />
+      Delimiter for csv files.<br />
+    - <strong>decimal</strong> : <em>str, default=’.’</em><br />
+      Decimal seperator for csv files.<br />
+    - <strong>return_format</strong> : {‘auto’, ‘ndarray’, ‘dataframe’}, default=’auto’<br />
+      Format of the returned imputed data. ‘auto’ returns the same format as <strong>X</strong>, ‘ndarray’ always returns a <code class="docutils literal notranslate"><span class="pre">NumPy</span></code> array,<br />
+      and ‘dataframe’ always returns a <code class="docutils literal notranslate"><span class="pre">pandas</span></code> dataframe.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>X_imputed</strong> : <em>array-like of shape (n_samples, n_features)</em><br />
+      The imputed dataset.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If the model is not fitted.<br />
+    - <strong>ValueError</strong> : If an unknown file format is provided as a save path.<br />
+    - <strong>ImportError</strong> : If one of {xlsx, parquet, feather} files is used without the required dependency.</p>
+<p><br></br></p>
+</section>
+<section id="fit-transform-x-save-model-path-none-save-output-path-none-sep-decimal-return-format-auto">
+<h3><code class="docutils literal notranslate"><span class="pre">fit_transform(X,</span> <span class="pre">save_model_path=None,</span> <span class="pre">save_output_path=None,</span> <span class="pre">sep=',',</span> <span class="pre">decimal='.',</span> <span class="pre">return_format='auto')</span></code><a class="headerlink" href="#fit-transform-x-save-model-path-none-save-output-path-none-sep-decimal-return-format-auto" title="Link to this heading"></a></h3>
+<p>  Fits the imputer and then imputes the missing values in the input data.                  <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L435">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>X</strong> : <em>array-like of shape (n_samples, n_features) or a filepath (csv, xlsx, parquet, or feather)</em><br />
+      Input data with 2 dimensions, the missing values in this data are imputed.<br />
+    - <strong>save_model_path</strong> : <em>str or None, default=None</em><br />
+      File location to save the trained model. If None, the model is not saved to a file.<br />
+    - <strong>save_output_path</strong> : <em>str or None, default=None</em><br />
+      If a file location is provided, saves the output data to a file in that location.<br />
+      If this parameter is not set and <strong>X</strong> is a file location, the output is saved to ‘<strong>X</strong> + _imputed’.<br />
+      Otherwise, the output is not saved to a file.<br />
+    - <strong>sep</strong> : <em>str, default=’,’</em><br />
+      Delimiter for csv files.<br />
+    - <strong>decimal</strong> : <em>str, default=’.’</em><br />
+      Decimal seperator for csv files.<br />
+    - <strong>return_format</strong> : {‘auto’, ‘ndarray’, ‘dataframe’}, default=’auto’<br />
+      Format of the returned imputed data. ‘auto’ returns the same format as <strong>X</strong>, ‘ndarray’ always returns a <code class="docutils literal notranslate"><span class="pre">NumPy</span></code> array,<br />
+      and ‘dataframe’ always returns a <code class="docutils literal notranslate"><span class="pre">pandas</span></code> dataframe.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>X_imputed</strong> : <em>array-like of shape (n_samples, n_features)</em><br />
+      The imputed dataset.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If an unknown file format is provided as a save path.<br />
+    - <strong>ImportError</strong> : If one of {xlsx, parquet, feather} files is used without the required dependency.</p>
+<p><br></br></p>
+</section>
+<section id="save-model-path">
+<h3><code class="docutils literal notranslate"><span class="pre">save_model(path)</span></code><a class="headerlink" href="#save-model-path" title="Link to this heading"></a></h3>
+<p>  Saves a trained model to a specified file location.                            <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L453">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>path</strong> : <em>str</em><br />
+      The file location to save the model to.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>None</strong><br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If the model is not fitted.</p>
+<p><br></br></p>
+</section>
+<section id="load-model-path">
+<h3><code class="docutils literal notranslate"><span class="pre">load_model(path)</span></code><a class="headerlink" href="#load-model-path" title="Link to this heading"></a></h3>
+<p>  Loads a trained model from a specified file location. This is a class method, meaning it can be called without initializing<br />
+  a <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance, see <a class="reference internal" href="#model-saving-and-loading"><span class="xref myst">Examples</span></a>.                                 <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L505">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>path</strong> : <em>str</em><br />
+      The file location where the model is stored.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>CMImputer</strong> : <em>object</em><br />
+      The loaded <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>FileNotFoundError</strong> : If the file location does not contain model files.</p>
+<p><br></br></p>
+</section>
+<section id="transform-from-file-x-load-model-path">
+<h3><code class="docutils literal notranslate"><span class="pre">transform_from_file(X,</span> <span class="pre">load_model_path,</span> <span class="pre">)</span></code><a class="headerlink" href="#transform-from-file-x-load-model-path" title="Link to this heading"></a></h3>
+<p>  Imputes all missing values in the input data using a <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> loaded from a file. This is a class method, meaning<br />
+  it can be called without initializing a <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance, see <a class="reference internal" href="#model-saving-and-loading"><span class="xref myst">Examples</span></a>.                 <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L401">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>X</strong> : <em>array-like of shape (n_samples, n_features) or a filepath (csv, xlsx, parquet, or feather)</em><br />
+      Input data with 2 dimensions, the missing values in this data are imputed.<br />
+    - <strong>load_model_path</strong> : <em>str</em><br />
+      The file location where the model is stored.<br />
+    - <strong>save_output_path</strong> : <em>str or None, default=None</em><br />
+      If a file location is provided, saves the output data to a file in that location.<br />
+      If this parameter is not set and <strong>X</strong> is a file location, the output is saved to ‘<strong>X</strong> + _imputed’.<br />
+      Otherwise, the output is not saved to a file.<br />
+    - <strong>sep</strong> : <em>str, default=’,’</em><br />
+      Delimiter for csv files.<br />
+    - <strong>decimal</strong> : <em>str, default=’.’</em><br />
+      Decimal seperator for csv files.<br />
+    - <strong>return_format</strong> : {‘auto’, ‘ndarray’, ‘dataframe’}, default=’auto’<br />
+      Format of the returned imputed data. ‘auto’ returns the same format as <strong>X</strong>, ‘ndarray’ always returns a <code class="docutils literal notranslate"><span class="pre">NumPy</span></code> array,<br />
+      and ‘dataframe’ always returns a <code class="docutils literal notranslate"><span class="pre">pandas</span></code> dataframe.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>X_imputed</strong> : <em>array-like of shape (n_samples, n_features)</em><br />
+      The imputed dataset.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If a model load path is not specified.<br />
+    - <strong>FileNotFoundError</strong> : If the model file location does not contain model files.<br />
+    - <strong>ValueError</strong> : If the model is not fitted.<br />
+    - <strong>ValueError</strong> : If an unknown file format is provided as a save path.<br />
+    - <strong>ImportError</strong> : If one of {xlsx, parquet, feather} files is used without the required dependency.</p>
+<p><br></br></p>
+</section>
+<section id="get-feature-names-out-input-features-none">
+<h3><code class="docutils literal notranslate"><span class="pre">get_feature_names_out(input_features=None)</span></code><a class="headerlink" href="#get-feature-names-out-input-features-none" title="Link to this heading"></a></h3>
+<p>  Returns the feature names of the input data. In none exist, generates standard feature names.       <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L583">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>input_features</strong> : <em>list of str, default=None</em><br />
+      List of feature names. If None, uses feature names seen during <strong>fit()</strong>.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>feature_names_out</strong> : <em>list of str</em><br />
+      A list containing the output feature names.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If the model is not fitted.<br />
+    - <strong>ValueError</strong> : If input_features is not equal to feauture_names_in.<br />
+    - <strong>ValueError</strong> : If the length of input_features is not equal to n_features_in_.<br />
+    - <strong>ValueError</strong> : If n_features_in_ is not set.</p>
+<p><br></br></p>
+</section>
+<section id="get-params">
+<h3><code class="docutils literal notranslate"><span class="pre">get_params()</span></code><a class="headerlink" href="#get-params" title="Link to this heading"></a></h3>
+<p>  Gets the hyperparameters for the <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code>.                             <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L622">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>None</strong><br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>params</strong> : <em>dict</em><br />
+      Parameter names mapped to their values.</p>
+<p><br></br></p>
+</section>
+<section id="set-params-params">
+<h3><code class="docutils literal notranslate"><span class="pre">set_params(**params)</span></code><a class="headerlink" href="#set-params-params" title="Link to this heading"></a></h3>
+<p>  Sets the hyperparameters for the <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code>.                             <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L662">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>params</strong> : <em>dict</em><br />
+      Parameter names mapped to their updated values.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>self</strong> : <em>object</em><br />
+      An updated <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If an invalid parameter is passed.</p>
+<p><br></br></p>
+</section>
+<section id="evaluate-x">
+<h3><code class="docutils literal notranslate"><span class="pre">evaluate(X)</span></code><a class="headerlink" href="#evaluate-x" title="Link to this heading"></a></h3>
+<p>  Evaluates how well the trained model explains the input data using log-likleihood.            <a class="reference external" href="https://github.com/Hakim-Agni/cm-tpm/blob/master/src/cm_tpm/_cm.py#L682">[source code]</a><br />
+<br></br>
+  <strong>Parameters</strong>:<br />
+    - <strong>X</strong> : <em>array-like of shape (n_samples, n_features) or a filepath (csv, xlsx, parquet, or feather)</em><br />
+      Input data with 2 dimensions, the missing values in this data are imputed.<br />
+<br></br>
+  <strong>Returns</strong>:<br />
+    - <strong>log_likelihood</strong> : <em>float</em><br />
+      The log-likelihood of the input data under the trained model.<br />
+<br></br>
+  <strong>Raises</strong>:<br />
+    - <strong>ValueError</strong> : If the model is not fitted.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<p>Here, you can find various example of uses of the package. These examples are sorted by category:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#core-functionality"><span class="xref myst">Core Functionality</span></a><br />
+  - Fit and Transform Usage<br />
+  - Fit_transform Usage<br />
+  - Categorical Data</p></li>
+<li><p><a class="reference internal" href="#hyperparameters"><span class="xref myst">Hyperparameters</span></a><br />
+  - Fast Settings<br />
+  - Balanced Settings<br />
+  - Precise Settings<br />
+  - Custom Settings<br />
+  - Getting Hyperparameters<br />
+  - Setting Hyperparameters<br />
+  - Setting a Custom Neural Network</p></li>
+<li><p><a class="reference internal" href="#related-to-data"><span class="xref myst">Related to Data</span></a><br />
+  - Multiple Missing Value Types<br />
+  - Ordinal Data<br />
+  - CSV Files<br />
+  - XSLX Files<br />
+  - Parquet Files<br />
+  - Feather Files<br />
+  - Outputting to a File</p></li>
+<li><p><a class="reference internal" href="#model-saving-and-loading"><span class="xref myst">Model Saving and Loading</span></a><br />
+  - Saving a Trained Model<br />
+  - Saving Directly using Fit<br />
+  - Loading a Trained Model<br />
+  - Loading and Using a Trained Model Directly</p></li>
+<li><p><a class="reference internal" href="#evaluation"><span class="xref myst">Evaluation</span></a><br />
+  - Evaluating the Model Fit<br />
+  - Evaluation Imputation Quality</p></li>
+<li><p><a class="reference internal" href="#debugging"><span class="xref myst">Debugging</span></a><br />
+  - Verbose Settings<br />
+  - Verbose Example<br />
+  - Plotting Log-Likelihoods throughout Training</p></li>
+<li><p><a class="reference internal" href="#miscellaneous"><span class="xref myst">Miscellaneous</span></a><br />
+  - Setting Feature Names</p></li>
+</ul>
+<hr class="docutils" />
+<section id="core-functionality">
+<h3>Core Functionality<a class="headerlink" href="#core-functionality" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="fit-and-transform-usage">
+<h4>Fit and Transform Usage<a class="headerlink" href="#fit-and-transform-usage" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with and without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Impute missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">3.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="fit-transform-usage">
+<h4>Fit_transform Usage<a class="headerlink" href="#fit-transform-usage" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="categorical-data">
+<h4>Categorical Data<a class="headerlink" href="#categorical-data" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with and without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="s1">&#39;Red&#39;</span><span class="p">,</span> <span class="s1">&#39;Blue&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;Green&#39;</span><span class="p">,</span> <span class="s1">&#39;Blue&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;Blue&#39;</span><span class="p">,</span> <span class="s1">&#39;Red&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;Red&#39;</span><span class="p">,</span> <span class="s1">&#39;Yellow&#39;</span><span class="p">]])</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="s1">&#39;Blue&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;Green&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="s1">&#39;Blue&#39;</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Impute missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="s1">&#39;Blue&#39;</span><span class="p">,</span> <span class="s1">&#39;Red&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;Green&#39;</span><span class="p">,</span> <span class="s1">&#39;Blue&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;Red&#39;</span><span class="p">,</span> <span class="s1">&#39;Blue&#39;</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="hyperparameters">
+<h3>Hyperparameters<a class="headerlink" href="#hyperparameters" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="fast-settings">
+<h4>Fast Settings<a class="headerlink" href="#fast-settings" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize imputer with &#39;fast&#39; settings</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="s1">&#39;fast&#39;</span><span class="p">)</span>
+
+<span class="c1"># Fit the imputer</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>Parameters set by the ‘fast’ setting <strong>cannot</strong> be overridden.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">5.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+<p>Using this setting option, you can expect quick results, but less accurate than the other settings.</p>
+</section>
+<hr class="docutils" />
+<section id="balanced-settings">
+<h4>Balanced Settings<a class="headerlink" href="#balanced-settings" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize imputer with &#39;balanced&#39; settings</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="s1">&#39;balanced&#39;</span><span class="p">)</span>    <span class="c1"># Note: This is the same as using &#39;imputer = CMImputer()&#39;</span>
+
+<span class="c1"># Fit the imputer</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>Parameters set by the ‘balanced’ setting <strong>cannot</strong> be overridden.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+<p>Using this setting option, you can expect better results than using the ‘fast’ setting, but slightly slower.</p>
+</section>
+<hr class="docutils" />
+<section id="precise-settings">
+<h4>Precise Settings<a class="headerlink" href="#precise-settings" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize imputer with &#39;precise&#39; settings</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="s1">&#39;precise&#39;</span><span class="p">)</span>
+
+<span class="c1"># Fit the imputer</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>Parameters set by the ‘precise’ setting <strong>cannot</strong> be overridden.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+<p>Using this setting option, you can expect accurate results, but slower than the other settings.</p>
+</section>
+<hr class="docutils" />
+<section id="custom-settings">
+<h4>Custom Settings<a class="headerlink" href="#custom-settings" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize imputer with custom settings</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="s1">&#39;custom&#39;</span><span class="p">,</span>
+                    <span class="n">n_components_train</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
+                    <span class="n">n_components_impute</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+                    <span class="n">latent_dim</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+                    <span class="n">top_k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                    <span class="n">imputation_method</span><span class="o">=</span><span class="s2">&quot;optimization&quot;</span><span class="p">,</span>
+                    <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="c1"># Fit the imputer</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>Here, we use a random selection of hyperparameter for demonstration purposed. In practice, you can set every <a class="reference internal" href="#parameters"><span class="xref myst">hyperparameter</span></a> as you wish.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="getting-hyperparameters">
+<h4>Getting Hyperparameters<a class="headerlink" href="#getting-hyperparameters" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Initialize imputer with custom settings</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+
+<span class="c1"># Get the hyperparameters of the imputer</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">get_params</span><span class="p">()</span>
+
+<span class="c1"># Print the parameters</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;settings&#39;</span><span class="p">:</span> <span class="s1">&#39;custom&#39;</span><span class="p">,</span> <span class="s1">&#39;missing_values&#39;</span><span class="p">:</span> <span class="n">nan</span><span class="p">,</span> <span class="s1">&#39;n_components_train&#39;</span><span class="p">:</span> <span class="mi">256</span><span class="p">,</span> <span class="s1">&#39;n_components_impute&#39;</span><span class="p">:</span> <span class="mi">2048</span><span class="p">,</span> <span class="s1">&#39;latent_dim&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;top_k&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>   
+<span class="s1">&#39;lo&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s1">&#39;pc_type&#39;</span><span class="p">:</span> <span class="s1">&#39;factorized&#39;</span><span class="p">,</span> <span class="s1">&#39;imputation_method&#39;</span><span class="p">:</span> <span class="s1">&#39;EM&#39;</span><span class="p">,</span> <span class="s1">&#39;ordinal_features&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;max_depth&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;custom_net&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>   
+<span class="s1">&#39;hidden_layers&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;neurons_per_layer&#39;</span><span class="p">:</span> <span class="mi">512</span><span class="p">,</span> <span class="s1">&#39;activation&#39;</span><span class="p">:</span> <span class="s1">&#39;LeakyReLU&#39;</span><span class="p">,</span> <span class="s1">&#39;batch_norm&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;dropout_rate&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>   
+<span class="s1">&#39;skip_layers&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s1">&#39;max_iter&#39;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s1">&#39;batch_size_train&#39;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span> <span class="s1">&#39;batch_size_impute&#39;</span><span class="p">:</span> <span class="mi">256</span><span class="p">,</span> <span class="s1">&#39;tol&#39;</span><span class="p">:</span> <span class="mf">0.0001</span><span class="p">,</span> <span class="s1">&#39;patience&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>   
+<span class="s1">&#39;lr&#39;</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">,</span> <span class="s1">&#39;weight_decay&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="s1">&#39;use_gpu&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;random_state&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;verbose&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;copy&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;keep_empty_features&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>  
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="setting-hyperparameters-after-initialing">
+<h4>Setting Hyperparameters (after initialing)<a class="headerlink" href="#setting-hyperparameters-after-initialing" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Initialize imputer with custom settings</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+
+<span class="c1"># Set some hyperparameters of the imputer</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">set_params</span><span class="p">(</span>
+    <span class="n">missing_values</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+    <span class="n">n_components_train</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">n_components_impute</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Get the relevant hyperparameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">get_params</span><span class="p">()</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;missing_values&quot;</span><span class="p">,</span> <span class="s2">&quot;n_components_train&quot;</span><span class="p">,</span> <span class="s2">&quot;n_components_impute&quot;</span><span class="p">]}</span>
+
+<span class="c1"># Print the parameters</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;missing_values&#39;</span><span class="p">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="s1">&#39;n_components_train&#39;</span><span class="p">:</span> <span class="mi">128</span><span class="p">,</span> <span class="s1">&#39;n_components_impute&#39;</span><span class="p">:</span> <span class="mi">128</span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="setting-a-custom-neural-network">
+<h4>Setting a Custom Neural Network<a class="headerlink" href="#setting-a-custom-neural-network" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Create a custom (sequential) neural network</span>
+<span class="n">neural_network</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># Initialize imputer with the custom neural network</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">custom_net</span><span class="o">=</span><span class="n">neural_network</span><span class="p">)</span>
+
+<span class="c1"># Fit the imputer</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>Assert that the number of input features in the first layer is equal to the latent dimension (in this case 4).</p></li>
+<li><p>Assert that the number of output features in the last layer is equal to 2 * the number of  features (in this case also 4).</p></li>
+<li><p>Currently, only Sequential neural networks from <code class="docutils literal notranslate"><span class="pre">torch</span></code> are supported.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">]</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="related-to-data">
+<h3>Related to Data<a class="headerlink" href="#related-to-data" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="multiple-missing-value-types">
+<h4>Multiple Missing Value Types<a class="headerlink" href="#multiple-missing-value-types" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">missing_values</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">])</span>   <span class="c1"># Set the correct missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="s1">&#39;1.0&#39;</span><span class="p">,</span> <span class="s1">&#39;4.0&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;2.0&#39;</span><span class="p">,</span> <span class="s1">&#39;3.0&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;1.0&#39;</span><span class="p">,</span> <span class="s1">&#39;4.0&#39;</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="ordinal-data">
+<h4>Ordinal Data<a class="headerlink" href="#ordinal-data" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with and without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="s2">&quot;Low&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;Medium&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;High&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;Low&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;High&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">]])</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="s2">&quot;Low&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">10</span><span class="p">]])</span>
+
+<span class="c1"># Set the correct ordinal data information</span>
+<span class="n">ordinal_info</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Low&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Medium&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;High&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">ordinal_features</span><span class="o">=</span><span class="n">ordinal_info</span><span class="p">)</span>   
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Impute missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="s1">&#39;Low&#39;</span><span class="p">,</span> <span class="s1">&#39;2.0&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;Medium&#39;</span><span class="p">,</span> <span class="s1">&#39;6&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;High&#39;</span><span class="p">,</span> <span class="s1">&#39;10&#39;</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="csv-files">
+<h4>CSV Files<a class="headerlink" href="#csv-files" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example file path pointing to a CSV file</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/data.csv&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>For CSV files specifically, make sure to enter the correct delimiter and decimal separator in the <code class="docutils literal notranslate"><span class="pre">fit</span></code>, <code class="docutils literal notranslate"><span class="pre">transform</span></code> or <code class="docutils literal notranslate"><span class="pre">fit_transform</span></code> function.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<ul class="simple">
+<li><p>Depends on the data stored in ‘path/to/data.csv’.</p></li>
+<li><p>The output is also saved to a file: ‘path/to/data_imputed.csv’. For another save location, set the <code class="docutils literal notranslate"><span class="pre">save_output_path</span></code> parameter in the <code class="docutils literal notranslate"><span class="pre">transform</span></code> or <code class="docutils literal notranslate"><span class="pre">fit_transform</span></code> function.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="xlsx-files">
+<h4>XLSX Files<a class="headerlink" href="#xlsx-files" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example file path pointing to a XLSX file</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/data.xlsx&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>To use XLSX files, make sure to install the corresponding optional dependency, using: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[excel]</span></code>.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<ul class="simple">
+<li><p>Depends on the data stored in ‘path/to/data.xlsx’.</p></li>
+<li><p>The output is also saved to a file: ‘path/to/data_imputed.xlsx’. For another save location, set the <code class="docutils literal notranslate"><span class="pre">save_output_path</span></code> parameter in the <code class="docutils literal notranslate"><span class="pre">transform</span></code> or <code class="docutils literal notranslate"><span class="pre">fit_transform</span></code> function.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="parquet-files">
+<h4>Parquet Files<a class="headerlink" href="#parquet-files" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example file path pointing to a Parquet file</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/data.parquet&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>To use Parquet files, make sure to install the corresponding optional dependency, using: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[parquet]</span></code>.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<ul class="simple">
+<li><p>Depends on the data stored in ‘path/to/data.parquet’.</p></li>
+<li><p>The output is also saved to a file: ‘path/to/data_imputed.parquet’. For another save location, set the <code class="docutils literal notranslate"><span class="pre">save_output_path</span></code> parameter in the <code class="docutils literal notranslate"><span class="pre">transform</span></code> or <code class="docutils literal notranslate"><span class="pre">fit_transform</span></code> function.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="feather-files">
+<h4>Feather Files<a class="headerlink" href="#feather-files" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example file path pointing to a Feather file</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/data.feather&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>To use Parquet files, make sure to install the corresponding optional dependency, using: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[parquet]</span></code>.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<ul class="simple">
+<li><p>Depends on the data stored in ‘path/to/data.feather’.</p></li>
+<li><p>The output is also saved to a file: ‘path/to/data_imputed.feather’. For another save location, set the <code class="docutils literal notranslate"><span class="pre">save_output_path</span></code> parameter in the <code class="docutils literal notranslate"><span class="pre">transform</span></code> or <code class="docutils literal notranslate"><span class="pre">fit_transform</span></code> function.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="outputting-to-a-file">
+<h4>Outputting to a File<a class="headerlink" href="#outputting-to-a-file" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Example filepath where the output must be saved</span>
+<span class="n">out_filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/output/data.csv&#39;</span>     <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">save_output_path</span><span class="o">=</span><span class="n">out_filepath</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>The file path can point to one of the following file types: {‘.csv’, ‘.xlsx’, ‘.parquet’, ‘.feather’}. In this example, we save to a CSV file.</p></li>
+<li><p>To save to a XSLS, Parquet, or Feather file, make sure to install the relevant optional dependency: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[excel]</span></code> or <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[parquet]</span></code>.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="s1">&#39;1.0&#39;</span><span class="p">,</span> <span class="s1">&#39;4.0&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;2.0&#39;</span><span class="p">,</span> <span class="s1">&#39;3.0&#39;</span><span class="p">],</span>
+       <span class="p">[</span><span class="s1">&#39;1.0&#39;</span><span class="p">,</span> <span class="s1">&#39;4.0&#39;</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="model-saving-and-loading">
+<h3>Model Saving and Loading<a class="headerlink" href="#model-saving-and-loading" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="saving-a-trained-model">
+<h4>Saving a Trained Model<a class="headerlink" href="#saving-a-trained-model" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Example file path where the model must be saved</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/model&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Save the model to a file</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>The file path points to a folder where the model will be saved. Two files will be created in this folder: ‘config.json’ and ‘model.pt’.</p></li>
+<li><p>If a custom neural network is used, a third file will be created: ‘custom_net.pt’.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Model</span> <span class="n">has</span> <span class="n">been</span> <span class="n">successfully</span> <span class="n">saved</span> <span class="n">at</span> <span class="s1">&#39;path/to/model&#39;</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="saving-directly-using-fit">
+<h4>Saving Directly using <code class="docutils literal notranslate"><span class="pre">fit</span></code><a class="headerlink" href="#saving-directly-using-fit" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Example file path where the model must be saved</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/model&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Initialize imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+
+<span class="c1"># Fit imputer with the file path to save the model specified</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">save_model_path</span><span class="o">=</span><span class="n">filepath</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>The file path points to a folder where the model will be saved. Two files will be created in this folder: ‘config.json’ and ‘model.pt’.</p></li>
+<li><p>If a custom neural network is used, a third file will be created: ‘custom_net.pt’.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Model</span> <span class="n">has</span> <span class="n">been</span> <span class="n">succesfully</span> <span class="n">saved</span> <span class="n">at</span> <span class="s1">&#39;path/to/model&#39;</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="loading-a-trained-model">
+<h4>Loading a Trained Model<a class="headerlink" href="#loading-a-trained-model" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Example file path where the model must be saved</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/model&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># load a saved imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+
+<span class="c1"># Impute missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">3.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="loading-and-using-a-trained-model-directly-using-transform-from-file">
+<h4>Loading and Using a Trained Model Directly using <code class="docutils literal notranslate"><span class="pre">transform_from_file</span></code><a class="headerlink" href="#loading-and-using-a-trained-model-directly-using-transform-from-file" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Example file path where the model must be saved</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="s1">&#39;path/to/model&#39;</span>      <span class="c1"># Replace with an actual file path!</span>
+
+<span class="c1"># Impute missing values using a saved imputer</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="o">.</span><span class="n">transform_from_file</span><span class="p">(</span><span class="n">X_missing</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>This method does not require explicitly initiating a <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">3.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="evaluation">
+<h3>Evaluation<a class="headerlink" href="#evaluation" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="evaluating-the-model-fit">
+<h4>Evaluating the Model Fit<a class="headerlink" href="#evaluating-the-model-fit" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit first imputer</span>
+<span class="n">imputer1</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer1</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Initialize and fit second imputer</span>
+<span class="n">imputer2</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer2</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Evaluate the likelihood of the training data under each model</span>
+<span class="n">likelihood1</span> <span class="o">=</span> <span class="n">imputer1</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+<span class="n">likelihood2</span> <span class="o">=</span> <span class="n">imputer2</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Print the likelihoods</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">likelihood1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">likelihood2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>The higher the log-likelihood, the better.</p></li>
+<li><p><strong>Tip</strong> : Try using different hyperparameter settings for the two imputer to see which settings work best on the training data.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="mf">0.9929150938987732</span>
+<span class="o">-</span><span class="mf">1.2049541473388672</span>
+</pre></div>
+</div>
+<p>Since a higher log-likelihood is better, we conclude that the first imputer is better fit to the training data in this case.</p>
+</section>
+<hr class="docutils" />
+<section id="evaluation-imputation-quality-using-log-likelihood">
+<h4>Evaluation Imputation Quality (using log-likelihood)<a class="headerlink" href="#evaluation-imputation-quality-using-log-likelihood" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with and without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit two imputers</span>
+<span class="n">imputer1</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer1</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+<span class="n">imputer2</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer2</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Impute the missing data twice for comparing</span>
+<span class="n">X_imputed1</span> <span class="o">=</span> <span class="n">imputer1</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+<span class="n">X_imputed2</span> <span class="o">=</span> <span class="n">imputer2</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">)</span>
+
+<span class="c1"># Evaluate the likelihood of the imputed data under each model</span>
+<span class="n">likelihood1</span> <span class="o">=</span> <span class="n">imputer1</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_imputed1</span><span class="p">)</span>
+<span class="n">likelihood2</span> <span class="o">=</span> <span class="n">imputer2</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_imputed2</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data with their respective likelihoods</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed1</span><span class="p">,</span> <span class="n">likelihood1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed2</span><span class="p">,</span> <span class="n">likelihood2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>The higher the log-likelihood, the better.</p></li>
+<li><p><strong>Tip</strong> : Try using different hyperparameter settings for the two imputer to see which settings work best on the training data.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]]),</span> <span class="o">-</span><span class="mf">2.0776379108428955</span>
+<span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]]),</span> <span class="o">-</span><span class="mf">1.42733895778656</span>
+</pre></div>
+</div>
+<p>In this case, we see that the second imputation is better than the first.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="debugging">
+<h3>Debugging<a class="headerlink" href="#debugging" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="verbose-settings">
+<h4>Verbose settings<a class="headerlink" href="#verbose-settings" title="Link to this heading"></a></h4>
+<p>The package offers four levels of verbosity:</p>
+<ul class="simple">
+<li><p><strong>0 - Silent</strong> (default): No output is shown. Suitable for production or when debugging is not
+needed.</p></li>
+<li><p><strong>1 - Basic</strong>: Displays essential information, including:<br />
+  – Progress bars for training and imputation.<br />
+    <strong>Note</strong>: This functionality requires and additional dependency, which can be installed using: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[tqdm]</span></code>.<br />
+  – Whether the model is using GPU or CPU.<br />
+  – Timestamps for the start of training and imputation.<br />
+  – Confirmation of successful completion of training and imputation.<br />
+  – Final log-likelihood values for training and imputation.</p></li>
+<li><p><strong>2 - Detailed</strong>: Adds the following information to level 1 (progress bars are replaced by
+textual updates):<br />
+  – Confirmation when a CM-TPM is successfully created.<br />
+  – Time taken for key steps (e.g., pre-processing, training, imputation).<br />
+  – Log-likelihood values every 10 epochs during training and imputation.<br />
+  – Notification when early stopping is triggered during training.</p></li>
+<li><p><strong>3 - Full</strong>: Extends level 2 by also displaying:<br />
+  – Log-likelihood values at every epoch during training and imputation.</p></li>
+</ul>
+<p>The verbosity level can be selected when initializing a <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code> instance:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>      <span class="c1"># Replace with desired verbose level</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="verbose-example">
+<h4>Verbose Example<a class="headerlink" href="#verbose-example" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>      <span class="c1"># Set verbose to a value &gt; 0</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong></p>
+<ul class="simple">
+<li><p>Setting <strong>verbose</strong> equal to 1 enables the use of <code class="docutils literal notranslate"><span class="pre">tqdm</span></code> progress bars. To display the progress bars correctly, make sure to install the optional dependency, using: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">cm-tpm[tqdm]</span></code>.</p></li>
+<li><p>When using the ‘optimization’ imputation method, a progress bar is also shown for the imputation process.</p></li>
+</ul>
+<p><strong>Expected output</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Starting training with 100 epochs...
+Using device: cpu
+Training:  37%|███▋      | 37/100 [00:00&lt;00:00, 75.70it/s]
+Training complete.
+Final Training Log-Likelihood: -0.6828761100769043
+Starting with imputing data...
+Using device: cpu
+Finished imputing data.
+Successfully imputed 2 missing values across 2 samples.
+Final imputed data log-likelihood: -1.5252711772918701
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">],</span>
+       <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">]])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="plotting-log-likelihoods-throughout-training">
+<h4>Plotting Log-Likelihoods throughout Training<a class="headerlink" href="#plotting-log-likelihoods-throughout-training" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with missing values</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+<span class="c1"># Get the log-likelihood throughout training</span>
+<span class="n">train_likelihoods</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">training_likelihoods_</span>
+
+<span class="c1"># Plot the log-likelihoods in a graph (using matplotlib)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">train_likelihoods</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Epoch&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Log-Likelihood&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>In this example we use <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> for plotting the graph. This package is <strong>not</strong> included <code class="docutils literal notranslate"><span class="pre">cm-tpm</span></code>, it must be installed separately: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">matplotlib</span></code>.</p></li>
+<li><p>When using the ‘optimization’ imputation method, the log-likelihoods during imputation can also be plotted. These values are found in the <code class="docutils literal notranslate"><span class="pre">imputing_likelihoods_</span></code> attribute of <code class="docutils literal notranslate"><span class="pre">CMImputer</span></code>.</p></li>
+</ul>
+<p><strong>Expected output</strong>:<br />
+<img alt="LL-plot" src="https://github.com/user-attachments/assets/bd839419-be7c-4b5f-805c-350ed9018c6b" /><br />
+This plot displays unstable training, which is caused by using a tiny dataset for training.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="miscellaneous">
+<h3>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading"></a></h3>
+<hr class="docutils" />
+<section id="setting-feature-names">
+<h4>Setting Feature Names<a class="headerlink" href="#setting-feature-names" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cm_tpm</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMImputer</span>
+
+<span class="c1"># Example data with and without missing values</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+<span class="n">X_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+
+<span class="c1"># Initialize and fit imputer</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="n">CMImputer</span><span class="p">()</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+
+<span class="c1"># Set custom feature names to the data</span>
+<span class="n">imputer</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">(</span><span class="n">input_features</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;column_1&#39;</span><span class="p">,</span> <span class="s1">&#39;column_2&#39;</span><span class="p">])</span>
+
+<span class="c1"># Impute missing values</span>
+<span class="n">X_imputed</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_missing</span><span class="p">,</span> <span class="n">return_format</span><span class="o">=</span><span class="s1">&#39;dataframe&#39;</span><span class="p">)</span>
+
+<span class="c1"># Print the imputed data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_imputed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Notes</strong>:</p>
+<ul class="simple">
+<li><p>To display the new feature names, we choose the return format ‘dataframe’.</p></li>
+<li><p>When the function <code class="docutils literal notranslate"><span class="pre">get_feature_names_out()</span></code> is called without custom <em>input_features</em>, the feature names are defaulted to ‘x0’ and ‘x1’.</p></li>
+</ul>
+<p><strong>Expected Output</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="n">column_1</span>  <span class="n">column_2</span>
+<span class="mi">0</span>       <span class="mf">1.0</span>       <span class="mf">3.0</span>
+<span class="mi">1</span>       <span class="mf">2.0</span>       <span class="mf">3.0</span>
+<span class="mi">2</span>       <span class="mf">5.0</span>       <span class="mf">4.0</span>
+</pre></div>
+</div>
+<hr class="docutils" />
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="User-Guide.html" class="btn btn-neutral float-left" title="User Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Changelog.html" class="btn btn-neutral float-right" title="Changelog" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Hakim Agni.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

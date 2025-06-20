@@ -1,0 +1,28 @@
+# Home
+
+### Welcome to the cm-tpm project Wiki!
+
+This wiki contains documentation for **cm-tpm**, a Python package for imputing missing data using Continuous Mixtures of Tractable Probabilistic Models.
+
+---
+
+## [User Guide](./User-Guide)
+Get started quickly and learn how to use the imputer in your own projects.
+
+- [Installation](User-Guide.html#installation)
+- [Quick Start](User-Guide.html#quick-start)
+- [Examples](User-Guide.html#examples)
+- [FAQ](User-Guide.html#frequently-asked-questions)
+
+---
+## [API Documentation](./API-Documentation)
+Understand the architecture, methods, and parameters of the CMImputer class.
+
+- [Overview](API-Documentation.html#api-overview)
+- [CMImputer Class](API-Documentation.html#cmimputer)
+- [Methods](API-Documentation.html#methods)
+- [Examples](API-Documentation.html#examples)
+
+---
+
+For more help, visit the [GitHub repository](https://github.com/Hakim-Agni/cm-tpm).
